@@ -236,6 +236,12 @@
       transition: background .14s ease, color .14s ease;
     }
     .menu-action:hover { background: #f5f6fa; }
+    .menu-action:disabled,
+    .menu-action[aria-disabled="true"] {
+      opacity: .42;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
     .menu-action-icon {
       display: grid;
       place-items: center;
@@ -574,23 +580,9 @@
               <p class="text-[13px] font-semibold">Мои доски</p>
               <p id="boardCountLabel" class="mt-0.5 text-[10.5px] text-[#8b8b9e]">0 досок · личное пространство</p>
             </div>
-            <button type="button" data-action="new-board" class="grid h-8 w-8 place-items-center rounded-lg bg-[#eef1ff] text-accent transition hover:bg-[#e2e8ff]" aria-label="Новая доска">
-              <i data-lucide="plus" class="h-4 w-4"></i>
-            </button>
           </div>
 
           <div id="boardList" class="scroll-slim max-h-[268px] space-y-0.5 overflow-y-auto pr-0.5"></div>
-
-          <button type="button" data-action="new-board" class="mt-1.5 flex w-full items-center gap-2.5 rounded-xl border border-dashed border-[#d9dcf5] bg-[#fafbff] p-2 text-left transition hover:border-[#b9c3ff] hover:bg-[#f4f6ff]">
-            <span class="grid h-9 w-9 place-items-center rounded-lg bg-white text-accent shadow-sm">
-              <i data-lucide="plus" class="h-4 w-4"></i>
-            </span>
-            <span class="flex-1">
-              <span class="block text-[12px] font-semibold">Новая доска</span>
-              <span class="block text-[10px] text-[#8b8b9e]">Создать пустое пространство</span>
-            </span>
-            <i data-lucide="arrow-up-right" class="h-3.5 w-3.5 text-[#a0a0b2]"></i>
-          </button>
 
           <div class="my-1.5 h-px bg-black/[0.06]"></div>
 
@@ -833,6 +825,26 @@
       </div>
     </div>
 
+    <!-- Заглушка для недоступной доски -->
+    <div id="boardGate" class="fixed inset-0 z-[65] flex items-center justify-center bg-[#050038]/20 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="boardGateTitle">
+      <div class="w-full max-w-[460px] rounded-2xl border border-black/[0.07] bg-white p-6 shadow-[0_24px_80px_rgba(5,0,56,.28)]">
+        <span id="boardGateIconLoading" class="grid h-12 w-12 place-items-center rounded-2xl bg-[#eef1ff] text-accent">
+          <i data-lucide="loader-2" class="h-6 w-6 animate-spin"></i>
+        </span>
+        <span id="boardGateIconLock" class="hidden h-12 w-12 grid place-items-center rounded-2xl bg-[#fff0ee] text-[#e5533d]">
+          <i data-lucide="lock-keyhole" class="h-6 w-6"></i>
+        </span>
+
+        <h2 id="boardGateTitle" class="mt-4 text-[17px] font-semibold tracking-[-0.01em]">Проверяем доступ к доске…</h2>
+        <p id="boardGateMessage" class="mt-1.5 text-[12px] leading-relaxed text-[#8b8b9e]">Пожалуйста, подождите.</p>
+
+        <div id="boardGateRecent" class="mt-5 hidden border-t border-black/[0.06] pt-4">
+          <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Другие доступные доски</p>
+          <div id="boardGateRecentList" class="scroll-slim mt-2 max-h-[210px] space-y-1 overflow-y-auto pr-0.5" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Модальные окна -->
     <div id="modalLayer" class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#050038]/30 p-4 backdrop-blur-[2px]">
       <div id="renameModal" class="modal-panel hidden w-full max-w-[400px] rounded-2xl bg-white p-5 shadow-[0_24px_80px_rgba(5,0,56,.3)]" role="dialog" aria-modal="true" aria-labelledby="renameTitle">
@@ -1016,10 +1028,6 @@
         return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
       }
 
-      function generateBoardId() {
-        return 'board-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-      }
-
       function sanitizeBoardId(id) {
         return String(id || '')
           .replace(/[.#$\[\]\/\u0000-\u001F\u007F]/g, '-')
@@ -1101,8 +1109,10 @@
         let savedBoardId = data && typeof data.currentBoardId === 'string' ? sanitizeBoardId(data.currentBoardId) : '';
         if (savedBoardId && LEGACY_DEFAULT_BOARD_IDS.has(savedBoardId) && !urlBoardId) savedBoardId = '';
 
-        // Доска из ссылки всегда важнее сохранённой в браузере.
-        const currentBoardId = urlBoardId || savedBoardId || generateBoardId();
+        // Доска из ссылки всегда важнее сохранённой в браузере. Если ID нет
+        // ни в ссылке, ни в localStorage, доска не выбирается автоматически:
+        // создать новую случайную доску из клиента нельзя.
+        const currentBoardId = urlBoardId || savedBoardId;
 
         let visitedBoardIds = Array.from(new Set(
           Array.isArray(data && data.visitedBoardIds)
@@ -1114,12 +1124,11 @@
         if (!visitedBoardIds.length && boards.length) {
           visitedBoardIds = Array.from(new Set(boards.map(board => board.id)));
         }
-        if (!visitedBoardIds.includes(currentBoardId)) visitedBoardIds.push(currentBoardId);
 
         const allowed = new Set(visitedBoardIds);
-        boards = boards.filter(board => allowed.has(board.id));
+        boards = boards.filter(board => allowed.has(board.id) || (currentBoardId && board.id === currentBoardId));
 
-        if (!boards.some(b => b.id === currentBoardId)) {
+        if (currentBoardId && !boards.some(b => b.id === currentBoardId)) {
           boards.unshift({
             id: currentBoardId,
             name: defaultBoardName(currentBoardId),
@@ -1127,16 +1136,6 @@
             createdAt: Date.now(),
             updatedAt: Date.now()
           });
-        }
-
-        const boardHash = '#' + encodeURIComponent(currentBoardId);
-        const hasBoardQuery = !!readBoardIdFromQuery();
-        if (hasBoardQuery) {
-          try {
-            history.replaceState(null, '', location.pathname + '?board=' + encodeURIComponent(currentBoardId) + boardHash);
-          } catch (_) {}
-        } else if (location.hash.slice(1) !== encodeURIComponent(currentBoardId)) {
-          try { history.replaceState(null, '', boardHash); } catch (_) {}
         }
 
         return {
@@ -1224,7 +1223,10 @@
       let toastTimer = null;
       let modalFocusTimer = null;
       let resizeQueued = false;
-      let boardNameMode = 'rename';
+      let boardAccess = 'checking';
+      let boardAccessToken = 0;
+      let gateRecentToken = 0;
+      let currentBoardNameRef = null;
       let currentObjectsRef = null;
       let currentCursorsRef = null;
       let cursorRef = null;
@@ -1233,7 +1235,6 @@
       let lastCursorSent = 0;
       let historyBaselineTimer = null;
       let firebaseErrorShown = false;
-      const ensuredBoardMeta = new Set();
       const remoteCursors = new Map();
       const remoteCursorEls = new Map();
       const pendingRemoteIds = new Set();
@@ -1305,15 +1306,27 @@
       const toastText = $('#toastText');
       const toastIcon = $('#toastIcon');
       const dropOverlay = $('#dropOverlay');
+      const boardGate = $('#boardGate');
+      const boardGateTitle = $('#boardGateTitle');
+      const boardGateMessage = $('#boardGateMessage');
+      const boardGateRecent = $('#boardGateRecent');
+      const boardGateRecentList = $('#boardGateRecentList');
+      const boardGateIconLock = $('#boardGateIconLock');
+      const boardGateIconLoading = $('#boardGateIconLoading');
+      const renameBoardBtn = $('#renameBoardBtn');
+      const clearBoardBtn = $('#clearBoardBtn');
+      const downloadPngBtn = $('#downloadPngBtn');
 
       function refreshIcons() {
         if (window.lucide) window.lucide.createIcons();
       }
 
       function currentBoard() {
-        return state.boards.find(b => b.id === state.currentBoardId) || {
+        const found = state.boards.find(b => b.id === state.currentBoardId);
+        if (found) return found;
+        return {
           id: state.currentBoardId,
-          name: defaultBoardName(state.currentBoardId),
+          name: state.currentBoardId ? defaultBoardName(state.currentBoardId) : 'Доска не найдена',
           theme: boardThemeIndex(state.currentBoardId),
           createdAt: Date.now(),
           updatedAt: Date.now()
@@ -1337,6 +1350,196 @@
         if (!safeId) return;
         if (!Array.isArray(state.visitedBoardIds)) state.visitedBoardIds = [];
         if (!state.visitedBoardIds.includes(safeId)) state.visitedBoardIds.push(safeId);
+      }
+
+      function removeBoardFromLocalState(id) {
+        const safeId = sanitizeBoardId(id);
+        if (!safeId) return false;
+        let changed = false;
+        const previousVisited = Array.isArray(state.visitedBoardIds) ? state.visitedBoardIds : [];
+        if (previousVisited.includes(safeId)) {
+          state.visitedBoardIds = previousVisited.filter(boardId => boardId !== safeId);
+          changed = true;
+        }
+        if (state.boards.some(board => board.id === safeId)) {
+          state.boards = state.boards.filter(board => board.id !== safeId);
+          changed = true;
+        }
+        if (state.currentBoardId === safeId) {
+          state.currentBoardId = '';
+          changed = true;
+        }
+        return changed;
+      }
+
+      function applyMetaToBoard(board, meta) {
+        if (!board || !meta || typeof meta !== 'object') return false;
+        let changed = false;
+
+        if (typeof meta.name === 'string' && meta.name.trim()) {
+          const name = meta.name.trim().slice(0, 48);
+          if (name && name !== board.name) {
+            board.name = name;
+            changed = true;
+          }
+        }
+        if (typeof meta.createdAt === 'number' && meta.createdAt !== board.createdAt) {
+          board.createdAt = meta.createdAt;
+          changed = true;
+        }
+        if (typeof meta.updatedAt === 'number' && meta.updatedAt !== board.updatedAt) {
+          board.updatedAt = meta.updatedAt;
+          changed = true;
+        }
+        return changed;
+      }
+
+      function ensureBoardEntry(id, meta) {
+        const safeId = sanitizeBoardId(id);
+        if (!safeId) return null;
+        let board = state.boards.find(item => item.id === safeId);
+        if (!board) {
+          board = {
+            id: safeId,
+            name: defaultBoardName(safeId),
+            theme: boardThemeIndex(safeId),
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          };
+          state.boards.unshift(board);
+        }
+        applyMetaToBoard(board, meta);
+        return board;
+      }
+
+      async function verifyBoardExists(id) {
+        const safeId = sanitizeBoardId(id);
+        if (!safeId) return { exists: false, meta: null };
+
+        // В локальном режиме базы нет, поэтому доверяем только уже известным
+        // в этом браузере доскам. В облачном режиме источник истины — boards_meta.
+        if (!cloudEnabled || !db) {
+          const known = (state.visitedBoardIds || []).includes(safeId);
+          return { exists: known, meta: null };
+        }
+
+        const snapshot = await db.ref('boards_meta/' + safeId).once('value');
+        return {
+          exists: snapshot.exists(),
+          meta: snapshot.exists() ? (snapshot.val() || {}) : null
+        };
+      }
+
+      function syncBoardAccessUI() {
+        const blocked = boardAccess !== 'ready';
+        canvas.selection = !blocked;
+        renameBoardBtn.disabled = blocked;
+        renameBoardBtn.setAttribute('aria-disabled', String(blocked));
+        clearBoardBtn.disabled = blocked;
+        clearBoardBtn.setAttribute('aria-disabled', String(blocked));
+        downloadPngBtn.disabled = blocked;
+        downloadPngBtn.setAttribute('aria-disabled', String(blocked));
+
+        if (blocked) {
+          canvas.isDrawingMode = false;
+          canvas.skipTargetFind = true;
+          canvas.defaultCursor = 'default';
+          canvas.hoverCursor = 'default';
+          canvas.setCursor('default');
+          canvas.discardActiveObject();
+          canvas.requestRenderAll();
+        } else {
+          syncToolState();
+        }
+      }
+
+      function setBoardGate(mode) {
+        const checking = mode === 'checking';
+        boardAccess = mode === 'ready' ? 'ready' : (checking ? 'checking' : 'blocked');
+
+        boardGate.classList.toggle('hidden', mode === 'ready');
+        boardGate.classList.toggle('flex', mode !== 'ready');
+        boardGateIconLoading.classList.toggle('hidden', !checking);
+        boardGateIconLock.classList.toggle('hidden', checking);
+
+        if (checking) {
+          gateRecentToken += 1;
+          boardGateTitle.textContent = 'Проверяем доступ к доске…';
+          boardGateMessage.textContent = 'Пожалуйста, подождите.';
+          boardGateRecent.classList.add('hidden');
+          boardGateRecentList.innerHTML = '';
+        } else if (mode !== 'ready') {
+          boardGateTitle.textContent = 'Доска не найдена или доступ закрыт';
+          boardGateMessage.textContent = 'Пожалуйста, откройте доску по ссылке-приглашению.';
+          renderBoardGateRecent();
+        }
+
+        syncBoardAccessUI();
+        if (mode !== 'ready') closeAllMenus();
+        refreshIcons();
+      }
+
+      async function renderBoardGateRecent() {
+        const token = ++gateRecentToken;
+        const visited = new Set(state.visitedBoardIds || []);
+        const candidates = state.boards.filter(board =>
+          board.id && board.id !== state.currentBoardId && visited.has(board.id)
+        );
+
+        if (!candidates.length) {
+          boardGateRecent.classList.add('hidden');
+          boardGateRecentList.innerHTML = '';
+          return;
+        }
+
+        boardGateRecent.classList.remove('hidden');
+        boardGateRecentList.innerHTML = '<p class="px-1 py-2 text-[11px] text-[#8b8b9e]">Проверяем доступные доски…</p>';
+
+        const results = await Promise.all(candidates.map(async (board) => {
+          try {
+            return { board, result: await verifyBoardExists(board.id) };
+          } catch (_) {
+            return { board, result: null };
+          }
+        }));
+
+        if (token !== gateRecentToken) return;
+
+        const available = [];
+        let changed = false;
+        results.forEach(({ board, result }) => {
+          if (result && !result.exists) {
+            if (removeBoardFromLocalState(board.id)) changed = true;
+            return;
+          }
+          if (result && result.meta && applyMetaToBoard(board, result.meta)) changed = true;
+          available.push(board);
+        });
+
+        if (changed) {
+          persist();
+          renderBoardList();
+        }
+
+        if (!available.length) {
+          boardGateRecent.classList.add('hidden');
+          boardGateRecentList.innerHTML = '';
+          return;
+        }
+
+        boardGateRecentList.innerHTML = available.map(board => `
+          <button type="button" data-gate-board-id="${escapeHtml(board.id)}" class="flex w-full items-center gap-2.5 rounded-xl border border-black/[0.06] bg-[#fafbff] p-2 text-left transition hover:border-[#c4ccff] hover:bg-[#f4f6ff]">
+            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-accent shadow-sm">
+              <i data-lucide="layout-dashboard" class="h-4 w-4"></i>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-[12px] font-semibold text-ink">${escapeHtml(board.name)}</span>
+              <span class="mt-0.5 block text-[10px] text-[#8b8b9e]">Открыть доску</span>
+            </span>
+            <i data-lucide="arrow-up-right" class="h-3.5 w-3.5 shrink-0 text-[#a0a0b2]"></i>
+          </button>
+        `).join('');
+        refreshIcons();
       }
 
       function setBoardHash(id, replace = false) {
@@ -1572,25 +1775,24 @@
         if (!safeId) return;
 
         const wasCurrent = safeId === state.currentBoardId;
-        state.visitedBoardIds = (state.visitedBoardIds || []).filter(boardId => boardId !== safeId);
-        state.boards = state.boards.filter(board => board.id !== safeId);
+        if (wasCurrent) saveCurrentContent();
+        removeBoardFromLocalState(safeId);
 
         if (wasCurrent) {
-          const next = state.boards.find(board => state.visitedBoardIds.includes(board.id));
+          const next = state.boards.find(board => (state.visitedBoardIds || []).includes(board.id));
           if (next) {
             switchBoard(next.id);
           } else {
-            const newId = generateBoardId();
-            const now = Date.now();
-            state.boards.unshift({
-              id: newId,
-              name: defaultBoardName(newId),
-              theme: boardThemeIndex(newId),
-              createdAt: now,
-              updatedAt: now
-            });
-            markBoardVisited(newId);
-            switchBoard(newId);
+            boardAccessToken += 1;
+            detachBoardNameListener();
+            detachCloudBoardData();
+            detachCursors();
+            state.currentBoardId = '';
+            persist();
+            clearCanvasForBlockedBoard();
+            applyBoardToUI();
+            renderBoardList();
+            setBoardGate('missing');
           }
         } else {
           persist();
@@ -1614,7 +1816,10 @@
         if (item) switchBoard(item.dataset.boardId);
       });
 
-      $$('[data-action="new-board"]').forEach(btn => btn.addEventListener('click', () => openBoardNameModal('create')));
+      boardGateRecentList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-gate-board-id]');
+        if (button) switchBoard(button.dataset.gateBoardId);
+      });
 
       function applyBoardToUI() {
         const board = currentBoard();
@@ -1623,35 +1828,67 @@
         document.title = board.name + ' · Miro';
       }
 
-      function createBoard(name) {
-        const id = generateBoardId();
-        const cleanName = (name || 'Новая доска').trim().slice(0, 48) || 'Новая доска';
-        const meta = { name: cleanName, createdAt: Date.now(), updatedAt: Date.now() };
-
-        ensuredBoardMeta.add(id);
-        if (cloudEnabled) {
-          db.ref('boards_meta/' + id).set({
-            name: cleanName,
-            createdAt: window.firebase.database.ServerValue.TIMESTAMP,
-            updatedAt: window.firebase.database.ServerValue.TIMESTAMP
-          }).catch((err) => {
-            ensuredBoardMeta.delete(id);
-            handleFirebaseError(err);
-          });
+      function clearCanvasForBlockedBoard() {
+        isRemoteUpdate = true;
+        try {
+          canvas.clear();
+          canvas.backgroundColor = null;
+          canvas.discardActiveObject();
+        } finally {
+          isRemoteUpdate = false;
         }
+        syncToolState();
+        canvas.requestRenderAll();
+      }
 
-        state.boards.unshift({
-          id,
-          name: cleanName,
-          theme: state.boards.length % THEMES.length,
-          createdAt: meta.createdAt,
-          updatedAt: meta.updatedAt
-        });
-        markBoardVisited(id);
+      function showBoardMissing(id, options = {}) {
+        const safeId = sanitizeBoardId(id);
+        const removeInvalid = options.removeInvalid !== false;
+        saveCurrentContent();
+        detachBoardNameListener();
+        detachCloudBoardData();
+        detachCursors();
+
+        if (safeId && removeInvalid) removeBoardFromLocalState(safeId);
+        state.currentBoardId = '';
         persist();
+
+        // На недоступной доске не оставляем содержимое предыдущей доски:
+        // рисование и синхронизация заблокированы до перехода на рабочую доску.
+        clearCanvasForBlockedBoard();
+        applyBoardToUI();
         renderBoardList();
-        switchBoard(id);
-        showToast('Доска «' + cleanName + '» создана');
+        setBoardGate('missing');
+      }
+
+      function detachBoardNameListener() {
+        if (!currentBoardNameRef) return;
+        currentBoardNameRef.off();
+        currentBoardNameRef = null;
+      }
+
+      function subscribeBoardName(id) {
+        detachBoardNameListener();
+        if (!cloudEnabled || !db) return;
+        const safeId = sanitizeBoardId(id);
+        if (!safeId) return;
+
+        const ref = db.ref('boards_meta/' + safeId + '/name');
+        currentBoardNameRef = ref;
+        ref.on('value', (snapshot) => {
+          if (state.currentBoardId !== safeId || boardAccess !== 'ready') return;
+          const value = snapshot.val();
+          const name = typeof value === 'string' ? value.trim().slice(0, 48) : '';
+          if (!name) return;
+
+          const board = state.boards.find(item => item.id === safeId);
+          if (!board || board.name === name) return;
+          board.name = name;
+          board.updatedAt = Date.now();
+          persist();
+          applyBoardToUI();
+          renderBoardList();
+        });
       }
 
       function activateBoard(id) {
@@ -1661,41 +1898,62 @@
         updateOnlineCount();
       }
 
-      function switchBoard(id) {
+      async function switchBoard(id, options = {}) {
         const safeId = sanitizeBoardId(id);
-        if (!safeId) return;
+        const token = ++boardAccessToken;
         closeBoardMenu();
 
-        if (safeId === state.currentBoardId) {
+        if (!safeId) {
+          showBoardMissing('');
+          return;
+        }
+
+        if (safeId === state.currentBoardId && boardAccess === 'ready') {
           markBoardVisited(safeId);
           persist();
           setBoardHash(safeId);
+          subscribeBoardName(safeId);
           return;
         }
 
         saveCurrentContent();
+        setBoardGate('checking');
+
+        let result = null;
+        try {
+          result = await verifyBoardExists(safeId);
+        } catch (err) {
+          if (token !== boardAccessToken) return;
+          handleFirebaseError(err);
+          // Ошибка сети/доступа не означает, что доска удалена:
+          // не стираем её из локального списка недавних досок.
+          showBoardMissing(safeId, { removeInvalid: false });
+          return;
+        }
+
+        if (token !== boardAccessToken) return;
+        if (!result || !result.exists) {
+          showBoardMissing(safeId);
+          return;
+        }
+
+        detachBoardNameListener();
+        detachCloudBoardData();
+        detachCursors();
+
         state.currentBoardId = safeId;
         markBoardVisited(safeId);
-        if (!state.boards.some(board => board.id === safeId)) {
-          state.boards.unshift({
-            id: safeId,
-            name: defaultBoardName(safeId),
-            theme: boardThemeIndex(safeId),
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          });
-        }
-        setBoardHash(safeId);
+        ensureBoardEntry(safeId, result.meta);
+        setBoardHash(safeId, !!options.replaceHistory);
         persist();
         applyBoardToUI();
         renderBoardList();
-        if (cloudEnabled) {
-          ensureBoardMeta(safeId);
-          loadBoardMeta(safeId);
-        }
+        setBoardGate('ready');
+        subscribeBoardName(safeId);
         activateBoard(safeId);
         resetView();
-        showToast('Открыта доска «' + currentBoard().name + '»');
+        if (cloudEnabled) refreshBoardsMeta();
+        if (!options.silent) showToast('Открыта доска «' + currentBoard().name + '»');
       }
 
       /* ---------- Tools ---------- */
@@ -1717,7 +1975,10 @@
 
       function applyToolToObject(obj) {
         if (!obj) return;
-        if (spaceDown) {
+        if (boardAccess !== 'ready') {
+          obj.selectable = false;
+          obj.evented = false;
+        } else if (spaceDown) {
           obj.selectable = false;
           obj.evented = false;
         } else if (state.tool === 'cursor') {
@@ -1734,9 +1995,10 @@
 
       function syncToolState() {
         const tool = state.tool;
-        canvas.isDrawingMode = tool === 'pen' && !spaceDown;
-        canvas.selection = tool === 'cursor' && !spaceDown;
-        canvas.skipTargetFind = spaceDown ? true : (tool === 'hand' || tool === 'pen' || tool === 'text' || tool === 'sticker' || tool === 'eraser');
+        const accessible = boardAccess === 'ready';
+        canvas.isDrawingMode = accessible && tool === 'pen' && !spaceDown;
+        canvas.selection = accessible && tool === 'cursor' && !spaceDown;
+        canvas.skipTargetFind = !accessible || spaceDown ? true : (tool === 'hand' || tool === 'pen' || tool === 'text' || tool === 'sticker' || tool === 'eraser');
 
         const baseCursor = TOOL_CURSORS[tool] || 'default';
         const panning = isPanning || isRightPanning;
@@ -2364,14 +2626,13 @@
         syncEraserCursorMode();
       }
 
-      function openBoardNameModal(mode = 'rename') {
-        boardNameMode = mode;
-        const isCreate = mode === 'create';
+      function openRenameModal() {
+        if (boardAccess !== 'ready' || !state.currentBoardId) return;
         const board = currentBoard();
 
-        renameTitle.textContent = isCreate ? 'Новая доска' : 'Переименовать доску';
-        renameInput.value = isCreate ? 'Новая доска' : board.name;
-        renameSaveBtn.textContent = isCreate ? 'Создать' : 'Сохранить';
+        renameTitle.textContent = 'Переименовать доску';
+        renameInput.value = board.name;
+        renameSaveBtn.textContent = 'Сохранить';
         renameError.classList.add('hidden');
         renameInput.classList.remove('input-error');
         openModal(renameModal);
@@ -2381,11 +2642,13 @@
         }, 60);
       }
 
-      function openRenameModal() {
-        openBoardNameModal('rename');
-      }
+      async function saveRename() {
+        if (boardAccess !== 'ready' || !state.currentBoardId) {
+          closeModal();
+          showToast('Доска недоступна для переименования', 'error');
+          return;
+        }
 
-      function saveRename() {
         const value = renameInput.value.trim();
         if (!value) {
           renameError.classList.remove('hidden');
@@ -2394,21 +2657,36 @@
           return;
         }
 
-        if (boardNameMode === 'create') {
+        const board = currentBoard();
+        const newName = value.slice(0, 48);
+        if (newName === board.name) {
           closeModal();
-          createBoard(value);
           return;
         }
 
-        const board = currentBoard();
-        board.name = value.slice(0, 48);
+        // Перед записью ещё раз проверяем, что доска не была удалена
+        // администратором: update() не должен создать даже часть boards_meta.
+        if (cloudEnabled) {
+          try {
+            const result = await verifyBoardExists(board.id);
+            if (!result.exists) {
+              closeModal();
+              showBoardMissing(board.id);
+              return;
+            }
+          } catch (err) {
+            handleFirebaseError(err);
+            return;
+          }
+        }
+
+        board.name = newName;
         board.updatedAt = Date.now();
 
+        // Только точечное переименование уже существующей открытой доски.
+        // Никаких set() в boards_meta из клиентской доски не выполняется.
         if (cloudEnabled) {
-          db.ref('boards_meta/' + board.id).update({
-            name: board.name,
-            updatedAt: window.firebase.database.ServerValue.TIMESTAMP
-          }).catch(handleFirebaseError);
+          db.ref('boards_meta/' + board.id).update({ name: newName }).catch(handleFirebaseError);
         }
 
         persist();
@@ -2418,7 +2696,7 @@
         showToast('Название доски обновлено');
       }
 
-      $('#renameBoardBtn').addEventListener('click', openRenameModal);
+      renameBoardBtn.addEventListener('click', openRenameModal);
       renameSaveBtn.addEventListener('click', saveRename);
       renameInput.addEventListener('input', () => {
         renameError.classList.add('hidden');
@@ -2428,10 +2706,13 @@
         if (event.key === 'Enter') saveRename();
       });
 
-      $('#clearBoardBtn').addEventListener('click', () => openModal(clearModal));
+      clearBoardBtn.addEventListener('click', () => {
+        if (boardAccess === 'ready') openModal(clearModal);
+      });
 
       clearConfirmBtn.addEventListener('click', () => {
         closeModal();
+        if (boardAccess !== 'ready') return;
         if (!canvas.getObjects().length) {
           showToast('Холст уже пуст');
           return;
@@ -2681,7 +2962,7 @@
       redoBtn.addEventListener('click', redo);
 
       function saveCurrentContent() {
-        if (isRestoring) return;
+        if (isRestoring || !state.currentBoardId) return;
         if (cloudEnabled) return; // объекты уже сохранены в Firebase по одному
         contentByBoard.set(state.currentBoardId, snapshot());
       }
@@ -2862,6 +3143,7 @@
       }
 
       function detachCloudBoardData() {
+        boardDataSession += 1;
         cancelTransformSync();
         if (currentObjectsRef) {
           currentObjectsRef.off();
@@ -3164,26 +3446,6 @@
         });
       }
 
-      function ensureBoardMeta(id) {
-        if (!cloudEnabled || !db) return;
-        const safeId = sanitizeBoardId(id);
-        if (!safeId || ensuredBoardMeta.has(safeId)) return;
-        ensuredBoardMeta.add(safeId);
-
-        const ref = db.ref('boards_meta/' + safeId);
-        ref.once('value').then((snapshot) => {
-          if (snapshot.exists()) return null;
-          return ref.set({
-            name: defaultBoardName(safeId),
-            createdAt: window.firebase.database.ServerValue.TIMESTAMP,
-            updatedAt: window.firebase.database.ServerValue.TIMESTAMP
-          });
-        }).catch((err) => {
-          ensuredBoardMeta.delete(safeId);
-          handleFirebaseError(err);
-        });
-      }
-
       function loadBoardMeta(id) {
         if (!cloudEnabled || !db) return;
         const safeId = sanitizeBoardId(id);
@@ -3191,34 +3453,21 @@
 
         db.ref('boards_meta/' + safeId).once('value').then((snapshot) => {
           if (!snapshot.exists()) {
-            ensureBoardMeta(safeId);
+            // Текущую доску проверяет отдельный шлюз существования.
+            // Удалённые из базы доски убираем из локального списка.
+            if (safeId !== state.currentBoardId && removeBoardFromLocalState(safeId)) {
+              persist();
+              renderBoardList();
+            }
             return;
           }
 
-          const meta = snapshot.val() || {};
           const board = state.boards.find(item => item.id === safeId);
           if (!board) return;
+          if (!applyMetaToBoard(board, snapshot.val() || {})) return;
 
-          let changed = false;
-          if (typeof meta.name === 'string' && meta.name.trim()) {
-            const name = meta.name.trim().slice(0, 48);
-            if (name && name !== board.name) {
-              board.name = name;
-              changed = true;
-            }
-          }
-          if (typeof meta.createdAt === 'number' && meta.createdAt !== board.createdAt) {
-            board.createdAt = meta.createdAt;
-            changed = true;
-          }
-          if (typeof meta.updatedAt === 'number' && meta.updatedAt !== board.updatedAt) {
-            board.updatedAt = meta.updatedAt;
-            changed = true;
-          }
-
-          if (!changed) return;
           persist();
-          applyBoardToUI();
+          if (safeId === state.currentBoardId) applyBoardToUI();
           renderBoardList();
         }).catch(handleFirebaseError);
       }
@@ -3227,7 +3476,9 @@
       // boards_meta, поэтому чужие комнаты не попадают в список.
       function refreshBoardsMeta() {
         if (!cloudEnabled || !db) return;
-        visibleBoards().forEach(board => loadBoardMeta(board.id));
+        visibleBoards().forEach((board) => {
+          if (board.id !== state.currentBoardId) loadBoardMeta(board.id);
+        });
       }
 
       /* ---------- Creating objects ---------- */
@@ -3865,6 +4116,11 @@
       /* ---------- Canvas events ---------- */
 
       canvas.on('path:created', (opt) => {
+        if (boardAccess !== 'ready') {
+          canvas.remove(opt.path);
+          canvas.requestRenderAll();
+          return;
+        }
         opt.path.set({
           fill: 'transparent',
           selectable: false,
@@ -3955,6 +4211,7 @@
       });
 
       canvas.on('mouse:down', (opt) => {
+        if (boardAccess !== 'ready') return;
         const e = opt.e;
 
         if (spaceDown) {
@@ -4422,6 +4679,7 @@
           return;
         }
         if (activeModal) return;
+        if (boardAccess !== 'ready') return;
         if (isEditable(event.target) || isEditingText()) return;
 
         if (event.ctrlKey || event.metaKey) {
@@ -4500,7 +4758,7 @@
       window.addEventListener('keydown', (event) => {
         if (event.code !== 'Space') return;
         if (event.ctrlKey || event.metaKey || event.altKey) return;
-        if (activeModal || isEditable(event.target) || isEditingText()) return;
+        if (boardAccess !== 'ready' || activeModal || isEditable(event.target) || isEditingText()) return;
         if (!spaceDown) setSpaceDown(true);
         event.preventDefault();
       });
@@ -4549,6 +4807,7 @@
 
       function shareUrl() {
         const id = sanitizeBoardId(state.currentBoardId);
+        if (!id || boardAccess !== 'ready') return '';
         const origin = location.origin && location.origin !== 'null'
           ? location.origin
           : location.protocol + '//' + (location.host || '');
@@ -4583,6 +4842,10 @@
 
       async function handleShare() {
         const url = shareUrl();
+        if (!url) {
+          showToast('Сначала откройте доступную доску', 'error');
+          return;
+        }
         const ok = await copyText(url);
         openShareModal(url);
 
@@ -4827,12 +5090,14 @@
 
       /* ---------- Photo upload ---------- */
 
-      uploadBtn.addEventListener('click', () => photoInput.click());
+      uploadBtn.addEventListener('click', () => {
+        if (boardAccess === 'ready') photoInput.click();
+      });
 
       photoInput.addEventListener('change', () => {
         const files = photoInput.files ? Array.from(photoInput.files) : [];
         photoInput.value = '';
-        if (!files.length) return;
+        if (!files.length || boardAccess !== 'ready') return;
         addImageFiles(files);
       });
 
@@ -4841,7 +5106,7 @@
       document.addEventListener('paste', (event) => {
         lastPasteEventAt = Date.now();
 
-        if (activeModal) return;
+        if (activeModal || boardAccess !== 'ready') return;
         if (isEditable(event.target) || isEditingText()) return;
         if (Date.now() - pasteFallbackHandledAt < 500) {
           event.preventDefault();
@@ -4914,12 +5179,14 @@
         if (!files || !files.length) return;
         event.preventDefault();
         hideDropOverlay();
+        if (boardAccess !== 'ready') return;
         addImageFiles(files);
       });
 
       /* ---------- PNG export ---------- */
 
-      $('#downloadPngBtn').addEventListener('click', () => {
+      downloadPngBtn.addEventListener('click', () => {
+        if (boardAccess !== 'ready') return;
         closeBoardMenu();
         const board = currentBoard();
         try {
@@ -4998,10 +5265,12 @@
       window.addEventListener('hashchange', () => {
         const id = readBoardIdFromHash();
         if (!id) {
-          setBoardHash(state.currentBoardId, true);
+          if (boardAccess === 'ready' && state.currentBoardId) {
+            setBoardHash(state.currentBoardId, true);
+          }
           return;
         }
-        if (id !== state.currentBoardId) switchBoard(id);
+        if (id !== state.currentBoardId || boardAccess !== 'ready') switchBoard(id);
       });
 
       renderPenColors();
@@ -5017,13 +5286,11 @@
       updateHistoryButtons();
       refreshIcons();
 
-      if (cloudEnabled) {
-        ensureBoardMeta(state.currentBoardId);
-        refreshBoardsMeta();
-      }
-      activateBoard(state.currentBoardId);
-      resetView();
       updateOnlineCount();
+      // Никакой доски по умолчанию нет: запускаем проверку только для ID,
+      // найденного в ссылке или localStorage. Слушатели данных и курсоров
+      // подключаются внутри switchBoard() после подтверждения boards_meta.
+      switchBoard(state.currentBoardId, { replaceHistory: true, silent: true });
     })();
   </script>
 </body>
