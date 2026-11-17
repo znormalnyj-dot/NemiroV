@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f6f7fb" />
+  <title>Админ-панель · Miro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: { ink: '#050038', accent: '#4262ff' }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root {
+      --ink: #050038;
+      --muted: #6b6b7e;
+      --faint: #9a9aae;
+      --accent: #4262ff;
+      --line: rgba(5, 0, 56, 0.07);
+    }
+
+    * { -webkit-tap-highlight-color: transparent; }
+    html { color-scheme: light; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #f6f7fb;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    body.is-locked { overflow: hidden; }
+    ::selection { background: rgba(66, 98, 255, 0.18); }
+
+    .auth-bg {
+      background:
+        radial-gradient(circle at 16% 12%, rgba(66, 98, 255, 0.16), transparent 30%),
+        radial-gradient(circle at 86% 84%, rgba(139, 92, 246, 0.13), transparent 28%),
+        linear-gradient(145deg, #fbfcff 0%, #f3f5fb 52%, #f8f8fc 100%);
+    }
+    .auth-grid {
+      background-image:
+        linear-gradient(rgba(5, 0, 56, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(5, 0, 56, 0.035) 1px, transparent 1px);
+      background-size: 46px 46px;
+      mask-image: radial-gradient(circle at center, black, transparent 78%);
+      -webkit-mask-image: radial-gradient(circle at center, black, transparent 78%);
+    }
+
+    .card-shadow {
+      box-shadow: 0 1px 2px rgba(5, 0, 56, 0.05), 0 14px 38px rgba(5, 0, 56, 0.08);
+    }
+    .soft-shadow {
+      box-shadow: 0 1px 2px rgba(5, 0, 56, 0.04), 0 8px 22px rgba(5, 0, 56, 0.05);
+    }
+
+    .brand-mark {
+      display: inline-grid;
+      width: 40px;
+      height: 40px;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 13px;
+      background: linear-gradient(145deg, #5270ff, #3451e0);
+      color: #fff;
+      box-shadow: 0 7px 18px rgba(66, 98, 255, 0.32);
+    }
+    .brand-mark svg { width: 20px; height: 20px; }
+
+    .input-wrap { position: relative; }
+    .input-wrap > svg,
+    .input-wrap > [data-lucide] {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      width: 16px;
+      height: 16px;
+      transform: translateY(-50%);
+      color: #9a9aae;
+      pointer-events: none;
+    }
+    .field {
+      width: 100%;
+      height: 46px;
+      border: 1px solid rgba(5, 0, 56, 0.1);
+      border-radius: 12px;
+      background: #fbfbfd;
+      padding: 0 13px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    }
+    .field.with-icon { padding-left: 40px; }
+    .field.with-action { padding-right: 42px; }
+    .field::placeholder { color: #a9a9b8; font-weight: 400; }
+    .field:focus {
+      border-color: rgba(66, 98, 255, 0.6);
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(66, 98, 255, 0.11);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: 0;
+      border-radius: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: transform 120ms ease, background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+    }
+    .btn:active:not(:disabled) { transform: scale(0.98); }
+    .btn:disabled { cursor: not-allowed; opacity: 0.5; }
+    .btn svg { width: 15px; height: 15px; }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 5px 14px rgba(66, 98, 255, 0.24);
+    }
+    .btn-primary:hover:not(:disabled) { background: #3451e0; }
+    .btn-secondary {
+      border: 1px solid rgba(5, 0, 56, 0.09);
+      background: #fff;
+      color: #3f3f53;
+      box-shadow: 0 1px 2px rgba(5, 0, 56, 0.03);
+    }
+    .btn-secondary:hover:not(:disabled) { background: #f7f8fc; }
+    .btn-ghost { background: transparent; color: #5d5d72; }
+    .btn-ghost:hover:not(:disabled) { background: #f1f2f7; }
+    .btn-danger { background: #dc2626; color: #fff; box-shadow: 0 5px 14px rgba(220, 38, 38, 0.2); }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+    .btn-warning { background: #fff7ed; color: #b45309; border: 1px solid #fed7aa; }
+    .btn-warning:hover:not(:disabled) { background: #ffedd5; }
+    #modalConfirm[data-tone="danger"] { background: #dc2626; box-shadow: 0 5px 14px rgba(220, 38, 38, 0.2); }
+    #modalConfirm[data-tone="danger"]:hover:not(:disabled) { background: #b91c1c; }
+    #modalConfirm[data-tone="warning"] { background: #d97706; box-shadow: 0 5px 14px rgba(217, 119, 6, 0.2); }
+    #modalConfirm[data-tone="warning"]:hover:not(:disabled) { background: #b45309; }
+    #modalIcon[data-tone="danger"] { background: #fef2f2; color: #dc2626; }
+    #modalIcon[data-tone="warning"] { background: #fff7ed; color: #d97706; }
+    #modalIcon[data-tone="primary"] { background: #eef1ff; color: #4262ff; }
+    .btn-sm { height: 38px; padding: 0 13px; font-size: 12px; }
+    .btn-xs { height: 34px; padding: 0 11px; font-size: 11.5px; }
+    .btn-icon {
+      display: inline-grid;
+      place-items: center;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: #8b8b9e;
+      transition: background 140ms ease, color 140ms ease;
+    }
+    .btn-icon:hover { background: #f1f2f7; color: var(--ink); }
+
+    .board-card {
+      border: 1px solid rgba(5, 0, 56, 0.075);
+      border-radius: 18px;
+      background: #fff;
+      padding: 15px;
+      box-shadow: 0 1px 2px rgba(5, 0, 56, 0.03);
+      transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    }
+    .board-card:hover {
+      border-color: rgba(66, 98, 255, 0.22);
+      box-shadow: 0 8px 26px rgba(5, 0, 56, 0.07);
+    }
+    .board-card.is-selected {
+      border-color: rgba(66, 98, 255, 0.55);
+      background: #fbfcff;
+      box-shadow: 0 0 0 3px rgba(66, 98, 255, 0.09);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 15px;
+      height: 15px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #fff;
+      border-radius: 999px;
+      animation: spin 0.7s linear infinite;
+    }
+    .spinner-dark {
+      border-color: rgba(66, 98, 255, 0.2);
+      border-top-color: var(--accent);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast {
+      transform: translate(-50%, 12px);
+      opacity: 0;
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+    .toast.is-visible { transform: translate(-50%, 0); opacity: 1; }
+
+    #refreshBtn.is-spinning svg { animation: spin 0.9s linear infinite; }
+
+    .hide-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+    .hide-scrollbar::-webkit-scrollbar-thumb { background: #d9dbe7; border-radius: 999px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <!-- boot -->
+  <div id="bootScreen" class="grid min-h-screen place-items-center px-4">
+    <div class="w-full max-w-md text-center">
+      <div id="bootLoading">
+        <span class="brand-mark mx-auto"><i data-lucide="layout-dashboard"></i></span>
+        <div class="spinner spinner-dark mx-auto mt-6"></div>
+        <p class="mt-3 text-[13px] font-medium text-[#6b6b7e]">Проверяем доступ к панели…</p>
+      </div>
+      <div id="bootError" class="card-shadow mx-auto hidden rounded-2xl border border-red-200 bg-white p-6 text-left">
+        <span class="grid h-11 w-11 place-items-center rounded-xl bg-red-50 text-red-600">
+          <i data-lucide="shield-alert" class="h-5 w-5"></i>
+        </span>
+        <h1 class="mt-4 text-[18px] font-semibold">Не удалось запустить панель</h1>
+        <p id="bootErrorText" class="mt-2 text-[12.5px] leading-5 text-[#6b6b7e]"></p>
+        <button type="button" onclick="location.reload()" class="btn btn-secondary btn-sm mt-5">
+          <i data-lucide="refresh-cw"></i>
+          <span>Обновить страницу</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- auth -->
+  <main id="authScreen" class="auth-bg relative hidden min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+    <div class="auth-grid pointer-events-none absolute inset-0"></div>
+    <div class="pointer-events-none absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-[#4262ff]/10 blur-3xl"></div>
+    <div class="pointer-events-none absolute -right-20 bottom-10 h-80 w-80 rounded-full bg-[#8b5cf6]/10 blur-3xl"></div>
+
+    <section class="relative w-full max-w-[420px]">
+      <div class="mb-5 flex items-center justify-center gap-2.5">
+        <span class="brand-mark"><i data-lucide="layout-dashboard"></i></span>
+        <div class="text-left">
+          <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#4262ff]">Miro Admin</p>
+          <p class="text-[12px] font-medium text-[#7a7a8e]">Управление досками проекта</p>
+        </div>
+      </div>
+
+      <div class="card-shadow rounded-[26px] border border-white/80 bg-white/95 p-6 backdrop-blur sm:p-8">
+        <span class="grid h-11 w-11 place-items-center rounded-2xl bg-[#eef1ff] text-accent">
+          <i data-lucide="lock-keyhole" class="h-5 w-5"></i>
+        </span>
+        <h1 class="mt-4 text-[23px] font-semibold tracking-[-0.02em]">Вход в панель</h1>
+        <p class="mt-1.5 text-[12.5px] leading-5 text-[#6b6b7e]">
+          Используйте аккаунт администратора, созданный в Firebase Authentication.
+        </p>
+
+        <form id="loginForm" class="mt-6 space-y-3.5" novalidate>
+          <label class="block">
+            <span class="mb-1.5 block text-[11.5px] font-semibold text-[#4d4d62]">Email</span>
+            <span class="input-wrap block">
+              <i data-lucide="mail"></i>
+              <input id="loginEmail" type="email" class="field with-icon" placeholder="admin@example.com" autocomplete="username" inputmode="email" />
+            </span>
+          </label>
+          <label class="block">
+            <span class="mb-1.5 block text-[11.5px] font-semibold text-[#4d4d62]">Пароль</span>
+            <span class="input-wrap block">
+              <i data-lucide="key-round"></i>
+              <input id="loginPassword" type="password" class="field with-icon with-action" placeholder="Введите пароль" autocomplete="current-password" />
+              <button id="togglePassword" type="button" class="absolute right-2.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#9a9aae] transition hover:bg-[#f1f2f7] hover:text-ink" aria-label="Показать пароль" aria-pressed="false">
+                <i data-lucide="eye" class="h-4 w-4"></i>
+              </button>
+            </span>
+          </label>
+
+          <div id="loginError" class="hidden rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[11.5px] font-medium leading-5 text-red-700" role="alert"></div>
+
+          <button id="loginBtn" type="submit" class="btn btn-primary h-11 w-full text-[12.5px]">
+            <span id="loginBtnSpinner" class="spinner hidden"></span>
+            <i id="loginBtnIcon" data-lucide="log-in" class="h-4 w-4"></i>
+            <span id="loginBtnText">Войти в панель управления</span>
+          </button>
+        </form>
+
+        <div class="mt-5 flex items-start gap-2 rounded-xl bg-[#f7f8fc] p-3">
+          <i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-[#4262ff]"></i>
+          <p class="text-[10.5px] leading-4 text-[#7a7a8e]">
+            Пароль проверяется напрямую Firebase Authentication и не хранится в этом HTML-файле.
+          </p>
+        </div>
+      </div>
+
+      <p class="mt-5 text-center text-[10.5px] font-medium text-[#8b8b9e]">
+        Доступ только для администраторов проекта
+      </p>
+    </section>
+  </main>
+
+  <!-- app -->
+  <div id="appScreen" class="hidden min-h-screen">
+    <header class="sticky top-0 z-40 border-b border-black/[0.06] bg-white/85 backdrop-blur-xl">
+      <div class="mx-auto flex h-16 max-w-[1480px] items-center gap-3 px-4 sm:px-6 lg:px-8">
+        <span class="brand-mark h-9 w-9 rounded-xl"><i data-lucide="layout-dashboard"></i></span>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="truncate text-[15px] font-semibold tracking-[-0.01em]">Админ-панель</h1>
+            <span class="hidden rounded-full bg-[#eef1ff] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-accent sm:inline-flex">Admin</span>
+          </div>
+          <p class="truncate text-[10.5px] text-[#8b8b9e]">Управление всеми досками проекта</p>
+        </div>
+
+        <div class="ml-auto flex items-center gap-2">
+          <button id="refreshBtn" type="button" class="btn btn-secondary btn-sm" title="Обновить данные">
+            <i data-lucide="refresh-cw"></i>
+            <span class="hidden sm:inline">Обновить</span>
+          </button>
+          <span class="hidden h-7 w-px bg-black/[0.07] sm:block"></span>
+          <div class="hidden items-center gap-2 sm:flex">
+            <span id="adminAvatar" class="grid h-8 w-8 place-items-center rounded-full bg-accent text-[11px] font-semibold text-white">A</span>
+            <div class="min-w-0 max-w-[190px]">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Администратор</p>
+              <p id="adminEmail" class="truncate text-[11.5px] font-medium text-[#4d4d62]">—</p>
+            </div>
+          </div>
+          <button id="logoutBtn" type="button" class="btn btn-ghost btn-sm text-[#5d5d72]" title="Выйти из панели">
+            <i data-lucide="log-out"></i>
+            <span class="hidden sm:inline">Выйти</span>
+          </button>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 border-t border-black/[0.05] px-4 py-1.5 sm:hidden">
+        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+        <span class="text-[8.5px] font-bold uppercase tracking-[0.1em] text-[#9a9aae]">Администратор</span>
+        <span id="adminEmailMobile" class="ml-auto truncate text-[10.5px] font-medium text-[#4d4d62]">—</span>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-[1480px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 class="text-[22px] font-semibold tracking-[-0.025em]">Все доски</h2>
+          <p class="mt-1 text-[12px] text-[#7a7a8e]">Статистика и управление данными Firebase Realtime Database.</p>
+        </div>
+        <p class="flex items-center gap-1.5 text-[10.5px] font-medium text-[#9a9aae]">
+          <i data-lucide="database" class="h-3.5 w-3.5"></i>
+          <span id="lastUpdated">Загрузка данных…</span>
+        </p>
+      </div>
+
+      <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Сводная статистика">
+        <article class="card-shadow soft-shadow rounded-2xl border border-black/[0.06] bg-white p-4">
+          <div class="flex items-center gap-2.5">
+            <span class="grid h-9 w-9 place-items-center rounded-xl bg-[#eef1ff] text-accent"><i data-lucide="layout-grid" class="h-4 w-4"></i></span>
+            <p class="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#9a9aae]">Всего досок</p>
+          </div>
+          <p id="statBoards" class="mt-4 text-[28px] font-semibold tracking-[-0.04em]">—</p>
+          <p id="statBoardsSub" class="mt-0.5 text-[10.5px] text-[#8b8b9e]">в базе проекта</p>
+        </article>
+
+        <article class="card-shadow soft-shadow rounded-2xl border border-black/[0.06] bg-white p-4">
+          <div class="flex items-center gap-2.5">
+            <span class="grid h-9 w-9 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><i data-lucide="users" class="h-4 w-4"></i></span>
+            <p class="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#9a9aae]">Онлайн сейчас</p>
+          </div>
+          <p id="statOnline" class="mt-4 text-[28px] font-semibold tracking-[-0.04em]">—</p>
+          <p id="statOnlineSub" class="mt-0.5 text-[10.5px] text-[#8b8b9e]">участников во всех досках</p>
+        </article>
+
+        <article class="card-shadow soft-shadow rounded-2xl border border-black/[0.06] bg-white p-4">
+          <div class="flex items-center gap-2.5">
+            <span class="grid h-9 w-9 place-items-center rounded-xl bg-violet-50 text-violet-600"><i data-lucide="shapes" class="h-4 w-4"></i></span>
+            <p class="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#9a9aae]">Объектов</p>
+          </div>
+          <p id="statObjects" class="mt-4 text-[28px] font-semibold tracking-[-0.04em]">—</p>
+          <p id="statObjectsSub" class="mt-0.5 text-[10.5px] text-[#8b8b9e]">на всех досках</p>
+        </article>
+
+        <article class="card-shadow soft-shadow rounded-2xl border border-black/[0.06] bg-white p-4">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="grid h-9 w-9 place-items-center rounded-xl bg-amber-50 text-amber-600"><i data-lucide="hard-drive" class="h-4 w-4"></i></span>
+              <p class="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#9a9aae]">Объём boards_data</p>
+            </div>
+            <span id="sizePercent" class="shrink-0 text-[10px] font-semibold text-[#8b8b9e]">—</span>
+          </div>
+          <p id="statSize" class="mt-4 text-[28px] font-semibold tracking-[-0.04em]">—</p>
+          <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eef0f6]">
+            <div id="sizeBar" class="h-full w-0 rounded-full bg-accent transition-[width] duration-500"></div>
+          </div>
+          <p id="sizeCaption" class="mt-1.5 text-[10.5px] text-[#8b8b9e]">лимит 1024 МБ</p>
+        </article>
+      </section>
+
+      <section class="card-shadow mt-6 overflow-hidden rounded-2xl border border-black/[0.06] bg-white">
+        <div class="border-b border-black/[0.06] p-4">
+          <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <label class="relative block flex-1">
+              <i data-lucide="search" class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aae]"></i>
+              <input id="searchInput" type="search" class="field with-icon h-10" placeholder="Поиск по названию или ID доски…" autocomplete="off" />
+            </label>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <label class="sr-only" for="sortSelect">Сортировка</label>
+              <select id="sortSelect" class="field h-10 w-full cursor-pointer pr-8 text-[12px] sm:w-[228px]">
+                <option value="created_desc">Сначала новые</option>
+                <option value="created_asc">Сначала старые</option>
+                <option value="size_desc">По размеру: больше</option>
+                <option value="size_asc">По размеру: меньше</option>
+                <option value="objects_desc">По объектам: больше</option>
+                <option value="objects_asc">По объектам: меньше</option>
+                <option value="online_desc">По онлайну: больше</option>
+                <option value="online_asc">По онлайну: меньше</option>
+                <option value="name_asc">По названию: А–Я</option>
+              </select>
+              <button id="createBoardBtn" type="button" class="btn btn-primary btn-sm sm:h-10 sm:px-4">
+                <i data-lucide="plus"></i>
+                <span>+ Создать новую доску</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-black/[0.06] bg-[#fbfbfe] px-4 py-2.5">
+          <label class="inline-flex cursor-pointer select-none items-center gap-2 text-[11.5px] font-medium text-[#5d5d72]">
+            <input id="selectAll" type="checkbox" class="h-3.5 w-3.5 accent-[#4262ff]" />
+            <span>Выбрать все</span>
+          </label>
+          <span id="selectionCount" class="text-[10.5px] font-medium text-[#9a9aae]">Ничего не выбрано</span>
+          <button id="deleteSelectedBtn" type="button" class="btn btn-danger btn-xs" disabled>
+            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+            <span id="deleteSelectedLabel">Удалить выбранные</span>
+          </button>
+        </div>
+
+        <div id="boardsGrid" class="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 2xl:grid-cols-3"></div>
+
+        <div id="emptyState" class="hidden px-6 py-14 text-center">
+          <span class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#f1f3fa] text-[#8b8b9e]">
+            <i data-lucide="layout-grid" class="h-6 w-6"></i>
+          </span>
+          <h3 id="emptyTitle" class="mt-4 text-[16px] font-semibold">В базе пока нет досок</h3>
+          <p id="emptyText" class="mx-auto mt-1.5 max-w-sm text-[12px] leading-5 text-[#7a7a8e]">Создайте первую доску — она сразу появится в Firebase.</p>
+          <button id="emptyActionBtn" type="button" data-mode="create" class="btn btn-primary btn-sm mt-5">
+            <i data-lucide="plus"></i>
+            <span id="emptyActionLabel">Создать доску</span>
+          </button>
+        </div>
+      </section>
+
+      <p class="mx-auto mt-6 max-w-3xl text-center text-[10.5px] leading-4 text-[#9a9aae]">
+        Данные загружаются напрямую из Firebase Realtime Database. Окончательный доступ к узлам определяется правилами безопасности проекта.
+      </p>
+    </main>
+  </div>
+
+  <div id="loadingOverlay" class="fixed inset-0 z-[110] hidden items-center justify-center bg-[#050038]/30 p-4 backdrop-blur-[2px]" role="status" aria-live="polite">
+    <div class="card-shadow w-full max-w-[300px] rounded-2xl border border-white/80 bg-white p-6 text-center">
+      <div class="spinner spinner-dark mx-auto"></div>
+      <p id="loadingText" class="mt-3 text-[13px] font-semibold">Загружаем данные…</p>
+      <p class="mt-1 text-[10.5px] text-[#8b8b9e]">Это может занять несколько секунд</p>
+    </div>
+  </div>
+
+  <div id="modalLayer" class="fixed inset-0 z-[90] hidden items-center justify-center p-4">
+    <div id="modalBackdrop" class="absolute inset-0 bg-[#050038]/45 backdrop-blur-[2px]"></div>
+    <form id="modalForm" class="card-shadow relative w-full max-w-[440px] rounded-[24px] border border-white/80 bg-white p-6" novalidate>
+      <div class="flex items-start gap-3">
+        <span id="modalIcon" data-tone="primary" class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#eef1ff] text-accent">
+          <i data-lucide="help-circle" class="h-5 w-5"></i>
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2 id="modalTitle" class="text-[18px] font-semibold tracking-[-0.02em]">Подтверждение</h2>
+          <p id="modalDescription" class="mt-1 text-[12px] leading-5 text-[#6b6b7e]"></p>
+        </div>
+      </div>
+
+      <div id="modalInputWrap" class="mt-5 hidden">
+        <label for="modalInput" class="mb-1.5 block text-[11.5px] font-semibold text-[#4d4d62]">Название доски</label>
+        <input id="modalInput" type="text" class="field" maxlength="48" placeholder="Например, Геометрия — 7 класс" autocomplete="off" />
+        <p class="mt-1.5 text-[10px] text-[#9a9aae]">До 48 символов. ID доски создаётся автоматически.</p>
+      </div>
+
+      <div id="modalError" class="mt-4 hidden rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[11.5px] font-medium leading-5 text-red-700" role="alert"></div>
+
+      <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button id="modalCancel" type="button" class="btn btn-secondary h-10 px-4 text-[12px]">Отмена</button>
+        <button id="modalConfirm" type="submit" data-tone="primary" class="btn btn-primary h-10 px-4 text-[12px]">
+          <span id="modalSpinner" class="spinner hidden"></span>
+          <span id="modalConfirmLabel">Подтвердить</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast pointer-events-none fixed bottom-5 left-1/2 z-[120] flex max-w-[calc(100vw-32px)] items-center gap-2 rounded-xl bg-[#050038] px-4 py-2.5 text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(5,0,56,.3)]">
+    <span id="toastIcon" class="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white/10 text-emerald-300"><i data-lucide="check" class="h-3.5 w-3.5"></i></span>
+    <span id="toastText" class="truncate"></span>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    'use strict';
+
+    /*
+      Клиентская авторизация скрывает интерфейс, но окончательный доступ
+      к данным должен ограничиваться правилами Firebase Realtime Database.
+    */
+    const firebaseConfig = {
+      apiKey: "AIzaSyB_LO_gbhLu_SkrYtlhLJJm9Gb7OpXuoTE",
+      authDomain: "nemirov-a6e8e.firebaseapp.com",
+      databaseURL: "https://nemirov-a6e8e-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "nemirov-a6e8e",
+      storageBucket: "nemirov-a6e8e.firebasestorage.app",
+      messagingSenderId: "576794413241",
+      appId: "1:576794413241:web:e904d581730175fbf7b368"
+    };
+
+    // Необязательный список email. Если он пуст, доступ получает любой
+    // успешно авторизованный пользователь Firebase Authentication.
+    const ADMIN_EMAILS = [];
+
+    const DB_LIMIT_MB = 1024;
+    const DB_LIMIT_BYTES = DB_LIMIT_MB * 1024 * 1024;
+    const MAX_BOARD_NAME = 48;
+
+    let auth = null;
+    let db = null;
+    let currentUser = null;
+    let dashboardReady = false;
+    let isLoading = false;
+    let loadToken = 0;
+    let cursorsListener = null;
+    let authNotice = '';
+    let toastTimer = null;
+    let modalState = null;
+    let modalBusy = false;
+
+    const state = {
+      meta: {},
+      data: {},
+      cursors: {},
+      boards: [],
+      search: '',
+      sort: 'created_desc',
+      selected: new Set(),
+      totalBytes: 0,
+      totalOnline: 0,
+      totalObjects: 0,
+      totalImages: 0
+    };
+
+    const el = (id) => document.getElementById(id);
+
+    function refreshIcons() {
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+      }
+    }
+
+    function normalizeObject(value) {
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    }
+
+    function asTimestamp(value) {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'string' && value.trim()) {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) return numeric;
+        const parsed = Date.parse(value);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      return 0;
+    }
+
+    function defaultBoardName(id) {
+      return 'Доска ' + String(id || '').slice(-6);
+    }
+
+    function generateBoardId() {
+      return 'board-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat('ru-RU').format(Number(value) || 0);
+    }
+
+    function formatDate(timestamp) {
+      if (!timestamp) return 'Дата неизвестна';
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) return 'Дата неизвестна';
+      return new Intl.DateTimeFormat('ru-RU', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      }).format(date);
+    }
+
+    function formatSize(bytes) {
+      const safe = Math.max(0, Number(bytes) || 0);
+      const kb = safe / 1024;
+      if (kb < 1024) {
+        return new Intl.NumberFormat('ru-RU', {
+          maximumFractionDigits: kb < 10 ? 1 : 0
+        }).format(kb) + ' КБ';
+      }
+      const mb = kb / 1024;
+      return new Intl.NumberFormat('ru-RU', {
+        maximumFractionDigits: mb < 10 ? 2 : 1
+      }).format(mb) + ' МБ';
+    }
+
+    function utf8Size(text) {
+      try {
+        return new Blob([text]).size;
+      } catch (_) {
+        return String(text).length;
+      }
+    }
+
+    function jsonSize(value) {
+      try {
+        return utf8Size(JSON.stringify(value == null ? {} : value));
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function syncBodyLock() {
+      const loadingOpen = !el('loadingOverlay').classList.contains('hidden');
+      const modalOpen = !el('modalLayer').classList.contains('hidden');
+      document.body.classList.toggle('is-locked', loadingOpen || modalOpen);
+    }
+
+    function setLoading(visible, text) {
+      const overlay = el('loadingOverlay');
+      overlay.classList.toggle('hidden', !visible);
+      overlay.classList.toggle('flex', visible);
+      if (text) el('loadingText').textContent = text;
+      syncBodyLock();
+    }
+
+    function showToast(message, type) {
+      clearTimeout(toastTimer);
+      el('toastText').textContent = message;
+      const icon = el('toastIcon');
+      icon.className = 'grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white/10 ' +
+        (type === 'error' ? 'text-red-300' : 'text-emerald-300');
+      icon.innerHTML = '<i data-lucide="' + (type === 'error' ? 'alert-circle' : 'check') + '" class="h-3.5 w-3.5"></i>';
+      refreshIcons();
+      el('toast').classList.add('is-visible');
+      toastTimer = setTimeout(() => el('toast').classList.remove('is-visible'), 3400);
+    }
+
+    function isAllowedAdmin(user) {
+      if (!user) return false;
+      if (!ADMIN_EMAILS.length) return true;
+      const email = String(user.email || '').trim().toLowerCase();
+      return ADMIN_EMAILS.some((item) => String(item).trim().toLowerCase() === email);
+    }
+
+    function setLoginError(message) {
+      const box = el('loginError');
+      box.textContent = message || '';
+      box.classList.toggle('hidden', !message);
+    }
+
+    function setLoginBusy(busy) {
+      el('loginBtn').disabled = busy;
+      el('loginEmail').disabled = busy;
+      el('loginPassword').disabled = busy;
+      el('loginBtnSpinner').classList.toggle('hidden', !busy);
+      el('loginBtnIcon').classList.toggle('hidden', busy);
+      el('loginBtnText').textContent = busy ? 'Проверяем доступ…' : 'Войти в панель управления';
+    }
+
+    function loginErrorMessage(error) {
+      const code = (error && error.code) || '';
+      const messages = {
+        'auth/invalid-email': 'Некорректный email.',
+        'auth/user-disabled': 'Этот аккаунт отключён.',
+        'auth/user-not-found': 'Пользователь с таким email не найден.',
+        'auth/wrong-password': 'Неверный пароль.',
+        'auth/invalid-credential': 'Неверный email или пароль.',
+        'auth/invalid-login-credentials': 'Неверный email или пароль.',
+        'auth/too-many-requests': 'Слишком много попыток входа. Попробуйте позже.',
+        'auth/network-request-failed': 'Нет соединения с Firebase. Проверьте интернет.',
+        'auth/operation-not-allowed': 'Включите вход по Email/Password в Firebase Authentication.',
+        'auth/unauthorized-domain': 'Этот домен не разрешён в настройках Firebase Authentication.'
+      };
+      return messages[code] || 'Не удалось войти. Проверьте email и пароль.';
+    }
+
+    function showBoot() {
+      el('bootScreen').classList.remove('hidden');
+      el('bootLoading').classList.remove('hidden');
+      el('bootError').classList.add('hidden');
+      el('authScreen').classList.add('hidden');
+      el('authScreen').classList.remove('flex');
+      el('appScreen').classList.add('hidden');
+    }
+
+    function showFatal(message) {
+      showBoot();
+      el('bootLoading').classList.add('hidden');
+      el('bootError').classList.remove('hidden');
+      el('bootErrorText').textContent = message;
+      refreshIcons();
+    }
+
+    function showAuthScreen() {
+      el('bootScreen').classList.add('hidden');
+      el('appScreen').classList.add('hidden');
+      el('authScreen').classList.remove('hidden');
+      el('authScreen').classList.add('flex');
+      setLoginBusy(false);
+      setLoginError('');
+      el('loginPassword').value = '';
+      setTimeout(() => el('loginEmail').focus(), 30);
+    }
+
+    function showAppScreen() {
+      el('bootScreen').classList.add('hidden');
+      el('authScreen').classList.add('hidden');
+      el('authScreen').classList.remove('flex');
+      el('appScreen').classList.remove('hidden');
+    }
+
+    function updateAdminHeader(user) {
+      const email = user && user.email ? user.email : 'без email';
+      el('adminEmail').textContent = email;
+      el('adminEmailMobile').textContent = email;
+      el('adminAvatar').textContent = email.charAt(0).toUpperCase() || 'A';
+    }
+
+    function cursorInfo(root) {
+      const cursorRoot = normalizeObject(root);
+      const users = [];
+      Object.values(cursorRoot).forEach((cursor) => {
+        if (!cursor || typeof cursor !== 'object' || Array.isArray(cursor)) return;
+        const name = typeof cursor.name === 'string' && cursor.name.trim()
+          ? cursor.name.trim().slice(0, 40)
+          : 'Гость';
+        const color = /^#[0-9a-f]{6}$/i.test(String(cursor.color || ''))
+          ? cursor.color
+          : '#4262ff';
+        users.push({ name, color });
+      });
+      const names = [];
+      users.forEach((user) => {
+        if (!names.includes(user.name)) names.push(user.name);
+      });
+      return { users, names, count: users.length };
+    }
+
+    function updateOnlineTotals() {
+      state.totalOnline = 0;
+      state.boards.forEach((board) => {
+        const info = cursorInfo(state.cursors[board.id]);
+        board.onlineUsers = info.users;
+        board.onlineNames = info.names;
+        board.onlineCount = info.count;
+        state.totalOnline += info.count;
+      });
+    }
+
+    function onlineSignature(board) {
+      return board.onlineCount + '|' +
+        board.onlineNames.join('\u001f') + '|' +
+        board.onlineUsers.map((user) => user.color).join(',');
+    }
+
+    function buildBoards() {
+      const ids = new Set([
+        ...Object.keys(state.meta),
+        ...Object.keys(state.data)
+      ]);
+
+      state.boards = Array.from(ids).map((id) => {
+        const meta = normalizeObject(state.meta[id]);
+        const rawData = state.data[id];
+        const boardData = normalizeObject(rawData);
+        const objects = normalizeObject(boardData.objects);
+        const objectValues = Object.values(objects);
+        let imageCount = 0;
+        objectValues.forEach((obj) => {
+          if (obj && typeof obj === 'object' && !Array.isArray(obj) && obj.type === 'image') {
+            imageCount += 1;
+          }
+        });
+
+        const createdAt = asTimestamp(meta.createdAt) || asTimestamp(meta.updatedAt) || 0;
+        const online = cursorInfo(state.cursors[id]);
+
+        return {
+          id,
+          name: typeof meta.name === 'string' && meta.name.trim()
+            ? meta.name.trim().slice(0, MAX_BOARD_NAME)
+            : defaultBoardName(id),
+          createdAt,
+          objectCount: Object.keys(objects).length,
+          imageCount,
+          bytes: rawData == null ? 0 : jsonSize(boardData),
+          onlineUsers: online.users,
+          onlineNames: online.names,
+          onlineCount: online.count
+        };
+      });
+
+      state.totalBytes = Object.keys(state.data).length ? jsonSize(state.data) : 0;
+      state.totalObjects = state.boards.reduce((sum, board) => sum + board.objectCount, 0);
+      state.totalImages = state.boards.reduce((sum, board) => sum + board.imageCount, 0);
+      updateOnlineTotals();
+
+      state.selected = new Set(
+        Array.from(state.selected).filter((id) => state.boards.some((board) => board.id === id))
+      );
+    }
+
+    function dbErrorMessage(error) {
+      const text = String((error && (error.message || error.code)) || '').toLowerCase();
+      if (text.includes('permission') || text.includes('permission_denied')) {
+        return 'Недостаточно прав. Проверьте правила Firebase Realtime Database.';
+      }
+      if (text.includes('network') || text.includes('offline')) {
+        return 'Нет соединения с Firebase. Проверьте интернет и повторите попытку.';
+      }
+      return 'Не удалось выполнить операцию. Попробуйте ещё раз.';
+    }
+
+    function detachCursorsListener() {
+      if (cursorsListener) {
+        cursorsListener.off();
+        cursorsListener = null;
+      }
+    }
+
+    function ensureCursorsListener() {
+      if (cursorsListener || !db || !currentUser) return;
+      cursorsListener = db.ref('boards_cursors');
+      cursorsListener.on('value', (snapshot) => {
+        if (!currentUser) return;
+        const previous = new Map(
+          state.boards.map((board) => [board.id, onlineSignature(board)])
+        );
+        state.cursors = normalizeObject(snapshot.val());
+        if (!dashboardReady || isLoading) return;
+        updateOnlineTotals();
+        const changedIds = state.boards
+          .filter((board) => previous.get(board.id) !== onlineSignature(board))
+          .map((board) => board.id);
+        if (!changedIds.length) return;
+        renderStats();
+        if (state.sort.indexOf('online_') === 0) {
+          renderBoards();
+        } else {
+          updateOnlineCards(changedIds);
+        }
+      }, (error) => {
+        console.warn('Не удалось подписаться на онлайн-участников:', error);
+      });
+    }
+
+    async function loadDashboard(options) {
+      if (!currentUser || isLoading) return false;
+      const settings = options || {};
+      const token = ++loadToken;
+      isLoading = true;
+      setLoading(true, settings.message || 'Загружаем доски и статистику…');
+      el('refreshBtn').disabled = true;
+      el('refreshBtn').classList.add('is-spinning');
+
+      try {
+        const [metaSnapshot, dataSnapshot, cursorsSnapshot] = await Promise.all([
+          db.ref('boards_meta').once('value'),
+          db.ref('boards_data').once('value'),
+          db.ref('boards_cursors').once('value')
+        ]);
+
+        if (token !== loadToken || !currentUser) return false;
+
+        state.meta = normalizeObject(metaSnapshot.val());
+        state.data = normalizeObject(dataSnapshot.val());
+        state.cursors = normalizeObject(cursorsSnapshot.val());
+        buildBoards();
+        dashboardReady = true;
+        renderStats();
+        renderBoards();
+        setLastUpdated();
+        ensureCursorsListener();
+        return true;
+      } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        if (token === loadToken && currentUser) {
+          el('lastUpdated').textContent = 'Ошибка загрузки данных';
+          showToast(dbErrorMessage(error), 'error');
+          if (!dashboardReady) {
+            renderStats();
+            renderBoards();
+          }
+        }
+        return false;
+      } finally {
+        if (token === loadToken) {
+          isLoading = false;
+          setLoading(false);
+          el('refreshBtn').disabled = false;
+          el('refreshBtn').classList.remove('is-spinning');
+        }
+      }
+    }
+
+    function resetDashboard() {
+      loadToken += 1;
+      isLoading = false;
+      dashboardReady = false;
+      detachCursorsListener();
+      if (!el('modalLayer').classList.contains('hidden')) closeModal(true);
+      state.meta = {};
+      state.data = {};
+      state.cursors = {};
+      state.boards = [];
+      state.selected.clear();
+      state.totalBytes = 0;
+      state.totalOnline = 0;
+      state.totalObjects = 0;
+      state.totalImages = 0;
+      setLoading(false);
+      el('lastUpdated').textContent = 'Загрузка данных…';
+      renderStats();
+      renderBoards();
+    }
+
+    function setLastUpdated() {
+      const time = new Date().toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      el('lastUpdated').textContent = 'Обновлено в ' + time;
+    }
+
+    function renderStats() {
+      const boardsWithObjects = state.boards.filter((board) => board.objectCount > 0).length;
+      const onlineBoards = state.boards.filter((board) => board.onlineCount > 0).length;
+
+      el('statBoards').textContent = formatNumber(state.boards.length);
+      el('statBoardsSub').textContent = state.boards.length
+        ? boardsWithObjects + ' с объектами'
+        : 'в базе проекта';
+
+      el('statOnline').textContent = formatNumber(state.totalOnline);
+      el('statOnlineSub').textContent = state.totalOnline
+        ? 'на ' + formatNumber(onlineBoards) + ' досках'
+        : 'участников во всех досках';
+
+      el('statObjects').textContent = formatNumber(state.totalObjects);
+      el('statObjectsSub').textContent = state.totalImages
+        ? 'включая ' + formatNumber(state.totalImages) + ' фото'
+        : 'на всех досках';
+
+      const percent = state.totalBytes / DB_LIMIT_BYTES * 100;
+      const percentText = state.totalBytes > 0 && percent < 0.01
+        ? '<0.01%'
+        : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(percent) + '%';
+
+      el('statSize').textContent = formatSize(state.totalBytes);
+      el('sizePercent').textContent = percentText;
+      el('sizeCaption').textContent = formatSize(state.totalBytes) + ' из ' + DB_LIMIT_MB + ' МБ';
+      const bar = el('sizeBar');
+      bar.style.width = Math.min(100, Math.max(0, percent)) + '%';
+      bar.style.background = percent >= 90 ? '#dc2626' : percent >= 70 ? '#e5a000' : '#4262ff';
+    }
+
+    function filteredBoards() {
+      const query = state.search.trim().toLowerCase();
+      const list = state.boards.filter((board) => {
+        if (!query) return true;
+        return board.name.toLowerCase().includes(query) || board.id.toLowerCase().includes(query);
+      });
+
+      const parts = state.sort.split('_');
+      const key = parts[0];
+      const direction = parts[1] === 'asc' ? 1 : -1;
+
+      list.sort((a, b) => {
+        if (key === 'name') {
+          return a.name.localeCompare(b.name, 'ru') * direction;
+        }
+
+        if (key === 'created') {
+          if (!a.createdAt && b.createdAt) return 1;
+          if (a.createdAt && !b.createdAt) return -1;
+        }
+
+        let av = 0;
+        let bv = 0;
+        if (key === 'created') {
+          av = a.createdAt;
+          bv = b.createdAt;
+        } else if (key === 'size') {
+          av = a.bytes;
+          bv = b.bytes;
+        } else if (key === 'objects') {
+          av = a.objectCount;
+          bv = b.objectCount;
+        } else if (key === 'online') {
+          av = a.onlineCount;
+          bv = b.onlineCount;
+        }
+
+        if (av !== bv) return (av - bv) * direction;
+        return a.name.localeCompare(b.name, 'ru');
+      });
+
+      return list;
+    }
+
+    function renderBoardCard(board) {
+      const selected = state.selected.has(board.id);
+      const online = board.onlineCount > 0;
+      const shownNames = board.onlineNames.slice(0, 3);
+      const moreCount = board.onlineNames.length - shownNames.length;
+      const onlineHtml = truncatedNames(board) + (moreCount > 0
+        ? '<span class="rounded-full bg-[#eef1ff] px-2 py-0.5 text-[10px] font-semibold text-accent">+' + moreCount + '</span>'
+        : '');
+
+      return '<article class="board-card ' + (selected ? 'is-selected' : '') + '" data-board-card="' + escapeHtml(board.id) + '">' +
+        '<div class="flex items-start gap-3">' +
+          '<input type="checkbox" class="mt-1 h-3.5 w-3.5 shrink-0 accent-[#4262ff]" data-select-board="' + escapeHtml(board.id) + '"' + (selected ? ' checked' : '') + ' aria-label="Выбрать доску ' + escapeHtml(board.name) + '" />' +
+          '<div class="min-w-0 flex-1">' +
+            '<div class="flex min-w-0 items-center gap-1.5">' +
+              '<h3 class="truncate text-[14px] font-semibold tracking-[-0.01em] text-ink" title="' + escapeHtml(board.name) + '">' + escapeHtml(board.name) + '</h3>' +
+              '<button type="button" class="btn-icon h-7 w-7 shrink-0" data-action="rename" data-board-id="' + escapeHtml(board.id) + '" title="Переименовать доску" aria-label="Переименовать доску ' + escapeHtml(board.name) + '">' +
+                '<i data-lucide="pencil" class="h-3.5 w-3.5"></i>' +
+              '</button>' +
+            '</div>' +
+            '<p class="mt-0.5 truncate font-mono text-[10px] text-[#8b8b9e]" title="' + escapeHtml(board.id) + '">' + escapeHtml(board.id) + '</p>' +
+            '<p class="mt-1 flex items-center gap-1 text-[10px] text-[#9a9aae]">' +
+              '<i data-lucide="calendar-days" class="h-3 w-3"></i>' +
+              '<span>' + escapeHtml(formatDate(board.createdAt)) + '</span>' +
+            '</p>' +
+          '</div>' +
+          '<span class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold ' + (online ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f3f4f8] text-[#8b8b9e]') + '">' +
+            '<span class="h-1.5 w-1.5 rounded-full ' + (online ? 'bg-emerald-500' : 'bg-[#c1c1ce]') + '"></span>' +
+            (online ? formatNumber(board.onlineCount) + ' онлайн' : 'нет онлайн') +
+          '</span>' +
+        '</div>' +
+
+        '<div class="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-[#f8f9fd] p-2">' +
+          '<div class="min-w-0 rounded-lg bg-white/75 px-2 py-1.5">' +
+            '<p class="text-[8.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Объекты</p>' +
+            '<p class="mt-0.5 truncate text-[15px] font-semibold text-ink">' + formatNumber(board.objectCount) + '</p>' +
+          '</div>' +
+          '<div class="min-w-0 rounded-lg bg-white/75 px-2 py-1.5">' +
+            '<p class="text-[8.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Фото</p>' +
+            '<p class="mt-0.5 truncate text-[15px] font-semibold text-ink">' + formatNumber(board.imageCount) + '</p>' +
+          '</div>' +
+          '<div class="min-w-0 rounded-lg bg-white/75 px-2 py-1.5">' +
+            '<p class="text-[8.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Размер</p>' +
+            '<p class="mt-0.5 truncate text-[13px] font-semibold text-ink">' + escapeHtml(formatSize(board.bytes)) + '</p>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="mt-3 flex min-h-[30px] flex-wrap items-center gap-1.5">' +
+          '<span class="mr-0.5 inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.07em] text-[#9a9aae]">' +
+            '<i data-lucide="users" class="h-3 w-3"></i>Онлайн' +
+          '</span>' +
+          (onlineHtml || '<span class="text-[10.5px] text-[#9a9aae]">Никого нет</span>') +
+        '</div>' +
+
+        '<div class="mt-4 flex flex-wrap items-center gap-2">' +
+          '<button type="button" class="btn btn-primary btn-xs" data-action="open" data-board-id="' + escapeHtml(board.id) + '">' +
+            '<i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i><span>Открыть</span>' +
+          '</button>' +
+          '<button type="button" class="btn btn-secondary btn-xs" data-action="copy" data-board-id="' + escapeHtml(board.id) + '">' +
+            '<i data-lucide="link-2" class="h-3.5 w-3.5"></i><span>Ссылка</span>' +
+          '</button>' +
+          '<button type="button" class="btn btn-warning btn-xs" data-action="clear" data-board-id="' + escapeHtml(board.id) + '">' +
+            '<i data-lucide="eraser" class="h-3.5 w-3.5"></i><span>Очистить</span>' +
+          '</button>' +
+          '<button type="button" class="btn btn-ghost btn-xs text-red-600 hover:bg-red-50" data-action="delete" data-board-id="' + escapeHtml(board.id) + '">' +
+            '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>Удалить</span>' +
+          '</button>' +
+        '</div>' +
+      '</article>';
+    }
+
+    function updateOnlineCards(boardIds) {
+      const grid = el('boardsGrid');
+      boardIds.forEach((id) => {
+        const board = state.boards.find((item) => item.id === id);
+        if (!board) return;
+        const card = Array.from(grid.children).find((node) => node.dataset.boardCard === id);
+        if (!card) return;
+        const holder = document.createElement('div');
+        holder.innerHTML = renderBoardCard(board);
+        const next = holder.firstElementChild;
+        if (next) card.replaceWith(next);
+      });
+      refreshIcons();
+    }
+
+    function truncatedNames(board) {
+      return board.onlineNames.slice(0, 3).map((name) => {
+        const user = board.onlineUsers.find((item) => item.name === name);
+        const color = user ? user.color : '#4262ff';
+        return '<span class="inline-flex max-w-[120px] items-center gap-1 rounded-full border border-black/[0.06] bg-white px-2 py-0.5 text-[10px] font-medium text-[#4d4d62]">' +
+          '<span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:' + escapeHtml(color) + '"></span>' +
+          '<span class="truncate">' + escapeHtml(name) + '</span></span>';
+      }).join('');
+    }
+
+    function renderBoards() {
+      const boards = filteredBoards();
+      const grid = el('boardsGrid');
+      const empty = el('emptyState');
+      grid.classList.toggle('hidden', boards.length === 0);
+      empty.classList.toggle('hidden', boards.length > 0);
+
+      if (boards.length) {
+        grid.innerHTML = boards.map(renderBoardCard).join('');
+      } else {
+        const hasBoards = state.boards.length > 0;
+        el('emptyTitle').textContent = hasBoards ? 'Ничего не найдено' : 'В базе пока нет досок';
+        el('emptyText').textContent = hasBoards
+          ? 'Попробуйте изменить запрос или сбросить поиск.'
+          : 'Создайте первую доску — она сразу появится в Firebase и будет доступна по ссылке.';
+        el('emptyActionLabel').textContent = hasBoards ? 'Сбросить поиск' : 'Создать доску';
+        el('emptyActionBtn').dataset.mode = hasBoards ? 'reset' : 'create';
+      }
+
+      refreshIcons();
+      updateSelectionUi();
+    }
+
+    function updateSelectionUi() {
+      const visible = filteredBoards();
+      const visibleSelected = visible.filter((board) => state.selected.has(board.id)).length;
+      const selectAll = el('selectAll');
+      selectAll.disabled = visible.length === 0;
+      selectAll.checked = visible.length > 0 && visibleSelected === visible.length;
+      selectAll.indeterminate = visibleSelected > 0 && visibleSelected < visible.length;
+
+      const count = state.selected.size;
+      el('selectionCount').textContent = count
+        ? 'Выбрано: ' + formatNumber(count)
+        : 'Ничего не выбрано';
+      el('deleteSelectedBtn').disabled = count === 0;
+      el('deleteSelectedLabel').textContent = count
+        ? 'Удалить выбранные (' + formatNumber(count) + ')'
+        : 'Удалить выбранные';
+    }
+
+    async function handleAuthState(user) {
+      if (user && !isAllowedAdmin(user)) {
+        authNotice = 'Этот аккаунт не имеет доступа к админ-панели.';
+        try {
+          await auth.signOut();
+        } catch (_) {
+          showAuthScreen();
+          setLoginError(authNotice);
+          authNotice = '';
+        }
+        return;
+      }
+
+      if (user) {
+        currentUser = user;
+        authNotice = '';
+        updateAdminHeader(user);
+        showAppScreen();
+        await loadDashboard();
+        return;
+      }
+
+      currentUser = null;
+      resetDashboard();
+      showAuthScreen();
+      if (authNotice) {
+        setLoginError(authNotice);
+        authNotice = '';
+      }
+    }
+
+    function boardUrl(boardId) {
+      const url = new URL('index.html', window.location.href);
+      url.search = '';
+      url.hash = '';
+      url.searchParams.set('board', boardId);
+      url.hash = boardId;
+      return url.href;
+    }
+
+    function openBoard(boardId) {
+      const link = document.createElement('a');
+      link.href = boardUrl(boardId);
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.left = '-9999px';
+      area.style.top = '0';
+      document.body.appendChild(area);
+      area.select();
+      const copied = document.execCommand('copy');
+      area.remove();
+      if (!copied) throw new Error('copy-failed');
+    }
+
+    async function copyBoardLink(boardId) {
+      try {
+        await copyText(boardUrl(boardId));
+        showToast('Ссылка на доску скопирована');
+      } catch (error) {
+        console.error('Ошибка копирования:', error);
+        showToast('Не удалось скопировать ссылку', 'error');
+      }
+    }
+
+    async function reloadAfterMutation(message) {
+      const ok = await loadDashboard({ message });
+      if (!ok) {
+        showToast('Изменения сохранены, но список не обновился. Нажмите «Обновить».', 'error');
+      }
+      return ok;
+    }
+
+    async function createBoard(name) {
+      const cleanName = String(name || '').trim().slice(0, MAX_BOARD_NAME);
+      if (!cleanName) {
+        const error = new Error('Введите название доски.');
+        error.userMessage = error.message;
+        throw error;
+      }
+
+      const boardId = generateBoardId();
+      await db.ref('boards_meta/' + boardId).set({
+        name: cleanName,
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      });
+
+      state.search = '';
+      state.sort = 'created_desc';
+      el('searchInput').value = '';
+      el('sortSelect').value = state.sort;
+      const refreshed = await reloadAfterMutation('Обновляем данные…');
+      showToast(refreshed ? 'Доска создана' : 'Доска создана, но список не обновился', refreshed ? 'success' : 'error');
+    }
+
+    async function renameBoard(boardId, name) {
+      const cleanName = String(name || '').trim().slice(0, MAX_BOARD_NAME);
+      if (!cleanName) {
+        const error = new Error('Введите название доски.');
+        error.userMessage = error.message;
+        throw error;
+      }
+
+      const board = state.boards.find((item) => item.id === boardId);
+      if (!board) {
+        const error = new Error('Доска не найдена. Обновите список.');
+        error.userMessage = error.message;
+        throw error;
+      }
+
+      const payload = {
+        name: cleanName,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      };
+      if (!board.createdAt) {
+        payload.createdAt = firebase.database.ServerValue.TIMESTAMP;
+      }
+
+      await db.ref('boards_meta/' + boardId).update(payload);
+      const refreshed = await reloadAfterMutation('Обновляем данные…');
+      showToast(refreshed ? 'Название доски обновлено' : 'Название сохранено, но список не обновился', refreshed ? 'success' : 'error');
+    }
+
+    async function clearBoardCanvas(boardId) {
+      await db.ref('boards_data/' + boardId).remove();
+      const refreshed = await reloadAfterMutation('Очищаем холст…');
+      showToast(refreshed ? 'Холст очищен. Доска и ссылка сохранены' : 'Холст очищен, но список не обновился', refreshed ? 'success' : 'error');
+    }
+
+    async function deleteBoardsByIds(boardIds) {
+      const ids = Array.from(new Set(boardIds));
+      if (!ids.length) return;
+      const paths = [];
+      ids.forEach((id) => {
+        ['boards_meta', 'boards_data', 'boards_cursors'].forEach((root) => {
+          paths.push(db.ref(root + '/' + id));
+        });
+      });
+
+      const results = await Promise.allSettled(paths.map((ref) => ref.remove()));
+      const failed = results.filter((result) => result.status === 'rejected');
+      if (!failed.length) {
+        ids.forEach((id) => state.selected.delete(id));
+      }
+
+      const refreshed = await reloadAfterMutation('Удаляем доски…');
+
+      if (failed.length) {
+        const error = new Error('Не удалось удалить часть данных (' + failed.length + ' операций). Обновите список и проверьте правила Firebase.');
+        error.userMessage = error.message;
+        throw error;
+      }
+
+      showToast(
+        refreshed
+          ? (ids.length === 1 ? 'Доска удалена навсегда' : 'Удалено досок: ' + ids.length)
+          : 'Данные удалены, но список не обновился',
+        refreshed ? 'success' : 'error'
+      );
+    }
+
+    function showModalError(message) {
+      const box = el('modalError');
+      box.textContent = message;
+      box.classList.toggle('hidden', !message);
+    }
+
+    function setModalBusy(busy) {
+      modalBusy = busy;
+      el('modalCancel').disabled = busy;
+      el('modalConfirm').disabled = busy;
+      el('modalInput').disabled = busy;
+      el('modalSpinner').classList.toggle('hidden', !busy);
+      el('modalConfirmLabel').textContent = busy
+        ? ((modalState && modalState.busyLabel) || 'Подождите…')
+        : ((modalState && modalState.confirmLabel) || 'Подтвердить');
+    }
+
+    function openModal(config) {
+      modalState = config;
+      modalBusy = false;
+      el('modalTitle').textContent = config.title || 'Подтверждение';
+      const description = el('modalDescription');
+      description.textContent = config.description || '';
+      description.classList.toggle('hidden', !config.description);
+
+      const tone = config.tone || 'primary';
+      const icon = el('modalIcon');
+      icon.dataset.tone = tone;
+      icon.innerHTML = '<i data-lucide="' + (config.icon || 'help-circle') + '" class="h-5 w-5"></i>';
+      el('modalConfirm').dataset.tone = tone;
+
+      const inputWrap = el('modalInputWrap');
+      inputWrap.classList.toggle('hidden', !config.input);
+      el('modalInput').value = config.inputValue || '';
+      el('modalInput').placeholder = config.inputPlaceholder || '';
+      el('modalInput').disabled = false;
+      el('modalCancel').disabled = false;
+      el('modalConfirm').disabled = false;
+      el('modalSpinner').classList.add('hidden');
+      el('modalConfirmLabel').textContent = config.confirmLabel || 'Подтвердить';
+      el('modalError').classList.add('hidden');
+
+      el('modalLayer').classList.remove('hidden');
+      el('modalLayer').classList.add('flex');
+      syncBodyLock();
+      refreshIcons();
+      setTimeout(() => {
+        if (modalState !== config) return;
+        if (config.input) {
+          el('modalInput').focus();
+          el('modalInput').select();
+        } else {
+          el('modalConfirm').focus();
+        }
+      }, 30);
+    }
+
+    function closeModal(force) {
+      if (modalBusy && !force) return;
+      modalState = null;
+      modalBusy = false;
+      el('modalLayer').classList.add('hidden');
+      el('modalLayer').classList.remove('flex');
+      syncBodyLock();
+    }
+
+    async function handleModalSubmit(event) {
+      event.preventDefault();
+      if (!modalState || modalBusy) return;
+      const config = modalState;
+      let value = '';
+
+      if (config.input) {
+        value = el('modalInput').value.trim();
+        if (!value) {
+          showModalError('Введите название доски.');
+          el('modalInput').focus();
+          return;
+        }
+      }
+
+      showModalError('');
+      setModalBusy(true);
+      try {
+        await config.action(value);
+        closeModal(true);
+      } catch (error) {
+        console.error('Ошибка операции:', error);
+        showModalError(error && error.userMessage ? error.userMessage : dbErrorMessage(error));
+      } finally {
+        if (modalState === config) setModalBusy(false);
+      }
+    }
+
+    function openCreateModal() {
+      openModal({
+        title: 'Создать новую доску',
+        description: 'Запись появится в boards_meta. Ссылка на доску будет доступна сразу после создания.',
+        icon: 'plus',
+        tone: 'primary',
+        input: true,
+        inputPlaceholder: 'Например, Алгебра — 8 класс',
+        confirmLabel: 'Создать доску',
+        busyLabel: 'Создаём…',
+        action: (name) => createBoard(name)
+      });
+    }
+
+    function openRenameModal(board) {
+      openModal({
+        title: 'Переименовать доску',
+        description: 'Новое название увидят все, кто откроет доску по ссылке.',
+        icon: 'pencil',
+        tone: 'primary',
+        input: true,
+        inputValue: board.name,
+        confirmLabel: 'Сохранить название',
+        busyLabel: 'Сохраняем…',
+        action: (name) => renameBoard(board.id, name)
+      });
+    }
+
+    function openClearModal(board) {
+      openModal({
+        title: 'Очистить холст?',
+        description: 'Все объекты доски «' + board.name + '» будут удалены из boards_data. Сама доска, её название и ссылка останутся рабочими.',
+        icon: 'eraser',
+        tone: 'warning',
+        confirmLabel: 'Очистить холст',
+        busyLabel: 'Очищаем…',
+        action: () => clearBoardCanvas(board.id)
+      });
+    }
+
+    function openDeleteModal(board) {
+      openModal({
+        title: 'Удалить доску навсегда?',
+        description: 'Доска «' + board.name + '» будет полностью удалена из boards_meta, boards_data и boards_cursors. Это действие нельзя отменить.',
+        icon: 'trash-2',
+        tone: 'danger',
+        confirmLabel: 'Удалить навсегда',
+        busyLabel: 'Удаляем…',
+        action: () => deleteBoardsByIds([board.id])
+      });
+    }
+
+    function openBatchDeleteModal() {
+      const ids = Array.from(state.selected);
+      if (!ids.length) return;
+      openModal({
+        title: 'Удалить выбранные доски?',
+        description: 'Будет навсегда удалено досок: ' + ids.length + '. Их данные исчезнут из boards_meta, boards_data и boards_cursors. Это действие нельзя отменить.',
+        icon: 'trash-2',
+        tone: 'danger',
+        confirmLabel: 'Удалить выбранные (' + ids.length + ')',
+        busyLabel: 'Удаляем…',
+        action: () => deleteBoardsByIds(ids)
+      });
+    }
+
+    async function handleLogin(event) {
+      event.preventDefault();
+      setLoginError('');
+      const email = el('loginEmail').value.trim();
+      const password = el('loginPassword').value;
+
+      if (!email) {
+        setLoginError('Введите email администратора.');
+        el('loginEmail').focus();
+        return;
+      }
+      if (!password) {
+        setLoginError('Введите пароль.');
+        el('loginPassword').focus();
+        return;
+      }
+
+      setLoginBusy(true);
+      try {
+        try {
+          await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        } catch (_) {
+          // Если браузер не разрешает persistence, вход всё равно должен работать.
+        }
+        await auth.signInWithEmailAndPassword(email, password);
+        el('loginPassword').value = '';
+      } catch (error) {
+        console.error('Ошибка входа:', error);
+        setLoginError(loginErrorMessage(error));
+        setLoginBusy(false);
+      }
+    }
+
+    async function handleLogout() {
+      const button = el('logoutBtn');
+      button.disabled = true;
+      try {
+        await auth.signOut();
+      } catch (error) {
+        console.error('Ошибка выхода:', error);
+        showToast(dbErrorMessage(error), 'error');
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function bindEvents() {
+      el('loginForm').addEventListener('submit', handleLogin);
+
+      el('togglePassword').addEventListener('click', () => {
+        const input = el('loginPassword');
+        const button = el('togglePassword');
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        button.innerHTML = '<i data-lucide="' + (show ? 'eye-off' : 'eye') + '" class="h-4 w-4"></i>';
+        button.setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль');
+        button.setAttribute('aria-pressed', String(show));
+        refreshIcons();
+      });
+
+      el('logoutBtn').addEventListener('click', handleLogout);
+      el('refreshBtn').addEventListener('click', () => {
+        if (!isLoading) loadDashboard();
+      });
+      el('createBoardBtn').addEventListener('click', openCreateModal);
+
+      el('searchInput').addEventListener('input', () => {
+        state.search = el('searchInput').value;
+        renderBoards();
+      });
+
+      el('sortSelect').addEventListener('change', () => {
+        state.sort = el('sortSelect').value;
+        renderBoards();
+      });
+
+      el('selectAll').addEventListener('change', () => {
+        const visible = filteredBoards();
+        if (el('selectAll').checked) {
+          visible.forEach((board) => state.selected.add(board.id));
+        } else {
+          visible.forEach((board) => state.selected.delete(board.id));
+        }
+        renderBoards();
+      });
+
+      el('deleteSelectedBtn').addEventListener('click', openBatchDeleteModal);
+
+      el('boardsGrid').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const board = state.boards.find((item) => item.id === button.dataset.boardId);
+        if (!board) {
+          showToast('Доска не найдена. Обновите список.', 'error');
+          return;
+        }
+
+        if (button.dataset.action === 'open') openBoard(board.id);
+        else if (button.dataset.action === 'copy') copyBoardLink(board.id);
+        else if (button.dataset.action === 'rename') openRenameModal(board);
+        else if (button.dataset.action === 'clear') openClearModal(board);
+        else if (button.dataset.action === 'delete') openDeleteModal(board);
+      });
+
+      el('boardsGrid').addEventListener('change', (event) => {
+        const checkbox = event.target.closest('input[data-select-board]');
+        if (!checkbox) return;
+        const id = checkbox.dataset.selectBoard;
+        if (checkbox.checked) state.selected.add(id);
+        else state.selected.delete(id);
+        const card = checkbox.closest('[data-board-card]');
+        if (card) card.classList.toggle('is-selected', checkbox.checked);
+        updateSelectionUi();
+      });
+
+      el('emptyActionBtn').addEventListener('click', () => {
+        if (el('emptyActionBtn').dataset.mode === 'reset') {
+          state.search = '';
+          el('searchInput').value = '';
+          renderBoards();
+        } else {
+          openCreateModal();
+        }
+      });
+
+      el('modalForm').addEventListener('submit', handleModalSubmit);
+      el('modalCancel').addEventListener('click', () => closeModal(false));
+      el('modalBackdrop').addEventListener('click', () => closeModal(false));
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !el('modalLayer').classList.contains('hidden')) {
+          closeModal(false);
+        }
+      });
+    }
+
+    function init() {
+      if (!window.firebase || typeof window.firebase.auth !== 'function' || typeof window.firebase.database !== 'function') {
+        showFatal('Не удалось загрузить Firebase SDK. Проверьте интернет-соединение и обновите страницу.');
+        return;
+      }
+
+      try {
+        if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.database();
+      } catch (error) {
+        console.error('Ошибка инициализации Firebase:', error);
+        showFatal('Не удалось подключиться к Firebase. Проверьте firebaseConfig и настройки проекта.');
+        return;
+      }
+
+      bindEvents();
+      refreshIcons();
+      showBoot();
+
+      auth.onAuthStateChanged((user) => {
+        handleAuthState(user).catch((error) => {
+          console.error('Ошибка состояния авторизации:', error);
+          showFatal('Не удалось проверить авторизацию. Обновите страницу и попробуйте снова.');
+        });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>

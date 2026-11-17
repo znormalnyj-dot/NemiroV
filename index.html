@@ -170,14 +170,37 @@
     .board-item {
       display: flex;
       align-items: center;
-      gap: 10px;
       width: 100%;
-      padding: 6px;
+      padding: 2px 4px 2px 6px;
       border-radius: 11px;
-      text-align: left;
       transition: background .14s ease;
     }
-    .board-item:hover { background: #f5f6fa; }
+    .board-item:hover,
+    .board-item.is-active { background: #f5f6fa; }
+    .board-open {
+      display: flex;
+      flex: 1;
+      min-width: 0;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 0;
+      text-align: left;
+    }
+    .board-hide {
+      display: grid;
+      flex: 0 0 26px;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      margin-left: 2px;
+      border-radius: 7px;
+      color: #9a9aae;
+      opacity: .55;
+      transition: background .14s ease, color .14s ease, opacity .14s ease;
+    }
+    .board-hide:hover,
+    .board-hide:focus-visible { background: #e9e9f0; color: #4b4b5e; opacity: 1; }
+    .board-item:hover .board-hide { opacity: 1; }
     .board-thumb {
       position: relative;
       width: 38px;
@@ -280,6 +303,16 @@
       overflow: hidden;
       overscroll-behavior: none;
       touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    #canvasWrap canvas,
+    #canvasWrap .upper-canvas {
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
     #gridLayer {
       position: absolute;
@@ -447,6 +480,53 @@
 
     ::selection { background: rgba(66, 98, 255, .2); }
     :focus-visible { outline: 2px solid rgba(66, 98, 255, .55); outline-offset: 2px; }
+
+    /* Compact layout for phones */
+    @media (max-width: 639px) {
+      #topLeftBar { padding: 8px; }
+      #topRightBar { gap: 6px; padding: 8px; }
+      #boardMenuRoot > div {
+        height: 46px;
+        gap: 4px;
+        border-radius: 14px;
+        padding: 4px 8px 4px 4px;
+      }
+      #boardMenuRoot > div > div:first-child {
+        width: 38px;
+        height: 38px;
+        border-radius: 11px;
+      }
+      #boardMenuRoot > div > div:first-child svg { width: 19px; height: 19px; }
+      #boardMenuBtn { height: 38px; padding-left: 6px; padding-right: 6px; }
+      #currentBoardName { max-width: 92px; font-size: 12px; }
+      #boardMenuBtn .mt-1 { margin-top: 2px; font-size: 8.5px; letter-spacing: .07em; }
+      #boardMenu { width: min(320px, calc(100vw - 16px)); max-height: calc(100dvh - 72px); }
+      #shareBtn {
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        padding: 0;
+      }
+      #shareBtn span { display: none; }
+      #toolRail { left: 8px; }
+      #toolRail > div { gap: 5px; }
+      #toolRail > div > div:first-child { gap: 0; border-radius: 14px; padding: 4px; }
+      .tool-btn { width: 34px; height: 34px; border-radius: 9px; }
+      #toolRail .tool-btn svg { width: 17px; height: 17px; }
+      .history-btn, .zoom-btn { width: 29px; height: 29px; }
+      #zoomBar { right: 8px; bottom: 8px; }
+      #zoomBar > div { height: 40px; padding: 4px; }
+      #zoomLabelBtn { min-width: 46px; height: 30px; font-size: 11px; }
+    }
+    @media (max-width: 639px) and (max-height: 620px) {
+      #toolRail > div { gap: 3px; }
+      .tool-btn { width: 30px; height: 30px; }
+      #toolRail .tool-btn svg { width: 16px; height: 16px; }
+    }
+    @media (hover: none) {
+      .tip::after, .tip::before, .tip-top::after, .tip-top::before { display: none !important; }
+      .board-hide { opacity: .8; }
+    }
   </style>
 </head>
 <body>
@@ -469,7 +549,7 @@
     </div>
 
     <!-- Верхний левый блок: логотип, название доски, меню -->
-    <div class="pointer-events-none absolute left-0 top-0 z-50 p-3 sm:p-4">
+    <div id="topLeftBar" class="pointer-events-none absolute left-0 top-0 z-50 p-3 sm:p-4">
       <div id="boardMenuRoot" class="pointer-events-auto relative">
         <div class="flex h-14 items-center gap-1.5 rounded-2xl border border-black/[0.06] bg-white p-1.5 pr-2.5 float-card">
           <div class="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[13px] bg-gradient-to-br from-[#ffe25a] to-[#ffd02f] shadow-[inset_0_1px_0_rgba(255,255,255,.7),0_1px_2px_rgba(5,0,56,.12)]">
@@ -541,11 +621,14 @@
     </div>
 
     <!-- Левая панель инструментов -->
-    <div class="absolute left-3 top-1/2 z-40 -translate-y-1/2 sm:left-4">
+    <div id="toolRail" class="absolute left-3 top-1/2 z-40 -translate-y-1/2 sm:left-4">
       <div class="flex flex-col gap-2.5">
         <div class="flex flex-col items-center gap-0.5 rounded-2xl border border-black/[0.06] bg-white p-1.5 float-card">
           <button type="button" class="tool-btn tip" data-tool="cursor" data-tip="Курсор (V)" aria-label="Курсор" aria-pressed="true">
             <i data-lucide="mouse-pointer-2" class="h-[19px] w-[19px]"></i>
+          </button>
+          <button type="button" class="tool-btn tip" data-tool="hand" data-tip="Рука / Перемещение (H)" aria-label="Рука / Перемещение" aria-pressed="false">
+            <i data-lucide="hand" class="h-[19px] w-[19px]"></i>
           </button>
 
           <div id="penRoot" class="relative">
@@ -699,7 +782,7 @@
     </div>
 
     <!-- Верхний правый блок: участники, имя, Share -->
-    <div class="pointer-events-none absolute right-0 top-0 z-40 flex items-center gap-2 p-3 sm:p-4">
+    <div id="topRightBar" class="pointer-events-none absolute right-0 top-0 z-40 flex items-center gap-2 p-3 sm:p-4">
       <div class="pointer-events-auto hidden h-14 items-center gap-2 rounded-2xl border border-black/[0.06] bg-white p-1.5 pl-2.5 float-card sm:flex">
         <div id="onlineAvatars" class="flex -space-x-2" aria-label="Участники онлайн"></div>
         <div class="hidden items-center gap-1.5 sm:flex">
@@ -722,7 +805,7 @@
     </div>
 
     <!-- Нижний правый блок: масштаб -->
-    <div class="absolute bottom-3 right-3 z-40 flex items-center gap-2 sm:bottom-4 sm:right-4">
+    <div id="zoomBar" class="absolute bottom-3 right-3 z-40 flex items-center gap-2 sm:bottom-4 sm:right-4">
       <div class="flex h-11 items-center gap-0.5 rounded-xl border border-black/[0.06] bg-white p-1 float-card">
         <button id="zoomOutBtn" type="button" class="zoom-btn tip-top" data-tip="Уменьшить" aria-label="Уменьшить масштаб">
           <i data-lucide="minus" class="h-4 w-4"></i>
@@ -971,16 +1054,6 @@
         return readBoardIdFromQuery() || readBoardIdFromHash();
       }
 
-      function isInviteUrl() {
-        try {
-          const params = new URLSearchParams(location.search);
-          const flag = (params.get('invite') || '').trim().toLowerCase();
-          return flag === '1' || flag === 'true' || flag === 'yes';
-        } catch (_) {
-          return false;
-        }
-      }
-
       function boardThemeIndex(id) {
         let hash = 0;
         const text = String(id || '');
@@ -1024,25 +1097,27 @@
               .filter(b => b.id && !LEGACY_DEFAULT_BOARD_IDS.has(b.id))
           : [];
 
-        const isGuestInvite = isInviteUrl();
         const urlBoardId = readBoardIdFromUrl();
         let savedBoardId = data && typeof data.currentBoardId === 'string' ? sanitizeBoardId(data.currentBoardId) : '';
         if (savedBoardId && LEGACY_DEFAULT_BOARD_IDS.has(savedBoardId) && !urlBoardId) savedBoardId = '';
 
-        // Ссылка-приглашение всегда важнее сохранённой в браузере доски.
+        // Доска из ссылки всегда важнее сохранённой в браузере.
         const currentBoardId = urlBoardId || savedBoardId || generateBoardId();
 
-        const visitedBoardIds = Array.isArray(data && data.visitedBoardIds)
-          ? data.visitedBoardIds.map(sanitizeBoardId).filter(id => id && !LEGACY_DEFAULT_BOARD_IDS.has(id))
-          : [];
+        let visitedBoardIds = Array.from(new Set(
+          Array.isArray(data && data.visitedBoardIds)
+            ? data.visitedBoardIds.map(sanitizeBoardId).filter(id => id && !LEGACY_DEFAULT_BOARD_IDS.has(id))
+            : []
+        ));
+        // Совместимость со старыми сохранениями: локальный список досок
+        // уже означает, что пользователь открывал их в этом браузере.
+        if (!visitedBoardIds.length && boards.length) {
+          visitedBoardIds = Array.from(new Set(boards.map(board => board.id)));
+        }
         if (!visitedBoardIds.includes(currentBoardId)) visitedBoardIds.push(currentBoardId);
 
-        // Приглашённый участник видит только те комнаты, ссылки на которые
-        // он открывал лично в этом браузере.
-        if (isGuestInvite) {
-          const allowed = new Set(visitedBoardIds);
-          boards = boards.filter(board => allowed.has(board.id));
-        }
+        const allowed = new Set(visitedBoardIds);
+        boards = boards.filter(board => allowed.has(board.id));
 
         if (!boards.some(b => b.id === currentBoardId)) {
           boards.unshift({
@@ -1056,12 +1131,9 @@
 
         const boardHash = '#' + encodeURIComponent(currentBoardId);
         const hasBoardQuery = !!readBoardIdFromQuery();
-        if (isGuestInvite || hasBoardQuery) {
+        if (hasBoardQuery) {
           try {
-            const params = new URLSearchParams(location.search);
-            params.set('board', currentBoardId);
-            if (isGuestInvite) params.set('invite', '1');
-            history.replaceState(null, '', location.pathname + '?' + params.toString() + boardHash);
+            history.replaceState(null, '', location.pathname + '?board=' + encodeURIComponent(currentBoardId) + boardHash);
           } catch (_) {}
         } else if (location.hash.slice(1) !== encodeURIComponent(currentBoardId)) {
           try { history.replaceState(null, '', boardHash); } catch (_) {}
@@ -1070,7 +1142,6 @@
         return {
           boards,
           currentBoardId,
-          isGuestInvite,
           visitedBoardIds,
           userName: data && typeof data.userName === 'string' ? data.userName.slice(0, 24) : '',
           userId: data && typeof data.userId === 'string' && data.userId ? data.userId : uuid()
@@ -1134,6 +1205,16 @@
       let lastRightPanX = 0;
       let lastRightPanY = 0;
       let spaceDown = false;
+      let touchGestureActive = false;
+      let touchGestureLastCenter = null;
+      let touchGestureLastDistance = 0;
+      let touchGestureStartDistance = 0;
+      let touchGestureStartZoom = 1;
+      let touchGestureHadFabricTouch = false;
+      let handTouchActive = false;
+      let handTouchLastX = 0;
+      let handTouchLastY = 0;
+      let singleTouchFabricActive = false;
       let isErasing = false;
       let lastEraserPoint = null;
       let lastEraserScreen = null;
@@ -1263,12 +1344,9 @@
         if (!safeId) return;
         const hash = '#' + encodeURIComponent(safeId);
         try {
-          const params = new URLSearchParams(location.search);
-          const keepBoardQuery = state.isGuestInvite || params.has('board');
+          const keepBoardQuery = new URLSearchParams(location.search).has('board');
           if (keepBoardQuery) {
-            params.set('board', safeId);
-            if (state.isGuestInvite) params.set('invite', '1');
-            const target = location.pathname + '?' + params.toString() + hash;
+            const target = location.pathname + '?board=' + encodeURIComponent(safeId) + hash;
             if (location.pathname + location.search + location.hash === target) return;
             if (replace) history.replaceState(null, '', target);
             else history.pushState(null, '', target);
@@ -1452,17 +1530,8 @@
       /* ---------- Board list ---------- */
 
       function visibleBoards() {
-        if (!state.isGuestInvite) return state.boards;
         const visited = new Set(state.visitedBoardIds || []);
         return state.boards.filter(board => board.id === state.currentBoardId || visited.has(board.id));
-      }
-
-      function applyGuestMode() {
-        const guest = !!state.isGuestInvite;
-        $$('[data-action="new-board"]').forEach((btn) => {
-          btn.classList.toggle('hidden', guest);
-          btn.setAttribute('aria-hidden', guest ? 'true' : 'false');
-        });
       }
 
       function renderBoardList() {
@@ -1474,30 +1543,74 @@
           const created = typeof board.createdAt === 'number' ? board.createdAt : (board.updatedAt || Date.now());
           const grid = 'linear-gradient(rgba(255,255,255,.55) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.55) 1px, transparent 1px)';
           return `
-            <button type="button" role="menuitem" data-board-id="${escapeHtml(board.id)}" class="board-item">
-              <span class="board-thumb" style="background-color:${theme.bg};background-image:${grid};">
-                <span class="absolute left-1.5 top-1.5 h-2.5 w-3.5 rounded-[2px]" style="background:${theme.accent};opacity:.85"></span>
-                <span class="absolute bottom-1.5 right-1.5 h-2 w-2 rounded-full" style="background:${theme.accent};opacity:.45"></span>
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-[12.5px] font-medium leading-tight ${active ? 'text-ink' : 'text-[#3e3e52]'}">${escapeHtml(board.name)}</span>
-                <span class="mt-0.5 block text-[10.5px] text-[#8b8b9e]">Создана ${timeAgo(created)}</span>
-              </span>
-              ${active ? '<span class="board-check"><i data-lucide="check" class="h-3 w-3"></i></span>' : '<i data-lucide="chevron-right" class="h-3.5 w-3.5 text-[#c9c9d4]"></i>'}
-            </button>
+            <div data-board-id="${escapeHtml(board.id)}" class="board-item${active ? ' is-active' : ''}">
+              <button type="button" role="menuitem" class="board-open" aria-current="${active ? 'page' : 'false'}">
+                <span class="board-thumb" style="background-color:${theme.bg};background-image:${grid};">
+                  <span class="absolute left-1.5 top-1.5 h-2.5 w-3.5 rounded-[2px]" style="background:${theme.accent};opacity:.85"></span>
+                  <span class="absolute bottom-1.5 right-1.5 h-2 w-2 rounded-full" style="background:${theme.accent};opacity:.45"></span>
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[12.5px] font-medium leading-tight ${active ? 'text-ink' : 'text-[#3e3e52]'}">${escapeHtml(board.name)}</span>
+                  <span class="mt-0.5 block text-[10.5px] text-[#8b8b9e]">Создана ${timeAgo(created)}</span>
+                </span>
+                ${active ? '<span class="board-check"><i data-lucide="check" class="h-3 w-3"></i></span>' : '<i data-lucide="chevron-right" class="h-3.5 w-3.5 text-[#c9c9d4]"></i>'}
+              </button>
+              <button type="button" class="board-hide" data-hide-board-id="${escapeHtml(board.id)}" title="Скрыть из списка" aria-label="Скрыть доску «${escapeHtml(board.name)}» из списка">
+                <i data-lucide="x" class="h-3.5 w-3.5"></i>
+              </button>
+            </div>
           `;
         }).join('');
 
         const count = boards.length;
-        boardCountLabel.textContent = state.isGuestInvite
-          ? `${count} ${plural(count, 'доска', 'доски', 'досок')} · гостевой доступ`
-          : `${count} ${plural(count, 'доска', 'доски', 'досок')} · личное пространство`;
-        applyGuestMode();
+        boardCountLabel.textContent = `${count} ${plural(count, 'доска', 'доски', 'досок')} · личное пространство`;
         refreshIcons();
       }
 
+      function hideBoardLocally(id) {
+        const safeId = sanitizeBoardId(id);
+        if (!safeId) return;
+
+        const wasCurrent = safeId === state.currentBoardId;
+        state.visitedBoardIds = (state.visitedBoardIds || []).filter(boardId => boardId !== safeId);
+        state.boards = state.boards.filter(board => board.id !== safeId);
+
+        if (wasCurrent) {
+          const next = state.boards.find(board => state.visitedBoardIds.includes(board.id));
+          if (next) {
+            switchBoard(next.id);
+          } else {
+            const newId = generateBoardId();
+            const now = Date.now();
+            state.boards.unshift({
+              id: newId,
+              name: defaultBoardName(newId),
+              theme: boardThemeIndex(newId),
+              createdAt: now,
+              updatedAt: now
+            });
+            markBoardVisited(newId);
+            switchBoard(newId);
+          }
+        } else {
+          persist();
+          renderBoardList();
+        }
+
+        showToast('Доска скрыта из списка');
+      }
+
       boardList.addEventListener('click', (event) => {
-        const item = event.target.closest('[data-board-id]');
+        const hide = event.target.closest('[data-hide-board-id]');
+        if (hide) {
+          event.preventDefault();
+          event.stopPropagation();
+          hideBoardLocally(hide.dataset.hideBoardId);
+          return;
+        }
+
+        const open = event.target.closest('.board-open');
+        const item = open && open.closest('[data-board-id]');
         if (item) switchBoard(item.dataset.boardId);
       });
 
@@ -1511,10 +1624,6 @@
       }
 
       function createBoard(name) {
-        if (state.isGuestInvite) {
-          showToast('В гостевом режиме нельзя создавать доски', 'error');
-          return;
-        }
         const id = generateBoardId();
         const cleanName = (name || 'Новая доска').trim().slice(0, 48) || 'Новая доска';
         const meta = { name: cleanName, createdAt: Date.now(), updatedAt: Date.now() };
@@ -1593,6 +1702,7 @@
 
       const TOOL_CURSORS = {
         cursor: 'default',
+        hand: 'grab',
         pen: 'crosshair',
         eraser: 'none',
         text: 'text',
@@ -1626,7 +1736,7 @@
         const tool = state.tool;
         canvas.isDrawingMode = tool === 'pen' && !spaceDown;
         canvas.selection = tool === 'cursor' && !spaceDown;
-        canvas.skipTargetFind = spaceDown ? true : (tool === 'pen' || tool === 'text' || tool === 'sticker' || tool === 'eraser');
+        canvas.skipTargetFind = spaceDown ? true : (tool === 'hand' || tool === 'pen' || tool === 'text' || tool === 'sticker' || tool === 'eraser');
 
         const baseCursor = TOOL_CURSORS[tool] || 'default';
         const panning = isPanning || isRightPanning;
@@ -3811,12 +3921,28 @@
         e.preventDefault();
         e.stopPropagation();
 
+        // Normalize line/page scrolling to pixel-like units for zoom.
+        let deltaY = e.deltaY;
+        if (e.deltaMode === 1) {
+          deltaY *= 20;
+        } else if (e.deltaMode === 2) {
+          deltaY *= 100;
+        }
+
         if (e.ctrlKey || e.metaKey) {
-          const zoom = clamp(canvas.getZoom() * Math.pow(0.999, e.deltaY), MIN_ZOOM, MAX_ZOOM);
-          canvas.zoomToPoint(new fabric.Point(e.offsetX, e.offsetY), zoom);
+          // Trackpad pinch gestures arrive as smooth, small wheel deltas.
+          // Mouse wheels produce larger discrete steps.
+          const sensitivity = Math.abs(deltaY) < 40 ? 0.014 : 0.0022;
+          const newZoom = clamp(
+            canvas.getZoom() * Math.exp(-deltaY * sensitivity),
+            MIN_ZOOM,
+            MAX_ZOOM
+          );
+          canvas.zoomToPoint(new fabric.Point(e.offsetX, e.offsetY), newZoom);
         } else {
           // Two-finger trackpad movement should drag the board in the same
           // direction as Space + left-button panning, not scroll it away.
+          // Keep the original pan units and sign untouched.
           const unitX = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.getWidth() : 1;
           const unitY = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.getHeight() : 1;
           const vpt = canvas.viewportTransform;
@@ -3832,6 +3958,12 @@
         const e = opt.e;
 
         if (spaceDown) {
+          startPan(e.clientX, e.clientY);
+          e.preventDefault();
+          return;
+        }
+
+        if (state.tool === 'hand') {
           startPan(e.clientX, e.clientY);
           e.preventDefault();
           return;
@@ -3918,6 +4050,275 @@
         canvas.setViewportTransform(vpt);
         syncView();
       }
+
+      /* ---------- Touch gestures (pan, pinch-to-zoom, hand tool) ---------- */
+
+      function resetActivePenStroke() {
+        canvas._isCurrentlyDrawing = false;
+        const brush = canvas.freeDrawingBrush;
+        if (brush) {
+          brush._points = [];
+          brush._hasStraightLine = false;
+          brush.oldEnd = undefined;
+        }
+        if (canvas.contextTop) canvas.clearContext(canvas.contextTop);
+        canvas.requestRenderAll();
+      }
+
+      function cancelTouchTransform() {
+        const transform = canvas._currentTransform;
+        if (transform && transform.target && transform.original) {
+          const target = transform.target;
+          const original = transform.original;
+          let changed = false;
+          ['left', 'top', 'scaleX', 'scaleY', 'angle', 'skewX', 'skewY'].forEach((key) => {
+            if (typeof original[key] === 'number' && Math.abs((target[key] || 0) - original[key]) > 0.001) {
+              changed = true;
+            }
+          });
+          target.set(original);
+          target.setCoords();
+          if (changed && !isRemoteUpdate) syncObjectToFirebase(target);
+        }
+        canvas._currentTransform = null;
+        canvas._groupSelector = null;
+        cancelTransformSync();
+        canvas.requestRenderAll();
+      }
+
+      function getTouchMetrics(event) {
+        const first = event.touches[0];
+        const second = event.touches[1];
+        if (!first || !second) return null;
+        return {
+          centerX: (first.clientX + second.clientX) / 2,
+          centerY: (first.clientY + second.clientY) / 2,
+          distance: Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY)
+        };
+      }
+
+      function rememberTouchMetrics(event) {
+        const metrics = getTouchMetrics(event);
+        if (!metrics) {
+          touchGestureLastCenter = null;
+          touchGestureLastDistance = 0;
+          touchGestureStartDistance = 0;
+          return;
+        }
+        touchGestureLastCenter = { x: metrics.centerX, y: metrics.centerY };
+        touchGestureLastDistance = metrics.distance;
+
+        // Capture the gesture baseline once, so touch zoom is driven by the
+        // full current/start distance ratio instead of tiny incremental steps.
+        if (touchGestureStartDistance <= 0) {
+          touchGestureStartDistance = metrics.distance;
+          touchGestureStartZoom = canvas.getZoom();
+        }
+      }
+
+      function finishTouchGesture(cancelled) {
+        const hadFabricTouch = touchGestureHadFabricTouch;
+        touchGestureActive = false;
+        touchGestureLastCenter = null;
+        touchGestureLastDistance = 0;
+        touchGestureStartDistance = 0;
+        touchGestureStartZoom = 1;
+        touchGestureHadFabricTouch = false;
+        singleTouchFabricActive = false;
+
+        if (cancelled) {
+          canvas.mainTouchId = null;
+          resetActivePenStroke();
+          cancelTouchTransform();
+        }
+
+        if (hadFabricTouch && !cancelled) {
+          // Let Fabric finish its own touch cleanup, then restore the tool.
+          setTimeout(() => {
+            if (!touchGestureActive && !handTouchActive) syncToolState();
+          }, 0);
+        } else {
+          syncToolState();
+        }
+      }
+
+      function handleCanvasTouchStart(event) {
+        if (activeModal) return;
+        const touches = event.touches;
+
+        if (touches.length >= 2) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (!touchGestureActive) {
+            touchGestureActive = true;
+            touchGestureStartDistance = 0;
+            touchGestureStartZoom = canvas.getZoom();
+            touchGestureHadFabricTouch = singleTouchFabricActive;
+            handTouchActive = false;
+            endEraserGesture();
+            hideEraserCursor();
+            cancelTouchTransform();
+            resetActivePenStroke();
+            canvas.isDrawingMode = false;
+            canvas.selection = false;
+            canvas.skipTargetFind = true;
+            canvas.setCursor('grabbing');
+          }
+
+          rememberTouchMetrics(event);
+          return;
+        }
+
+        if (touchGestureActive) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+
+        if (touches.length !== 1) return;
+
+        if (state.tool === 'hand') {
+          event.preventDefault();
+          event.stopPropagation();
+          if (isPanning) endPan();
+          handTouchActive = true;
+          handTouchLastX = touches[0].clientX;
+          handTouchLastY = touches[0].clientY;
+          canvas.setCursor('grabbing');
+          return;
+        }
+
+        singleTouchFabricActive = true;
+      }
+
+      function handleCanvasTouchMove(event) {
+        if (touchGestureActive) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (event.touches.length < 2) {
+            touchGestureLastCenter = null;
+            touchGestureLastDistance = 0;
+            touchGestureStartDistance = 0;
+            return;
+          }
+
+          const metrics = getTouchMetrics(event);
+          if (!metrics) return;
+
+          const previous = touchGestureLastCenter;
+          if (previous) {
+            const dx = metrics.centerX - previous.x;
+            const dy = metrics.centerY - previous.y;
+            if (dx || dy) {
+              const vpt = canvas.viewportTransform;
+              vpt[4] += dx;
+              vpt[5] += dy;
+              canvas.setViewportTransform(vpt);
+            }
+
+            if (touchGestureStartDistance > 0) {
+              const currentZoom = canvas.getZoom();
+              const distanceRatio = metrics.distance / touchGestureStartDistance;
+              const nextZoom = clamp(
+                touchGestureStartZoom * Math.pow(distanceRatio, 1.25),
+                MIN_ZOOM,
+                MAX_ZOOM
+              );
+              if (Math.abs(nextZoom - currentZoom) > 0.0005) {
+                const rect = canvas.upperCanvasEl.getBoundingClientRect();
+                canvas.zoomToPoint(
+                  new fabric.Point(metrics.centerX - rect.left, metrics.centerY - rect.top),
+                  nextZoom
+                );
+              }
+            }
+
+            if (dx || dy || Math.abs(metrics.distance - touchGestureLastDistance) > 0.01) syncView();
+          }
+
+          touchGestureLastCenter = { x: metrics.centerX, y: metrics.centerY };
+          touchGestureLastDistance = metrics.distance;
+          return;
+        }
+
+        if (handTouchActive && event.touches.length === 1) {
+          event.preventDefault();
+          event.stopPropagation();
+          const touch = event.touches[0];
+          const dx = touch.clientX - handTouchLastX;
+          const dy = touch.clientY - handTouchLastY;
+          handTouchLastX = touch.clientX;
+          handTouchLastY = touch.clientY;
+          if (dx || dy) panViewportBy(dx, dy);
+        }
+      }
+
+      function handleCanvasTouchEnd(event) {
+        if (touchGestureActive) {
+          event.preventDefault();
+
+          if (event.touches.length >= 2) {
+            event.stopPropagation();
+            rememberTouchMetrics(event);
+            return;
+          }
+
+          if (event.touches.length === 1) {
+            event.stopPropagation();
+            touchGestureLastCenter = null;
+            touchGestureLastDistance = 0;
+            touchGestureStartDistance = 0;
+            return;
+          }
+
+          const hadFabricTouch = touchGestureHadFabricTouch;
+          finishTouchGesture(false);
+          if (!hadFabricTouch) event.stopPropagation();
+          return;
+        }
+
+        if (handTouchActive) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.touches.length === 0) {
+            handTouchActive = false;
+            syncToolState();
+          }
+          return;
+        }
+
+        if (event.touches.length === 0) singleTouchFabricActive = false;
+      }
+
+      function handleCanvasTouchCancel(event) {
+        if (touchGestureActive) {
+          event.preventDefault();
+          event.stopPropagation();
+          finishTouchGesture(true);
+          return;
+        }
+
+        if (handTouchActive) {
+          event.preventDefault();
+          event.stopPropagation();
+          handTouchActive = false;
+          syncToolState();
+          return;
+        }
+
+        if (state.tool === 'pen' && singleTouchFabricActive) {
+          resetActivePenStroke();
+          canvas.mainTouchId = null;
+        }
+        if (event.touches.length === 0) singleTouchFabricActive = false;
+      }
+
+      canvasWrap.addEventListener('touchstart', handleCanvasTouchStart, { passive: false, capture: true });
+      canvasWrap.addEventListener('touchmove', handleCanvasTouchMove, { passive: false, capture: true });
+      canvasWrap.addEventListener('touchend', handleCanvasTouchEnd, { passive: false, capture: true });
+      canvasWrap.addEventListener('touchcancel', handleCanvasTouchCancel, { passive: false, capture: true });
 
       // Prevent the browser from treating a horizontal trackpad swipe as
       // back/forward navigation. The Fabric wheel handler still receives it.
@@ -4081,6 +4482,7 @@
 
         const shortcuts = {
           KeyV: 'cursor', Digit1: 'cursor', Numpad1: 'cursor',
+          KeyH: 'hand',
           KeyP: 'pen', Digit2: 'pen', Numpad2: 'pen',
           KeyE: 'eraser', Digit3: 'eraser', Numpad3: 'eraser',
           KeyT: 'text', Digit4: 'text', Numpad4: 'text',
@@ -4116,6 +4518,8 @@
         hideEraserCursor();
         endPan();
         endRightPan();
+        if (touchGestureActive) finishTouchGesture(true);
+        handTouchActive = false;
       });
 
       /* ---------- Share ---------- */
@@ -4145,11 +4549,10 @@
 
       function shareUrl() {
         const id = sanitizeBoardId(state.currentBoardId);
-        const base = location.href.split('#')[0].split('?')[0];
-        const params = new URLSearchParams();
-        params.set('board', id);
-        params.set('invite', '1');
-        return base + '?' + params.toString() + '#' + encodeURIComponent(id);
+        const origin = location.origin && location.origin !== 'null'
+          ? location.origin
+          : location.protocol + '//' + (location.host || '');
+        return origin + location.pathname + '?board=' + encodeURIComponent(id) + '#' + encodeURIComponent(id);
       }
 
       const shareButtonMarkup = shareBtn.innerHTML;
