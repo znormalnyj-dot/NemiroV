@@ -473,6 +473,55 @@
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
+    /* Hotkey settings */
+    .hotkey-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      padding: 5px 10px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      text-align: left;
+      transition: background .14s ease, border-color .14s ease, box-shadow .14s ease;
+    }
+    .hotkey-row:hover { background: #f7f7f9; }
+    .hotkey-row.is-capturing {
+      border-color: rgba(66, 98, 255, .45);
+      background: #eef1ff;
+      box-shadow: 0 0 0 3px rgba(66, 98, 255, .12);
+    }
+    .hotkey-key {
+      min-width: 52px;
+      padding: 4px 8px;
+      border: 1px solid rgba(5, 0, 56, .1);
+      border-bottom-width: 2px;
+      border-radius: 7px;
+      background: #fff;
+      color: #3e3e52;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: .02em;
+      transition: color .14s ease, border-color .14s ease, background .14s ease;
+    }
+    .hotkey-row.is-capturing .hotkey-key {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .hotkey-row.is-conflict .hotkey-key {
+      border-color: #e5533d;
+      color: #d9483b;
+      animation: hotkey-shake .28s ease;
+    }
+    @keyframes hotkey-shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-3px); }
+      75% { transform: translateX(3px); }
+    }
+
     /* Toast */
     #toast {
       opacity: 0;
@@ -640,7 +689,7 @@
                     <p class="text-[10px] text-[#8b8b9e]">Настройки инструмента</p>
                   </div>
                 </div>
-                <kbd class="rounded-md border border-black/[0.06] bg-[#f7f7f8] px-1.5 py-0.5 text-[9px] font-semibold text-[#8b8b9e]">P</kbd>
+                <kbd data-hotkey-kbd="pen" class="rounded-md border border-black/[0.06] bg-[#f7f7f8] px-1.5 py-0.5 text-[9px] font-semibold text-[#8b8b9e]">P</kbd>
               </div>
 
               <p class="mt-4 text-[9.5px] font-semibold uppercase tracking-[0.09em] text-[#9a9aae]">Цвет</p>
@@ -685,7 +734,7 @@
             <div id="shapeMenu" role="menu" aria-label="Фигуры" class="menu-panel absolute left-[calc(100%+10px)] top-1/2 z-[60] hidden w-[196px] -translate-y-1/2 rounded-2xl border border-black/[0.07] bg-white p-1.5">
               <button type="button" role="menuitem" data-shape="circle" class="menu-action">
                 <span class="menu-action-icon"><i data-lucide="circle" class="h-4 w-4"></i></span>
-                <span class="flex-1">Круг (R)</span>
+                <span class="flex-1" data-hotkey-label="circle">Круг (R)</span>
               </button>
               <button type="button" role="menuitem" data-shape="rect" class="menu-action">
                 <span class="menu-action-icon"><i data-lucide="square" class="h-4 w-4"></i></span>
@@ -694,6 +743,14 @@
               <button type="button" role="menuitem" data-shape="line" class="menu-action">
                 <span class="menu-action-icon"><i data-lucide="minus" class="h-4 w-4"></i></span>
                 <span class="flex-1">Линия</span>
+              </button>
+              <button type="button" role="menuitem" data-shape="arrow" class="menu-action">
+                <span class="menu-action-icon"><i data-lucide="arrow-up-right" class="h-4 w-4"></i></span>
+                <span class="flex-1" data-hotkey-label="arrow">Стрелка (A)</span>
+              </button>
+              <button type="button" role="menuitem" data-shape="axes" class="menu-action">
+                <span class="menu-action-icon"><i data-lucide="axis-3d" class="h-4 w-4"></i></span>
+                <span class="flex-1" data-hotkey-label="axes">Оси координат (G)</span>
               </button>
             </div>
           </div>
@@ -714,7 +771,7 @@
                     <p class="text-[10px] text-[#8b8b9e]">Размер захвата</p>
                   </div>
                 </div>
-                <kbd class="rounded-md border border-black/[0.06] bg-[#f7f7f8] px-1.5 py-0.5 text-[9px] font-semibold text-[#8b8b9e]">E</kbd>
+                <kbd data-hotkey-kbd="eraser" class="rounded-md border border-black/[0.06] bg-[#f7f7f8] px-1.5 py-0.5 text-[9px] font-semibold text-[#8b8b9e]">E</kbd>
               </div>
 
               <div class="mt-4 flex items-center justify-between">
@@ -768,6 +825,12 @@
           <span class="h-4 w-px bg-black/[0.06]"></span>
           <button id="redoBtn" type="button" class="history-btn tip" data-tip="Redo (Ctrl+Y)" aria-label="Повторить">
             <i data-lucide="redo-2" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <div class="flex items-center justify-center rounded-xl border border-black/[0.06] bg-white p-1 float-card">
+          <button id="hotkeysBtn" type="button" class="history-btn tip" data-tip="Горячие клавиши" aria-label="Настройка горячих клавиш">
+            <i data-lucide="keyboard" class="h-4 w-4"></i>
           </button>
         </div>
       </div>
@@ -918,6 +981,81 @@
           <button type="button" data-close-modal class="h-10 rounded-lg px-4 text-[12px] font-semibold text-[#5b5b6e] transition hover:bg-[#f4f4f7]">Готово</button>
         </div>
       </div>
+
+      <div id="hotkeysModal" class="modal-panel hidden max-h-[calc(100dvh-24px)] w-full max-w-[440px] overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_24px_80px_rgba(5,0,56,.3)]" role="dialog" aria-modal="true" aria-labelledby="hotkeysTitle">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eef1ff] text-accent">
+              <i data-lucide="keyboard" class="h-5 w-5"></i>
+            </span>
+            <div class="min-w-0">
+              <h2 id="hotkeysTitle" class="text-[15px] font-semibold">Настройка горячих клавиш</h2>
+              <p class="mt-1 text-[11.5px] leading-relaxed text-[#8b8b9e]">Нажмите на клавишу справа и введите новую. Настройки сохраняются в этом браузере.</p>
+            </div>
+          </div>
+          <button type="button" data-close-modal class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#8b8b9e] transition hover:bg-[#f4f4f7] hover:text-ink" aria-label="Закрыть">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <div id="hotkeysList" class="scroll-slim mt-4 max-h-[min(64vh,430px)] space-y-0.5 overflow-y-auto pr-0.5" aria-live="polite"></div>
+
+        <div class="mt-5 flex items-center justify-between gap-2 border-t border-black/[0.06] pt-4">
+          <button id="hotkeysResetBtn" type="button" class="h-9 rounded-lg px-3 text-[11.5px] font-semibold text-[#5b5b6e] transition hover:bg-[#f4f4f7]">Сбросить по умолчанию</button>
+          <button type="button" data-close-modal class="h-9 rounded-lg bg-accent px-4 text-[11.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">Готово</button>
+        </div>
+      </div>
+
+      <div id="cheatsheetModal" class="modal-panel hidden max-h-[calc(100dvh-24px)] w-full max-w-[500px] overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_24px_80px_rgba(5,0,56,.3)]" role="dialog" aria-modal="true" aria-labelledby="cheatsheetTitle">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eef1ff] text-accent">
+              <i data-lucide="book-open" class="h-5 w-5"></i>
+            </span>
+            <div class="min-w-0">
+              <h2 id="cheatsheetTitle" class="text-[15px] font-semibold">Шпаргалки и графики</h2>
+              <p class="mt-1 text-[11.5px] leading-relaxed text-[#8b8b9e]">Быстрые формулы и заготовки для математики и физики.</p>
+            </div>
+          </div>
+          <button type="button" data-close-modal class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#8b8b9e] transition hover:bg-[#f4f4f7] hover:text-ink" aria-label="Закрыть">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <div class="rounded-xl border border-black/[0.05] bg-[#f8f8fa] p-3">
+            <p class="text-[9.5px] font-semibold uppercase tracking-[0.09em] text-[#9a9aae]">Математика</p>
+            <ul class="mt-1.5 space-y-1 text-[11.5px] leading-relaxed text-[#3e3e52]">
+              <li>ax² + bx + c = 0</li>
+              <li>x = (−b ± √(b² − 4ac)) / 2a</li>
+              <li>(xⁿ)′ = n·xⁿ⁻¹</li>
+              <li>sin²α + cos²α = 1</li>
+              <li>S круга = πr²</li>
+            </ul>
+          </div>
+          <div class="rounded-xl border border-black/[0.05] bg-[#f8f8fa] p-3">
+            <p class="text-[9.5px] font-semibold uppercase tracking-[0.09em] text-[#9a9aae]">Физика</p>
+            <ul class="mt-1.5 space-y-1 text-[11.5px] leading-relaxed text-[#3e3e52]">
+              <li>v = v₀ + at</li>
+              <li>s = v₀t + at² / 2</li>
+              <li>F = ma</li>
+              <li>I = U / R</li>
+              <li>E = mc²</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button id="cheatAxesBtn" type="button" class="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-[11.5px] font-semibold text-[#3e3e52] transition hover:bg-[#f7f7f9]">
+            <i data-lucide="axis-3d" class="h-4 w-4"></i>
+            <span>Вставить оси координат</span>
+          </button>
+          <button id="cheatArrowBtn" type="button" class="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-3 text-[11.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">
+            <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+            <span>Стрелка-вектор</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1020,6 +1158,11 @@
       const COLUMN_GUIDE_INSET = 40;
       const INTERNAL_PASTE_OFFSET = 25;
       const INTERNAL_PASTE_IMAGE_WINDOW_MS = 2500;
+      const HOTKEY_STORAGE_KEY = 'miro-custom-hotkeys-v1';
+      const AXES_SIZE = 360;
+      const AXES_HALF = AXES_SIZE / 2;
+      const AXES_TICK_STEP = 24;
+      const AXES_STROKE_WIDTH = 2;
 
       function uuid() {
         if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -1157,6 +1300,30 @@
         cursorColor: colorForUser(initial.userId)
       };
 
+      // Действия, для которых можно переназначить клавишу.
+      const HOTKEY_ACTIONS = [
+        { id: 'cursor', label: 'Курсор', defaultCode: 'KeyV' },
+        { id: 'pen', label: 'Перо', defaultCode: 'KeyP' },
+        { id: 'eraser', label: 'Ластик', defaultCode: 'KeyE' },
+        { id: 'hand', label: 'Рука / Перемещение', defaultCode: 'KeyH' },
+        { id: 'text', label: 'Текст', defaultCode: 'KeyT' },
+        { id: 'sticker', label: 'Стикер', defaultCode: 'KeyS' },
+        { id: 'circle', label: 'Круг', defaultCode: 'KeyR' },
+        { id: 'arrow', label: 'Стрелка / Вектор', defaultCode: 'KeyA' },
+        { id: 'axes', label: 'Оси координат', defaultCode: 'KeyG' },
+        { id: 'cheatsheet', label: 'Шпаргалки и графики', defaultCode: 'KeyK' }
+      ];
+      const HOTKEY_DEFAULTS = HOTKEY_ACTIONS.reduce((acc, action) => {
+        acc[action.id] = action.defaultCode;
+        return acc;
+      }, {});
+      const MODIFIER_ONLY_CODES = new Set([
+        'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight',
+        'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight', 'CapsLock'
+      ]);
+
+      let hotkeys = loadHotkeys();
+
       const canvasWrap = $('#canvasWrap');
       const gridCanvas = $('#gridLayer');
       const gridCtx = gridCanvas.getContext('2d');
@@ -1230,6 +1397,13 @@
       let gestureBeforeState = null;
       let textEditingBeforeState = null;
       let stickerColorIndex = 0;
+      let arrowDraft = null;
+      let arrowTouchActive = false;
+      let pointerOverCanvas = false;
+      let lastCanvasScenePoint = null;
+      let lastCanvasClientPoint = null;
+      let hotkeyCapture = null;
+      let hotkeyCaptureHandler = null;
       let activeModal = null;
       let toastTimer = null;
       let modalFocusTimer = null;
@@ -1287,6 +1461,13 @@
       const penColorDot = $('#penColorDot');
       const undoBtn = $('#undoBtn');
       const redoBtn = $('#redoBtn');
+      const hotkeysBtn = $('#hotkeysBtn');
+      const hotkeysModal = $('#hotkeysModal');
+      const hotkeysList = $('#hotkeysList');
+      const hotkeysResetBtn = $('#hotkeysResetBtn');
+      const cheatsheetModal = $('#cheatsheetModal');
+      const cheatAxesBtn = $('#cheatAxesBtn');
+      const cheatArrowBtn = $('#cheatArrowBtn');
       const addColumnsBtn = $('#addColumnsBtn');
       const uploadBtn = $('#uploadBtn');
       const photoInput = $('#photoInput');
@@ -1729,7 +1910,17 @@
       $$('[data-shape]').forEach(btn => {
         btn.addEventListener('click', () => {
           closeShapeMenu();
-          addShape(btn.dataset.shape);
+          const kind = btn.dataset.shape;
+          if (kind === 'arrow') {
+            selectTool('arrow');
+            showToast('Потяните по холсту, чтобы нарисовать стрелку');
+            return;
+          }
+          if (kind === 'axes') {
+            addCoordinateAxes();
+            return;
+          }
+          addShape(kind);
         });
       });
 
@@ -1975,7 +2166,8 @@
         pen: 'crosshair',
         eraser: 'none',
         text: 'text',
-        sticker: 'copy'
+        sticker: 'copy',
+        arrow: 'crosshair'
       };
 
       function syncBrush() {
@@ -2009,7 +2201,7 @@
         const accessible = boardAccess === 'ready';
         canvas.isDrawingMode = accessible && tool === 'pen' && !spaceDown && !isMiddlePanning;
         canvas.selection = accessible && tool === 'cursor' && !spaceDown && !isMiddlePanning;
-        canvas.skipTargetFind = !accessible || spaceDown || isMiddlePanning ? true : (tool === 'hand' || tool === 'pen' || tool === 'text' || tool === 'sticker' || tool === 'eraser');
+        canvas.skipTargetFind = !accessible || spaceDown || isMiddlePanning ? true : (tool === 'hand' || tool === 'pen' || tool === 'text' || tool === 'sticker' || tool === 'eraser' || tool === 'arrow');
 
         const baseCursor = TOOL_CURSORS[tool] || 'default';
         const panning = isPanning || isRightPanning || isMiddlePanning;
@@ -2031,6 +2223,7 @@
 
       function selectTool(tool) {
         if (isErasing) endEraserGesture();
+        if (tool !== 'arrow' && arrowDraft) cancelArrowGesture();
         closeShapeMenu();
         state.tool = tool;
         syncToolState();
@@ -2634,6 +2827,7 @@
       }
 
       function closeModal() {
+        stopHotkeyCapture(false);
         if (!activeModal) return;
         modalLayer.classList.add('hidden');
         modalLayer.classList.remove('flex', 'is-open');
@@ -4050,6 +4244,362 @@
         showToast('Добавлено колонок: ' + COLUMN_GUIDE_COUNT);
       }
 
+      /* ---------- Оси координат ---------- */
+
+      function snapToAxesGrid(value) {
+        return Math.round(value / AXES_TICK_STEP) * AXES_TICK_STEP;
+      }
+
+      function getAxesInsertionCenter() {
+        if (pointerOverCanvas && lastCanvasClientPoint) {
+          const point = canvas.getPointer(lastCanvasClientPoint);
+          if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) {
+            return new fabric.Point(
+              snapToAxesGrid(point.x),
+              snapToAxesGrid(point.y)
+            );
+          }
+        }
+        return getViewportCenter();
+      }
+
+      function addCoordinateAxes() {
+        if (boardAccess !== 'ready') {
+          showToast('Доска ещё загружается', 'error');
+          return;
+        }
+
+        const center = getAxesInsertionCenter();
+        const stroke = state.penColor;
+        const strokeWidth = AXES_STROKE_WIDTH;
+        const common = {
+          stroke,
+          strokeWidth,
+          fill: 'transparent',
+          strokeUniform: true,
+          perPixelTargetFind: true,
+          targetFindTolerance: 8,
+          strokeLineCap: 'round',
+          strokeLineJoin: 'round',
+          selectable: false,
+          evented: false
+        };
+        const children = [];
+
+        // Оси X и Y. Координаты ±179 оставляют толщину штриха внутри 360×360.
+        children.push(new fabric.Line([-179, 0, 179, 0], common));
+        children.push(new fabric.Line([0, 179, 0, -179], common));
+
+        // Наконечники осей.
+        children.push(new fabric.Path('M 179 0 L 167 -6 L 167 6 Z', common));
+        children.push(new fabric.Path('M 0 -178 L -6 -166 L 6 -166 Z', common));
+
+        // Деления через одну клетку сетки (24 px).
+        for (let step = -7; step <= 7; step += 1) {
+          if (step === 0) continue;
+          const pos = step * AXES_TICK_STEP;
+          children.push(new fabric.Line([pos, -4, pos, 4], common));
+          children.push(new fabric.Line([-4, pos, 4, pos], common));
+        }
+
+        // Подписи осей и начала координат.
+        children.push(new fabric.Text('x', {
+          left: 168,
+          top: -9,
+          originX: 'center',
+          originY: 'bottom',
+          fill: stroke,
+          fontSize: 15,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontStyle: 'italic',
+          fontWeight: 600,
+          selectable: false,
+          evented: false
+        }));
+        children.push(new fabric.Text('y', {
+          left: 10,
+          top: -168,
+          originX: 'left',
+          originY: 'center',
+          fill: stroke,
+          fontSize: 15,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontStyle: 'italic',
+          fontWeight: 600,
+          selectable: false,
+          evented: false
+        }));
+        children.push(new fabric.Text('0', {
+          left: -7,
+          top: 5,
+          originX: 'right',
+          originY: 'top',
+          fill: stroke,
+          fontSize: 11,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          selectable: false,
+          evented: false
+        }));
+
+        const axes = new fabric.Group(children, {
+          left: center.x,
+          top: center.y,
+          originX: 'center',
+          originY: 'center',
+          fill: 'transparent',
+          stroke,
+          strokeWidth,
+          strokeUniform: true,
+          perPixelTargetFind: true,
+          targetFindTolerance: 8,
+          subTargetCheck: false
+        });
+
+        canvas.add(axes);
+        ensureObjectId(axes);
+        syncObjectToFirebase(axes);
+        recordCreation(axes);
+
+        if (state.tool === 'cursor') {
+          canvas.setActiveObject(axes);
+        }
+        canvas.requestRenderAll();
+        showToast('Оси координат добавлены');
+      }
+
+      // Запоминаем, где находится курсор над холстом — оси создаются в этой точке.
+      canvas.on('mouse:move', (opt) => {
+        const point = canvas.getPointer(opt.e);
+        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+        lastCanvasScenePoint = { x: point.x, y: point.y };
+        lastCanvasClientPoint = { clientX: opt.e.clientX, clientY: opt.e.clientY };
+        pointerOverCanvas = true;
+      });
+      if (canvas.upperCanvasEl) {
+        canvas.upperCanvasEl.addEventListener('pointerenter', (event) => {
+          pointerOverCanvas = true;
+          lastCanvasClientPoint = { clientX: event.clientX, clientY: event.clientY };
+        });
+        canvas.upperCanvasEl.addEventListener('pointerleave', () => {
+          pointerOverCanvas = false;
+        });
+      }
+
+      /* ---------- Стрелки и векторы ---------- */
+
+      function buildArrowGeometry(x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.hypot(dx, dy);
+        if (length < 0.001) return null;
+
+        const ux = dx / length;
+        const uy = dy / length;
+        const px = -uy;
+        const py = ux;
+        const head = Math.max(8, Math.min(28, length * 0.3, length * 0.85));
+        const half = head * 0.42;
+        const baseX = x2 - ux * head;
+        const baseY = y2 - uy * head;
+        const leftX = baseX + px * half;
+        const leftY = baseY + py * half;
+        const rightX = baseX - px * half;
+        const rightY = baseY - py * half;
+
+        const minX = Math.min(x1, x2, leftX, rightX);
+        const maxX = Math.max(x1, x2, leftX, rightX);
+        const minY = Math.min(y1, y2, leftY, rightY);
+        const maxY = Math.max(y1, y2, leftY, rightY);
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const f = (x, y) => `${(x - cx).toFixed(2)} ${(y - cy).toFixed(2)}`;
+        const d = `M ${f(x1, y1)} L ${f(x2, y2)} M ${f(leftX, leftY)} L ${f(x2, y2)} L ${f(rightX, rightY)} Z`;
+
+        return { d, left: cx, top: cy, length };
+      }
+
+      function createArrowPath(geometry, options) {
+        return new fabric.Path(geometry.d, Object.assign({
+          left: geometry.left,
+          top: geometry.top,
+          originX: 'center',
+          originY: 'center',
+          fill: 'transparent',
+          stroke: state.penColor,
+          strokeWidth: state.penWidth,
+          strokeUniform: true,
+          strokeLineCap: 'round',
+          strokeLineJoin: 'round',
+          perPixelTargetFind: true,
+          targetFindTolerance: 8,
+          objectCaching: false
+        }, options || {}));
+      }
+
+      function arrowPointerScene(event) {
+        if (!event) return null;
+        const point = canvas.getPointer(event);
+        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return null;
+        return point;
+      }
+
+      function handleArrowPointerMove(event) {
+        if (!arrowDraft) return;
+        if (arrowDraft.pointerId !== null &&
+            typeof event.pointerId === 'number' &&
+            event.pointerId !== arrowDraft.pointerId) return;
+        const point = arrowPointerScene(event);
+        if (!point) return;
+        event.preventDefault();
+        updateArrowGesture(point);
+      }
+
+      function handleArrowPointerUp(event) {
+        if (!arrowDraft) return;
+        if (arrowDraft.pointerId !== null &&
+            typeof event.pointerId === 'number' &&
+            event.pointerId !== arrowDraft.pointerId) return;
+        const point = arrowPointerScene(event);
+        if (point) updateArrowGesture(point);
+        event.preventDefault();
+        finishArrowGesture(false);
+      }
+
+      function handleArrowPointerCancel() {
+        finishArrowGesture(true);
+      }
+
+      function cleanupArrowGesture() {
+        window.removeEventListener('pointermove', handleArrowPointerMove, true);
+        window.removeEventListener('pointerup', handleArrowPointerUp, true);
+        window.removeEventListener('pointercancel', handleArrowPointerCancel, true);
+        arrowDraft = null;
+      }
+
+      function updateArrowPreview() {
+        if (!arrowDraft) return;
+        const draft = arrowDraft;
+        const geometry = buildArrowGeometry(
+          draft.start.x,
+          draft.start.y,
+          draft.current.x,
+          draft.current.y
+        );
+
+        if (!geometry || geometry.length < 2) {
+          if (draft.preview) {
+            canvas.remove(draft.preview);
+            draft.preview = null;
+            canvas.requestRenderAll();
+          }
+          return;
+        }
+
+        if (!draft.preview) {
+          draft.preview = createArrowPath(geometry, {
+            stroke: draft.stroke,
+            strokeWidth: draft.strokeWidth,
+            opacity: 0.85,
+            selectable: false,
+            evented: false,
+            excludeFromExport: true
+          });
+          canvas.add(draft.preview);
+        } else {
+          draft.preview._setPath(geometry.d);
+          draft.preview.set({ left: geometry.left, top: geometry.top });
+          draft.preview.setCoords();
+          draft.preview.dirty = true;
+        }
+        canvas.requestRenderAll();
+      }
+
+      function updateArrowGesture(point) {
+        if (!arrowDraft || !point) return;
+        arrowDraft.current = { x: point.x, y: point.y };
+        lastCanvasScenePoint = { x: point.x, y: point.y };
+        pointerOverCanvas = true;
+        updateArrowPreview();
+      }
+
+      function beginArrowGesture(point, mode, pointerId) {
+        if (arrowDraft || !point || boardAccess !== 'ready') return false;
+        arrowDraft = {
+          start: { x: point.x, y: point.y },
+          current: { x: point.x, y: point.y },
+          mode,
+          pointerId: typeof pointerId === 'number' ? pointerId : null,
+          stroke: state.penColor,
+          strokeWidth: state.penWidth,
+          preview: null
+        };
+        window.addEventListener('pointermove', handleArrowPointerMove, true);
+        window.addEventListener('pointerup', handleArrowPointerUp, true);
+        window.addEventListener('pointercancel', handleArrowPointerCancel, true);
+        return true;
+      }
+
+      function finishArrowGesture(cancelled) {
+        if (!arrowDraft) return;
+        const draft = arrowDraft;
+        cleanupArrowGesture();
+
+        if (draft.preview) {
+          canvas.remove(draft.preview);
+        }
+
+        if (!cancelled) {
+          const geometry = buildArrowGeometry(
+            draft.start.x,
+            draft.start.y,
+            draft.current.x,
+            draft.current.y
+          );
+          if (geometry && geometry.length >= 4) {
+            const arrow = createArrowPath(geometry, {
+              stroke: draft.stroke,
+              strokeWidth: draft.strokeWidth
+            });
+            canvas.add(arrow);
+            ensureObjectId(arrow);
+            syncObjectToFirebase(arrow);
+            recordCreation(arrow);
+            showToast('Стрелка добавлена');
+          }
+        }
+        canvas.requestRenderAll();
+      }
+
+      function cancelArrowGesture() {
+        finishArrowGesture(true);
+      }
+
+      function isArrowPenModifier(event) {
+        return state.tool === 'pen' && event.button === 0 &&
+          (event.altKey || (event.ctrlKey && event.shiftKey));
+      }
+
+      function handleArrowDownCapture(event) {
+        if (activeModal || boardAccess !== 'ready') return;
+        if (event.button !== 0) return;
+        const penMode = isArrowPenModifier(event);
+        const toolMode = state.tool === 'arrow';
+        if (!penMode && !toolMode) return;
+
+        // Не даём Fabric начать свободное рисование или выделение.
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (arrowDraft) return;
+
+        const point = arrowPointerScene(event);
+        if (point) beginArrowGesture(point, penMode ? 'pen' : 'tool', event.pointerId);
+      }
+
+      if (canvas.upperCanvasEl) {
+        canvas.upperCanvasEl.addEventListener('pointerdown', handleArrowDownCapture, true);
+        canvas.upperCanvasEl.addEventListener('mousedown', handleArrowDownCapture, true);
+      }
+
       addColumnsBtn.addEventListener('click', () => {
         closeAllMenus();
         addColumnGuides();
@@ -4676,6 +5226,21 @@
         if (activeModal) return;
         const touches = event.touches;
 
+        if (arrowDraft && touches.length >= 2) {
+          cancelArrowGesture();
+        }
+
+        if (arrowDraft || arrowTouchActive || (state.tool === 'arrow' && touches.length === 1)) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!arrowDraft && state.tool === 'arrow' && touches.length === 1) {
+            const point = arrowPointerScene(touches[0]);
+            if (point) beginArrowGesture(point, 'tool', null);
+          }
+          if (arrowDraft) arrowTouchActive = true;
+          return;
+        }
+
         if (touches.length >= 2) {
           event.preventDefault();
           event.stopPropagation();
@@ -4723,6 +5288,16 @@
       }
 
       function handleCanvasTouchMove(event) {
+        if (arrowTouchActive || arrowDraft) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.touches.length === 1) {
+            const point = arrowPointerScene(event.touches[0]);
+            if (point) updateArrowGesture(point);
+          }
+          return;
+        }
+
         if (touchGestureActive) {
           event.preventDefault();
           event.stopPropagation();
@@ -4786,6 +5361,16 @@
       }
 
       function handleCanvasTouchEnd(event) {
+        if (arrowTouchActive) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.touches.length === 0) {
+            arrowTouchActive = false;
+            if (arrowDraft) finishArrowGesture(false);
+          }
+          return;
+        }
+
         if (touchGestureActive) {
           event.preventDefault();
 
@@ -4823,6 +5408,14 @@
       }
 
       function handleCanvasTouchCancel(event) {
+        if (arrowTouchActive || arrowDraft) {
+          event.preventDefault();
+          event.stopPropagation();
+          arrowTouchActive = false;
+          cancelArrowGesture();
+          return;
+        }
+
         if (touchGestureActive) {
           event.preventDefault();
           event.stopPropagation();
@@ -4963,6 +5556,297 @@
         return true;
       }
 
+      /* ---------- Персональные горячие клавиши ---------- */
+
+      const FIXED_TOOL_ALIASES = {
+        Digit1: 'cursor', Numpad1: 'cursor',
+        Digit2: 'pen', Numpad2: 'pen',
+        Digit3: 'eraser', Numpad3: 'eraser',
+        Digit4: 'text', Numpad4: 'text',
+        Digit5: 'sticker', Numpad5: 'sticker'
+      };
+
+      function isUsableHotkeyCode(code) {
+        return typeof code === 'string' &&
+          !!code &&
+          code !== 'Unidentified' &&
+          code !== 'Escape' &&
+          code !== 'Space' &&
+          !MODIFIER_ONLY_CODES.has(code);
+      }
+
+      function findFreeHotkeyCode(used) {
+        const candidates = [
+          'KeyV', 'KeyB', 'KeyN', 'KeyM', 'KeyJ', 'KeyL', 'KeyU', 'KeyI',
+          'KeyO', 'KeyY', 'KeyQ', 'KeyW', 'KeyF', 'KeyZ', 'KeyX', 'KeyC', 'KeyD'
+        ];
+        for (let i = 0; i < candidates.length; i += 1) {
+          if (!used.has(candidates[i])) return candidates[i];
+        }
+        return 'F' + (used.size + 1);
+      }
+
+      function loadHotkeys() {
+        const map = Object.assign({}, HOTKEY_DEFAULTS);
+        let saved = null;
+        try {
+          saved = JSON.parse(localStorage.getItem(HOTKEY_STORAGE_KEY) || 'null');
+        } catch (_) {}
+
+        if (saved && typeof saved === 'object') {
+          HOTKEY_ACTIONS.forEach((action) => {
+            const code = saved[action.id];
+            if (isUsableHotkeyCode(code)) map[action.id] = code;
+          });
+        }
+
+        // Устраняем конфликты из старых/повреждённых сохранений.
+        const used = new Set();
+        HOTKEY_ACTIONS.forEach((action) => {
+          let code = map[action.id];
+          if (!isUsableHotkeyCode(code) || used.has(code)) {
+            code = HOTKEY_DEFAULTS[action.id];
+            if (used.has(code)) code = findFreeHotkeyCode(used);
+          }
+          map[action.id] = code;
+          used.add(code);
+        });
+        return map;
+      }
+
+      function saveHotkeys() {
+        try {
+          localStorage.setItem(HOTKEY_STORAGE_KEY, JSON.stringify(hotkeys));
+        } catch (_) {}
+      }
+
+      function formatHotkeyKey(code) {
+        if (!code) return '—';
+        if (code.startsWith('Key')) return code.slice(3).toUpperCase();
+        if (code.startsWith('Digit')) return code.slice(5);
+        if (code.startsWith('Numpad')) return 'Num ' + code.slice(6);
+        const symbols = {
+          Space: 'Пробел',
+          Escape: 'Esc',
+          Backspace: '⌫',
+          Delete: 'Del',
+          Enter: 'Enter',
+          Tab: 'Tab',
+          ArrowUp: '↑',
+          ArrowDown: '↓',
+          ArrowLeft: '←',
+          ArrowRight: '→',
+          Backquote: '`',
+          Minus: '−',
+          Equal: '=',
+          BracketLeft: '[',
+          BracketRight: ']',
+          Backslash: '\\',
+          Semicolon: ';',
+          Quote: "'",
+          Comma: ',',
+          Period: '.',
+          Slash: '/'
+        };
+        return symbols[code] || code;
+      }
+
+      function hotkeyActionLabel(actionId) {
+        const action = HOTKEY_ACTIONS.find(item => item.id === actionId);
+        return action ? action.label : actionId;
+      }
+
+      function renderHotkeysModal() {
+        if (!hotkeysList) return;
+        hotkeysList.innerHTML = HOTKEY_ACTIONS.map((action) => {
+          const capturing = hotkeyCapture === action.id;
+          return `
+            <button type="button" data-hotkey-action="${action.id}" class="hotkey-row${capturing ? ' is-capturing' : ''}">
+              <span class="text-[12.5px] font-medium text-[#3e3e52]">${escapeHtml(action.label)}</span>
+              <kbd class="hotkey-key">${capturing ? 'Нажмите…' : escapeHtml(formatHotkeyKey(hotkeys[action.id]))}</kbd>
+            </button>
+          `;
+        }).join('');
+      }
+
+      function openHotkeysModal() {
+        renderHotkeysModal();
+        openModal(hotkeysModal);
+      }
+
+      function stopHotkeyCapture(rerender = true) {
+        if (hotkeyCaptureHandler) {
+          document.removeEventListener('keydown', hotkeyCaptureHandler, true);
+          hotkeyCaptureHandler = null;
+        }
+        hotkeyCapture = null;
+        if (rerender) renderHotkeysModal();
+      }
+
+      function beginHotkeyCapture(actionId) {
+        stopHotkeyCapture(false);
+        hotkeyCapture = actionId;
+        renderHotkeysModal();
+
+        hotkeyCaptureHandler = (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            stopHotkeyCapture();
+            return;
+          }
+          if (!event.code) return;
+          if (MODIFIER_ONLY_CODES.has(event.code)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+          }
+          if (!isUsableHotkeyCode(event.code)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            showToast('Эту клавишу нельзя назначить', 'error');
+            return;
+          }
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          assignHotkey(actionId, event.code);
+        };
+        document.addEventListener('keydown', hotkeyCaptureHandler, true);
+      }
+
+      function assignHotkey(actionId, code) {
+        stopHotkeyCapture(false);
+        const previousCode = hotkeys[actionId];
+        if (code === previousCode) {
+          renderHotkeysModal();
+          return;
+        }
+
+        const conflict = HOTKEY_ACTIONS.find(
+          action => action.id !== actionId && hotkeys[action.id] === code
+        );
+        if (conflict) {
+          // Меняем клавиши местами, чтобы конфликт не остался.
+          hotkeys[conflict.id] = previousCode;
+          showToast(
+            'Клавиши поменялись: ' + hotkeyActionLabel(conflict.id) +
+            ' — ' + formatHotkeyKey(previousCode) +
+            ', ' + hotkeyActionLabel(actionId) +
+            ' — ' + formatHotkeyKey(code)
+          );
+        } else {
+          showToast(
+            'Клавиша ' + formatHotkeyKey(code) +
+            ' назначена: ' + hotkeyActionLabel(actionId)
+          );
+        }
+
+        hotkeys[actionId] = code;
+        saveHotkeys();
+        renderHotkeysModal();
+        updateHotkeyLabels();
+      }
+
+      function resetHotkeys() {
+        stopHotkeyCapture(false);
+        hotkeys = Object.assign({}, HOTKEY_DEFAULTS);
+        saveHotkeys();
+        renderHotkeysModal();
+        updateHotkeyLabels();
+        showToast('Горячие клавиши сброшены');
+      }
+
+      function updateHotkeyLabels() {
+        const toolLabels = {
+          cursor: 'Курсор',
+          hand: 'Рука / Перемещение',
+          pen: 'Перо',
+          eraser: 'Ластик',
+          text: 'Текст',
+          sticker: 'Стикер'
+        };
+        $$('.tool-btn[data-tool]').forEach((btn) => {
+          const base = toolLabels[btn.dataset.tool];
+          if (!base) return;
+          const code = hotkeys[btn.dataset.tool];
+          btn.dataset.tip = code ? base + ' (' + formatHotkeyKey(code) + ')' : base;
+        });
+
+        const shapeLabels = {
+          circle: 'Круг',
+          arrow: 'Стрелка',
+          axes: 'Оси координат'
+        };
+        $$('[data-hotkey-label]').forEach((el) => {
+          const base = shapeLabels[el.dataset.hotkeyLabel];
+          if (!base) return;
+          const code = hotkeys[el.dataset.hotkeyLabel];
+          el.textContent = code ? base + ' (' + formatHotkeyKey(code) + ')' : base;
+        });
+
+        $$('[data-hotkey-kbd]').forEach((el) => {
+          const code = hotkeys[el.dataset.hotkeyKbd];
+          if (code) el.textContent = formatHotkeyKey(code);
+        });
+      }
+
+      function findHotkeyAction(code) {
+        return HOTKEY_ACTIONS.find(action => hotkeys[action.id] === code) || null;
+      }
+
+      function openCheatsheet() {
+        openModal(cheatsheetModal);
+      }
+
+      function runHotkeyAction(actionId) {
+        if (actionId === 'circle') {
+          addShape('circle');
+          return;
+        }
+        if (actionId === 'axes') {
+          addCoordinateAxes();
+          return;
+        }
+        if (actionId === 'cheatsheet') {
+          openCheatsheet();
+          return;
+        }
+        if (actionId === 'arrow') {
+          selectTool('arrow');
+          showToast('Потяните по холсту, чтобы нарисовать стрелку');
+          return;
+        }
+        selectTool(actionId);
+        if (actionId === 'pen') openPenMenu();
+        if (actionId === 'eraser') openEraserMenu();
+      }
+
+      hotkeysBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        openHotkeysModal();
+      });
+
+      hotkeysList.addEventListener('click', (event) => {
+        const row = event.target.closest('[data-hotkey-action]');
+        if (!row) return;
+        beginHotkeyCapture(row.dataset.hotkeyAction);
+      });
+
+      hotkeysResetBtn.addEventListener('click', resetHotkeys);
+
+      cheatAxesBtn.addEventListener('click', () => {
+        closeModal();
+        addCoordinateAxes();
+      });
+
+      cheatArrowBtn.addEventListener('click', () => {
+        closeModal();
+        selectTool('arrow');
+        showToast('Потяните по холсту, чтобы нарисовать стрелку');
+      });
+
+      updateHotkeyLabels();
+
       /* ---------- Keyboard ---------- */
 
       function isEditable(target) {
@@ -4980,6 +5864,11 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
+          if (arrowDraft) {
+            cancelArrowGesture();
+            event.preventDefault();
+            return;
+          }
           if (isEditingText()) {
             const active = canvas.getActiveObject();
             if (active && active.exitEditing) active.exitEditing();
@@ -4998,6 +5887,7 @@
         if (activeModal) return;
         if (boardAccess !== 'ready') return;
         if (isEditable(event.target) || isEditingText()) return;
+        if (arrowDraft) return;
 
         if (event.ctrlKey || event.metaKey) {
           if (event.code === 'KeyZ') {
@@ -5017,6 +5907,8 @@
           }
           return;
         }
+
+        if (event.altKey) return;
 
         if ((event.code === 'BracketLeft' || event.code === 'BracketRight') && state.tool === 'eraser') {
           event.preventDefault();
@@ -5049,26 +5941,19 @@
           return;
         }
 
-        if (event.code === 'KeyR' && !event.altKey && !event.repeat) {
+        const hotkeyAction = findHotkeyAction(event.code);
+        if (hotkeyAction && !event.repeat) {
           event.preventDefault();
-          addShape('circle');
+          runHotkeyAction(hotkeyAction.id);
           return;
         }
 
-        const shortcuts = {
-          KeyV: 'cursor', Digit1: 'cursor', Numpad1: 'cursor',
-          KeyH: 'hand',
-          KeyP: 'pen', Digit2: 'pen', Numpad2: 'pen',
-          KeyE: 'eraser', Digit3: 'eraser', Numpad3: 'eraser',
-          KeyT: 'text', Digit4: 'text', Numpad4: 'text',
-          KeyS: 'sticker', Digit5: 'sticker', Numpad5: 'sticker'
-        };
-        const tool = shortcuts[event.code];
-        if (tool) {
+        const aliasTool = FIXED_TOOL_ALIASES[event.code];
+        if (aliasTool && !event.repeat) {
           event.preventDefault();
-          selectTool(tool);
-          if (tool === 'pen') openPenMenu();
-          if (tool === 'eraser') openEraserMenu();
+          selectTool(aliasTool);
+          if (aliasTool === 'pen') openPenMenu();
+          if (aliasTool === 'eraser') openEraserMenu();
         }
       });
 
@@ -5094,6 +5979,8 @@
         endPan();
         endRightPan();
         endMiddlePan();
+        if (arrowDraft) cancelArrowGesture();
+        arrowTouchActive = false;
         if (touchGestureActive) finishTouchGesture(true);
         handTouchActive = false;
       });
