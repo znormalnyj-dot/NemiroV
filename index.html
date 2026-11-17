@@ -1191,8 +1191,13 @@
         fireRightClick: false
       });
 
+      // Личная история действий: для каждой доски свой журнал изменений
+      // объектов (undoStack / redoStack). Чужие правки сюда не попадают.
       const historyByBoard = new Map();
       const contentByBoard = new Map();
+      // id объекта -> последнее известное сериализованное состояние.
+      // Нужна, чтобы точно знать «before» перед локальным действием.
+      const lastObjectState = new Map();
 
       let isRestoring = false;
       let isRemoteUpdate = false;
@@ -1203,6 +1208,9 @@
       let isRightPanning = false;
       let lastRightPanX = 0;
       let lastRightPanY = 0;
+      let isMiddlePanning = false;
+      let lastMiddlePanX = 0;
+      let lastMiddlePanY = 0;
       let spaceDown = false;
       let touchGestureActive = false;
       let touchGestureLastCenter = null;
@@ -1218,6 +1226,9 @@
       let lastEraserPoint = null;
       let lastEraserScreen = null;
       let erasedInGesture = 0;
+      let erasedChanges = [];
+      let gestureBeforeState = null;
+      let textEditingBeforeState = null;
       let stickerColorIndex = 0;
       let activeModal = null;
       let toastTimer = null;
@@ -1233,7 +1244,6 @@
       let boardDataSession = 0;
       let cursorsSession = 0;
       let lastCursorSent = 0;
-      let historyBaselineTimer = null;
       let firebaseErrorShown = false;
       const remoteCursors = new Map();
       const remoteCursorEls = new Map();
@@ -1837,6 +1847,7 @@
         } finally {
           isRemoteUpdate = false;
         }
+        lastObjectState.clear();
         syncToolState();
         canvas.requestRenderAll();
       }
@@ -1996,13 +2007,13 @@
       function syncToolState() {
         const tool = state.tool;
         const accessible = boardAccess === 'ready';
-        canvas.isDrawingMode = accessible && tool === 'pen' && !spaceDown;
-        canvas.selection = accessible && tool === 'cursor' && !spaceDown;
-        canvas.skipTargetFind = !accessible || spaceDown ? true : (tool === 'hand' || tool === 'pen' || tool === 'text' || tool === 'sticker' || tool === 'eraser');
+        canvas.isDrawingMode = accessible && tool === 'pen' && !spaceDown && !isMiddlePanning;
+        canvas.selection = accessible && tool === 'cursor' && !spaceDown && !isMiddlePanning;
+        canvas.skipTargetFind = !accessible || spaceDown || isMiddlePanning ? true : (tool === 'hand' || tool === 'pen' || tool === 'text' || tool === 'sticker' || tool === 'eraser');
 
         const baseCursor = TOOL_CURSORS[tool] || 'default';
-        const panning = isPanning || isRightPanning;
-        const cursor = isRightPanning || (spaceDown && isPanning)
+        const panning = isPanning || isRightPanning || isMiddlePanning;
+        const cursor = isRightPanning || isMiddlePanning || (spaceDown && isPanning)
           ? 'grabbing'
           : spaceDown
             ? 'grab'
@@ -2076,14 +2087,16 @@
         const active = canvas.getActiveObject();
         if (!active) return false;
         const objects = active.type === 'activeSelection' ? active.getObjects() : [active];
-        let changed = false;
+        // Состояния «before» фиксируем до изменения стиля.
+        const beforeMap = captureBeforeState(objects);
+        const changedObjects = [];
         objects.forEach((obj) => {
-          if (applyStyleToObject(obj, style, value)) changed = true;
+          if (applyStyleToObject(obj, style, value)) changedObjects.push(obj);
         });
-        if (!changed) return false;
-        objects.forEach(syncObjectToFirebase);
+        if (!changedObjects.length) return false;
+        changedObjects.forEach(syncObjectToFirebase);
         canvas.requestRenderAll();
-        commit();
+        recordModification(changedObjects, beforeMap);
         return true;
       }
 
@@ -2146,7 +2159,7 @@
       /* ---------- Eraser ---------- */
 
       function eraserIsActive() {
-        return state.tool === 'eraser' && !spaceDown && !isRightPanning && !activeModal;
+        return state.tool === 'eraser' && !spaceDown && !isRightPanning && !isMiddlePanning && !activeModal;
       }
 
       function hideEraserCursor() {
@@ -2537,6 +2550,10 @@
         let removed = 0;
         canvas.getObjects().slice().forEach((obj) => {
           if (!objectTouchedByEraser(obj, point, radius)) return;
+          const id = ensureObjectId(obj);
+          if (!erasedChanges.some(change => change.id === id)) {
+            erasedChanges.push({ id, before: captureObjectState(obj), after: null });
+          }
           removeObjectFromFirebase(obj);
           canvas.remove(obj);
           removed += 1;
@@ -2568,6 +2585,7 @@
         if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return false;
         isErasing = true;
         erasedInGesture = 0;
+        erasedChanges = [];
         lastEraserPoint = { x: point.x, y: point.y };
         erasedInGesture += eraseAtPoint(lastEraserPoint);
         return true;
@@ -2591,8 +2609,10 @@
         lastEraserPoint = null;
         const count = erasedInGesture;
         erasedInGesture = 0;
-        if (count > 0) {
-          commit();
+        const changes = erasedChanges;
+        erasedChanges = [];
+        if (count > 0 && changes.length) {
+          recordStep(changes);
           showToast(count === 1 ? 'Объект стёрт' : 'Стёрто объектов: ' + count);
         }
       }
@@ -2717,11 +2737,16 @@
           showToast('Холст уже пуст');
           return;
         }
+        const deletedChanges = canvas.getObjects().slice().map(obj => ({
+          id: ensureObjectId(obj),
+          before: captureObjectState(obj),
+          after: null
+        }));
         clearCloudObjects();
         canvas.discardActiveObject();
         canvas.clear();
         canvas.backgroundColor = null;
-        commit();
+        recordStep(deletedChanges);
         canvas.requestRenderAll();
         showToast('Холст очищен');
       });
@@ -2840,32 +2865,20 @@
         );
       }
 
-      /* ---------- Fabric history ---------- */
+      /* ---------- Fabric history (личная, пообъектная) ---------- */
 
       function snapshot() {
         return JSON.stringify(canvas.toJSON(OBJECT_SERIALIZE_PROPS));
       }
 
-      function scheduleHistoryBaseline() {
-        clearTimeout(historyBaselineTimer);
-        historyBaselineTimer = setTimeout(() => {
-          // Keep the pre-gesture snapshot stable while a drag-to-erase is in
-          // progress. Otherwise Firebase echoes of our own removals could
-          // replace it and make the whole gesture impossible to undo.
-          if (isErasing) {
-            scheduleHistoryBaseline();
-            return;
-          }
-          const h = getHistory();
-          h.last = snapshot();
-          updateHistoryButtons();
-        }, 140);
+      function cloneJSON(value) {
+        return value == null ? null : JSON.parse(JSON.stringify(value));
       }
 
       function getHistory() {
         let h = historyByBoard.get(state.currentBoardId);
         if (!h) {
-          h = { undo: [], redo: [], last: snapshot() };
+          h = { undoStack: [], redoStack: [] };
           historyByBoard.set(state.currentBoardId, h);
         }
         return h;
@@ -2873,24 +2886,127 @@
 
       function updateHistoryButtons() {
         const h = getHistory();
-        const canUndo = h.undo.length > 0;
-        const canRedo = h.redo.length > 0;
+        const canUndo = h.undoStack.length > 0;
+        const canRedo = h.redoStack.length > 0;
         undoBtn.classList.toggle('is-disabled', !canUndo);
         redoBtn.classList.toggle('is-disabled', !canRedo);
         undoBtn.setAttribute('aria-disabled', String(!canUndo));
         redoBtn.setAttribute('aria-disabled', String(!canRedo));
       }
 
-      function commit() {
-        if (isRestoring) return;
+      function flattenTargets(targets) {
+        const list = [];
+        const push = (obj) => {
+          if (!obj) return;
+          if (obj.type === 'activeSelection') {
+            obj.getObjects().forEach(push);
+            return;
+          }
+          if (list.indexOf(obj) === -1) list.push(obj);
+        };
+        if (Array.isArray(targets)) targets.forEach(push);
+        else push(targets);
+        return list;
+      }
+
+      // Актуальное состояние объекта до начала локального действия.
+      function captureObjectState(obj) {
+        if (!obj) return null;
+        const id = ensureObjectId(obj);
+        if (lastObjectState.has(id)) return cloneJSON(lastObjectState.get(id));
+        return serializeObject(obj);
+      }
+
+      function captureBeforeState(targets) {
+        const map = new Map();
+        flattenTargets(targets).forEach((obj) => {
+          if (!obj) return;
+          map.set(ensureObjectId(obj), captureObjectState(obj));
+        });
+        return map;
+      }
+
+      function rememberAllObjectStates() {
+        lastObjectState.clear();
+        canvas.getObjects().forEach((obj) => {
+          if (!obj || !obj.miroId) return;
+          lastObjectState.set(obj.miroId, serializeObject(obj));
+        });
+      }
+
+      // changes: [{ id, before, after }]. before === null — объект создан,
+      // after === null — объект удалён. В журнал попадает только своё действие.
+      function recordStep(changes) {
+        if (isRestoring || !Array.isArray(changes) || !changes.length) return;
+        const filtered = changes.filter((change) => {
+          if (!change || !change.id) return false;
+          if (change.before == null && change.after == null) return false;
+          // deepEqual игнорирует updatedAt/updatedBy, поэтому «пустой» выход
+          // из редактирования текста не создаёт шаг истории.
+          if (change.before != null && change.after != null && deepEqual(change.before, change.after)) return false;
+          return true;
+        });
+        if (!filtered.length) return;
+
         const h = getHistory();
-        const current = snapshot();
-        if (current === h.last) return;
-        h.undo.push(h.last);
-        if (h.undo.length > HISTORY_LIMIT) h.undo.shift();
-        h.redo.length = 0;
-        h.last = current;
+        h.undoStack.push({
+          changes: filtered.map(change => ({
+            id: change.id,
+            before: cloneJSON(change.before),
+            after: cloneJSON(change.after)
+          }))
+        });
+        if (h.undoStack.length > HISTORY_LIMIT) h.undoStack.shift();
+        h.redoStack.length = 0;
+
+        filtered.forEach((change) => {
+          if (change.after == null) lastObjectState.delete(change.id);
+          else lastObjectState.set(change.id, cloneJSON(change.after));
+        });
         updateHistoryButtons();
+      }
+
+      function recordCreation(objects) {
+        const changes = flattenTargets(objects).map((obj) => {
+          const id = ensureObjectId(obj);
+          return { id, before: null, after: serializeObject(obj) };
+        });
+        recordStep(changes);
+      }
+
+      function collectModificationChanges(targets, beforeMap) {
+        const changes = [];
+        flattenTargets(targets).forEach((obj) => {
+          const id = ensureObjectId(obj);
+          const before = beforeMap && beforeMap.has(id)
+            ? beforeMap.get(id)
+            : (lastObjectState.has(id) ? cloneJSON(lastObjectState.get(id)) : null);
+          const after = serializeObject(obj);
+          // Без точного состояния «before» не пишем шаг: иначе undo мог бы
+          // принять изменение за создание и удалить чужой объект.
+          if (before == null) return;
+          changes.push({ id, before, after });
+        });
+        return changes;
+      }
+
+      function recordModification(targets, beforeMap) {
+        recordStep(collectModificationChanges(targets, beforeMap));
+      }
+
+      function recordDeletion(targets, beforeMap) {
+        const changes = flattenTargets(targets).map((obj) => {
+          const id = ensureObjectId(obj);
+          const before = beforeMap && beforeMap.has(id)
+            ? beforeMap.get(id)
+            : (lastObjectState.has(id) ? cloneJSON(lastObjectState.get(id)) : serializeObject(obj));
+          return { id, before, after: null };
+        });
+        recordStep(changes);
+      }
+
+      function requireHistoryId(id) {
+        return id == null ? null : String(id);
       }
 
       function loadCanvasJSON(json, done) {
@@ -2918,25 +3034,126 @@
         }
       }
 
-      function ensureHistoryAfterLoad() {
-        const h = getHistory();
-        h.last = snapshot();
-        updateHistoryButtons();
+      // Применяет к одному объекту сохранённое состояние (или удаление).
+      // Остальные объекты доски не трогаются.
+      function applyObjectState(id, state) {
+        return new Promise((resolve) => {
+          const safeId = requireHistoryId(id);
+          if (!safeId) {
+            resolve();
+            return;
+          }
+          const payload = cloneJSON(state);
+          const existing = findObjectById(safeId);
+
+          const removeExisting = () => {
+            if (!existing) return -1;
+            if (activeObjectUses(existing)) canvas.discardActiveObject();
+            const index = canvas.getObjects().indexOf(existing);
+            isRemoteUpdate = true;
+            try {
+              canvas.remove(existing);
+            } finally {
+              isRemoteUpdate = false;
+            }
+            return index;
+          };
+
+          const finish = () => {
+            lastObjectState.set(safeId, cloneJSON(payload));
+            if (cloudEnabled && currentObjectsRef) {
+              currentObjectsRef.child(safeId).set(payload).catch(handleFirebaseError);
+            }
+            canvas.requestRenderAll();
+            resolve();
+          };
+
+          if (payload == null) {
+            removeExisting();
+            lastObjectState.delete(safeId);
+            if (cloudEnabled && currentObjectsRef) {
+              currentObjectsRef.child(safeId).remove().catch(handleFirebaseError);
+            }
+            canvas.requestRenderAll();
+            resolve();
+            return;
+          }
+
+          if (existing && canUpdateObjectInPlace(existing, payload)) {
+            // Дети activeSelection живут в групповых координатах — снимаем
+            // выделение, чтобы применить абсолютные координаты из снимка.
+            const active = canvas.getActiveObject();
+            if (active && active.type === 'activeSelection' && active.getObjects().indexOf(existing) !== -1) {
+              canvas.discardActiveObject();
+            }
+            try {
+              updateObjectInPlace(existing, payload);
+              existing.miroId = safeId;
+            } catch (err) {
+              console.warn('Не удалось восстановить объект:', err);
+            }
+            finish();
+            return;
+          }
+
+          const index = removeExisting();
+          try {
+            fabric.util.enlivenObjects([payload], (objects) => {
+              const obj = objects && objects[0];
+              if (obj) {
+                obj.miroId = safeId;
+                applyToolToObject(obj);
+                if (index >= 0) {
+                  canvas.insertAt(obj, Math.min(index, canvas.getObjects().length));
+                } else {
+                  canvas.add(obj);
+                }
+                if (obj.miroBack) canvas.sendToBack(obj);
+                normalizeObjectHitArea(obj);
+                updateSelectedHitAreas();
+              }
+              finish();
+            });
+          } catch (err) {
+            console.warn('Не удалось восстановить объект:', err);
+            finish();
+          }
+        });
+      }
+
+      function applyHistoryStep(step, key) {
+        if (!step || !Array.isArray(step.changes) || !step.changes.length) {
+          return Promise.resolve();
+        }
+        // Отмену применяем в обратном порядке, повтор — в исходном.
+        const changes = key === 'before' ? step.changes.slice().reverse() : step.changes.slice();
+        let chain = Promise.resolve();
+        changes.forEach((change) => {
+          chain = chain.then(() => applyObjectState(change.id, change[key]));
+        });
+        return chain;
       }
 
       function undo() {
         if (isRestoring) return;
         const h = getHistory();
-        if (!h.undo.length) {
+        if (!h.undoStack.length) {
           showToast('История действий пуста');
           return;
         }
-        h.redo.push(h.last);
-        const target = h.undo.pop();
-        loadCanvasJSON(target, () => {
-          h.last = snapshot();
+        const step = h.undoStack.pop();
+        h.redoStack.push(step);
+        updateHistoryButtons();
+        isRestoring = true;
+        applyHistoryStep(step, 'before').then(() => {
+          isRestoring = false;
+          updateSelectedHitAreas();
+          canvas.requestRenderAll();
           updateHistoryButtons();
-          setTimeout(reconcileCloudObjects, 200);
+        }).catch((err) => {
+          isRestoring = false;
+          console.error(err);
+          updateHistoryButtons();
         });
         showToast('Действие отменено');
       }
@@ -2944,16 +3161,24 @@
       function redo() {
         if (isRestoring) return;
         const h = getHistory();
-        if (!h.redo.length) {
+        if (!h.redoStack.length) {
           showToast('Нечего повторять');
           return;
         }
-        h.undo.push(h.last);
-        const target = h.redo.pop();
-        loadCanvasJSON(target, () => {
-          h.last = snapshot();
+        const step = h.redoStack.pop();
+        h.undoStack.push(step);
+        if (h.undoStack.length > HISTORY_LIMIT) h.undoStack.shift();
+        updateHistoryButtons();
+        isRestoring = true;
+        applyHistoryStep(step, 'after').then(() => {
+          isRestoring = false;
+          updateSelectedHitAreas();
+          canvas.requestRenderAll();
           updateHistoryButtons();
-          setTimeout(reconcileCloudObjects, 200);
+        }).catch((err) => {
+          isRestoring = false;
+          console.error(err);
+          updateHistoryButtons();
         });
         showToast('Действие повторено');
       }
@@ -3122,26 +3347,6 @@
         currentObjectsRef.remove().catch(handleFirebaseError);
       }
 
-      function reconcileCloudObjects() {
-        if (!cloudEnabled || !currentObjectsRef) return;
-        const ref = currentObjectsRef;
-        const localIds = new Set();
-
-        canvas.getObjects().forEach((obj) => {
-          const id = ensureObjectId(obj);
-          localIds.add(id);
-          ref.child(id).set(serializeObject(obj)).catch(handleFirebaseError);
-        });
-
-        ref.once('value').then((snapshot) => {
-          if (ref !== currentObjectsRef) return;
-          const remote = snapshot.val() || {};
-          Object.keys(remote).forEach((id) => {
-            if (!localIds.has(id)) ref.child(id).remove().catch(handleFirebaseError);
-          });
-        }).catch(handleFirebaseError);
-      }
-
       function detachCloudBoardData() {
         boardDataSession += 1;
         cancelTransformSync();
@@ -3187,7 +3392,7 @@
             normalizeObjectHitArea(obj);
             updateSelectedHitAreas();
             canvas.requestRenderAll();
-            scheduleHistoryBaseline();
+            lastObjectState.set(id, serializeObject(obj));
           });
         } catch (err) {
           if (session !== boardDataSession) return;
@@ -3240,7 +3445,7 @@
         normalizeObjectHitArea(existing);
         updateSelectedHitAreas();
         canvas.requestRenderAll();
-        scheduleHistoryBaseline();
+        if (existing.miroId) lastObjectState.set(existing.miroId, serializeObject(existing));
       }
 
       function onRemoteObjectChanged(snapshot) {
@@ -3308,7 +3513,7 @@
             normalizeObjectHitArea(obj);
             updateSelectedHitAreas();
             canvas.requestRenderAll();
-            scheduleHistoryBaseline();
+            lastObjectState.set(id, serializeObject(obj));
           });
         } catch (err) {
           if (session !== boardDataSession) return;
@@ -3321,16 +3526,20 @@
         const id = snapshot.key;
         if (pendingRemoteIds.has(id)) {
           cancelledRemoteIds.add(id);
+          lastObjectState.delete(id);
           return;
         }
         const existing = findObjectById(id);
-        if (!existing) return;
+        if (!existing) {
+          lastObjectState.delete(id);
+          return;
+        }
         isRemoteUpdate = true;
         if (activeObjectUses(existing)) canvas.discardActiveObject();
         canvas.remove(existing);
         canvas.requestRenderAll();
         isRemoteUpdate = false;
-        scheduleHistoryBaseline();
+        lastObjectState.delete(id);
       }
 
       function attachCloudObjectListeners(objectsRef, session) {
@@ -3362,13 +3571,15 @@
         canvas.backgroundColor = null;
         canvas.discardActiveObject();
         isRemoteUpdate = false;
+        lastObjectState.clear();
 
         const objectsRef = currentObjectsRef;
 
         const finishLoad = () => {
           if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
           syncToolState();
-          historyByBoard.set(id, { undo: [], redo: [], last: snapshot() });
+          historyByBoard.set(id, { undoStack: [], redoStack: [] });
+          rememberAllObjectStates();
           updateHistoryButtons();
           attachCloudObjectListeners(objectsRef, session);
         };
@@ -3427,6 +3638,7 @@
       function loadLocalBoardContent(id) {
         const json = contentByBoard.get(id);
         const token = ++loadToken;
+        lastObjectState.clear();
 
         if (!json) {
           isRestoring = true;
@@ -3436,13 +3648,15 @@
           canvas.discardActiveObject();
           syncToolState();
           canvas.requestRenderAll();
-          ensureHistoryAfterLoad();
+          rememberAllObjectStates();
+          updateHistoryButtons();
           return;
         }
 
         loadCanvasJSON(json, () => {
           if (token !== loadToken) return;
-          ensureHistoryAfterLoad();
+          rememberAllObjectStates();
+          updateHistoryButtons();
         });
       }
 
@@ -3502,7 +3716,7 @@
         canvas.add(text);
         ensureObjectId(text);
         syncObjectToFirebase(text);
-        commit();
+        recordCreation(text);
         selectTool('cursor');
         canvas.setActiveObject(text);
         text.enterEditing();
@@ -3554,7 +3768,7 @@
         canvas.add(group);
         ensureObjectId(group);
         syncObjectToFirebase(group);
-        commit();
+        recordCreation(group);
         selectTool('cursor');
         canvas.setActiveObject(group);
         canvas.requestRenderAll();
@@ -3580,8 +3794,10 @@
           miroId: group.miroId,
           miroSticker: true
         };
+        // Состояние группы до редактирования — «before» для истории.
+        const before = captureObjectState(group);
 
-        stickerEditing = { label, children, meta };
+        stickerEditing = { label, children, meta, before };
         canvas.discardActiveObject();
         if (typeof group._restoreObjectsState === 'function') group._restoreObjectsState();
         canvas.remove(group);
@@ -3619,7 +3835,11 @@
         group.setCoords();
         canvas.setActiveObject(group);
         syncObjectToFirebase(group);
-        commit();
+        recordStep([{
+          id: group.miroId,
+          before: session.before == null ? null : cloneJSON(session.before),
+          after: serializeObject(group)
+        }]);
         canvas.requestRenderAll();
         return group;
       }
@@ -3698,7 +3918,7 @@
             canvas.add(img);
             ensureObjectId(img);
             syncObjectToFirebase(img);
-            commit();
+            recordCreation(img);
             selectTool('cursor');
             canvas.setActiveObject(img);
             canvas.requestRenderAll();
@@ -3783,7 +4003,7 @@
         canvas.add(shape);
         ensureObjectId(shape);
         syncObjectToFirebase(shape);
-        commit();
+        recordCreation(shape);
         selectTool('cursor');
         canvas.setActiveObject(shape);
         canvas.requestRenderAll();
@@ -3825,7 +4045,7 @@
         }
 
         lines.forEach(line => canvas.sendToBack(line));
-        commit();
+        recordCreation(lines);
         canvas.requestRenderAll();
         showToast('Добавлено колонок: ' + COLUMN_GUIDE_COUNT);
       }
@@ -3916,17 +4136,18 @@
         const active = canvas.getActiveObject();
         if (!active) return false;
 
-        if (active.type === 'activeSelection') {
-          active.getObjects().slice().forEach((obj) => {
-            removeObjectFromFirebase(obj);
-            canvas.remove(obj);
-          });
-        } else {
-          removeObjectFromFirebase(active);
-          canvas.remove(active);
-        }
+        const objects = active.type === 'activeSelection'
+          ? active.getObjects().slice()
+          : [active];
+
+        // Запоминаем состояния до удаления, затем удаляем только эти объекты.
+        const beforeMap = captureBeforeState(objects);
+        objects.forEach((obj) => {
+          removeObjectFromFirebase(obj);
+          canvas.remove(obj);
+        });
         canvas.discardActiveObject();
-        commit();
+        recordDeletion(objects, beforeMap);
         canvas.requestRenderAll();
         showToast('Объект удалён');
         return true;
@@ -3964,7 +4185,7 @@
               if (pending === 0) {
                 const selection = new fabric.ActiveSelection(clones, { canvas });
                 canvas.setActiveObject(selection);
-                commit();
+                recordCreation(clones);
                 canvas.requestRenderAll();
               }
             });
@@ -3982,7 +4203,7 @@
             syncObjectToFirebase(clone);
             canvas.add(clone);
             canvas.setActiveObject(clone);
-            commit();
+            recordCreation(clone);
             canvas.requestRenderAll();
           });
         }
@@ -4083,7 +4304,7 @@
               const selection = new fabric.ActiveSelection(pastedObjects, { canvas });
               canvas.setActiveObject(selection);
             }
-            commit();
+            recordCreation(pastedObjects);
             canvas.requestRenderAll();
             showToast('Вставлено: ' + pastedObjects.length + ' ' + plural(pastedObjects.length, 'объект', 'объекта', 'объектов'));
           });
@@ -4130,13 +4351,19 @@
         });
         ensureObjectId(opt.path);
         syncObjectToFirebase(opt.path);
-        commit();
+        recordCreation(opt.path);
       });
 
       function handleObjectTransform(opt) {
         if (isRemoteUpdate) return;
         scheduleTransformSync(opt.target);
       }
+
+      canvas.on('before:transform', (opt) => {
+        if (isRemoteUpdate) return;
+        const target = (opt && opt.target) || (opt && opt.transform && opt.transform.target);
+        gestureBeforeState = target ? captureBeforeState(target) : null;
+      });
 
       canvas.on('object:moving', handleObjectTransform);
       canvas.on('object:scaling', handleObjectTransform);
@@ -4146,6 +4373,14 @@
         if (isRemoteUpdate) return;
         cancelTransformSync();
         const target = opt.target;
+        // Во время выхода из редактирования текста объект может быть уже
+        // удалён с холста — такой «object:modified» не должен попадать в историю.
+        // ActiveSelection не входит в список объектов холста, поэтому для него
+        // проверку пропускаем.
+        if (!target || (target.type !== 'activeSelection' && !canvas.contains(target))) {
+          gestureBeforeState = null;
+          return;
+        }
         if (target) {
           if (target.type === 'activeSelection') {
             target.getObjects().forEach(syncObjectToFirebase);
@@ -4153,22 +4388,45 @@
             syncObjectToFirebase(target);
           }
         }
-        commit();
+        recordModification(target, gestureBeforeState);
+        gestureBeforeState = null;
+      });
+
+      canvas.on('text:editing:entered', (opt) => {
+        const target = opt && opt.target;
+        if (stickerEditing && target === stickerEditing.label) {
+          textEditingBeforeState = null;
+          return;
+        }
+        textEditingBeforeState = target ? captureObjectState(target) : null;
       });
 
       canvas.on('text:editing:exited', (opt) => {
         const target = opt.target;
         if (stickerEditing && target === stickerEditing.label) {
           finishStickerEditing();
+          textEditingBeforeState = null;
           return;
         }
-        if (target && !String(target.text || '').trim()) {
+        const before = textEditingBeforeState;
+        textEditingBeforeState = null;
+        // Объект мог быть убран с холста вместе с группой стикера.
+        if (!target || !canvas.contains(target)) {
+          canvas.requestRenderAll();
+          return;
+        }
+        if (!String(target.text || '').trim()) {
+          const beforeMap = new Map();
+          if (target.miroId) beforeMap.set(target.miroId, before || captureObjectState(target));
           removeObjectFromFirebase(target);
           canvas.remove(target);
+          recordDeletion(target, beforeMap);
         } else {
           syncObjectToFirebase(target);
+          const beforeMap = new Map();
+          if (target.miroId) beforeMap.set(target.miroId, before || captureObjectState(target));
+          recordModification(target, beforeMap);
         }
-        commit();
         canvas.requestRenderAll();
       });
 
@@ -4259,7 +4517,7 @@
         }
       });
 
-      /* ---------- Panning (Space + drag, right mouse button) ---------- */
+      /* ---------- Panning (Space + drag, right / middle mouse button) ---------- */
 
       function startPan(x, y) {
         isPanning = true;
@@ -4290,6 +4548,21 @@
       function endRightPan() {
         if (!isRightPanning) return;
         isRightPanning = false;
+        syncToolState();
+      }
+
+      function startMiddlePan(x, y) {
+        isMiddlePanning = true;
+        lastMiddlePanX = x;
+        lastMiddlePanY = y;
+        // syncToolState также выключает рисование/выделение на время
+        // перемещения и включает курсор «grabbing».
+        syncToolState();
+      }
+
+      function endMiddlePan() {
+        if (!isMiddlePanning) return;
+        isMiddlePanning = false;
         syncToolState();
       }
 
@@ -4586,9 +4859,36 @@
       canvas.upperCanvasEl.addEventListener('pointerdown', (e) => {
         if (e.button !== 2 || activeModal) return;
         if (isPanning) endPan();
+        if (isMiddlePanning) endMiddlePan();
         startRightPan(e.clientX, e.clientY);
         e.preventDefault();
       });
+
+      // Перемещение по холсту зажатым колёсиком мыши (средняя кнопка).
+      // preventDefault на mousedown обязателен: иначе Windows/Chrome
+      // включает системную автопрокрутку страницы.
+      function handleMiddleButtonDown(e) {
+        if (e.button !== 1) return;
+        e.preventDefault();
+        if (activeModal || boardAccess !== 'ready') return;
+        if (isMiddlePanning) return;
+        if (isErasing) endEraserGesture();
+        if (isPanning) endPan();
+        if (isRightPanning) endRightPan();
+        startMiddlePan(e.clientX, e.clientY);
+      }
+
+      canvasWrap.addEventListener('mousedown', handleMiddleButtonDown, { capture: true });
+      canvasWrap.addEventListener('pointerdown', handleMiddleButtonDown, { capture: true });
+      canvas.upperCanvasEl.addEventListener('mousedown', handleMiddleButtonDown, { capture: true });
+      canvas.upperCanvasEl.addEventListener('pointerdown', handleMiddleButtonDown, { capture: true });
+
+      function preventMiddleAuxClick(e) {
+        if (e.button === 1) e.preventDefault();
+      }
+
+      canvasWrap.addEventListener('auxclick', preventMiddleAuxClick, { capture: true });
+      canvas.upperCanvasEl.addEventListener('auxclick', preventMiddleAuxClick, { capture: true });
 
       function preventCanvasContextMenu(e) {
         e.preventDefault();
@@ -4598,6 +4898,16 @@
       canvas.upperCanvasEl.addEventListener('contextmenu', preventCanvasContextMenu);
 
       document.addEventListener('pointermove', (e) => {
+        if (isMiddlePanning) {
+          const dx = e.clientX - lastMiddlePanX;
+          const dy = e.clientY - lastMiddlePanY;
+          lastMiddlePanX = e.clientX;
+          lastMiddlePanY = e.clientY;
+          panViewportBy(dx, dy);
+          e.preventDefault();
+          return;
+        }
+
         if (isRightPanning) {
           const dx = e.clientX - lastRightPanX;
           const dy = e.clientY - lastRightPanY;
@@ -4621,17 +4931,24 @@
         endEraserGesture();
         endPan();
         endRightPan();
+        endMiddlePan();
       });
       document.addEventListener('pointercancel', () => {
         endEraserGesture();
         endPan();
         endRightPan();
+        endMiddlePan();
+      });
+      // Страховка для браузеров, где средняя кнопка приходит только как mouseup.
+      document.addEventListener('mouseup', (e) => {
+        if (e.button === 1) endMiddlePan();
       });
 
       function nudgeSelection(dx, dy) {
         const active = canvas.getActiveObject();
         if (!active) return false;
 
+        const beforeMap = captureBeforeState(active);
         active.set({
           left: active.left + dx,
           top: active.top + dy
@@ -4642,7 +4959,7 @@
         }
         canvas.requestRenderAll();
         syncObjectToFirebase(active);
-        commit();
+        recordModification(active, beforeMap);
         return true;
       }
 
@@ -4776,6 +5093,7 @@
         hideEraserCursor();
         endPan();
         endRightPan();
+        endMiddlePan();
         if (touchGestureActive) finishTouchGesture(true);
         handTouchActive = false;
       });
