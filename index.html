@@ -522,6 +522,183 @@
       75% { transform: translateX(3px); }
     }
 
+    /* Cheat-sheet drawer */
+    #cheatsheetTab {
+      position: fixed;
+      right: 0;
+      top: 50%;
+      z-index: 55;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 12px 10px 13px;
+      border: 1px solid rgba(5, 0, 56, .09);
+      border-right: 0;
+      border-radius: 13px 0 0 13px;
+      background: #fff;
+      color: #3e3e52;
+      font-size: 11.5px;
+      font-weight: 700;
+      box-shadow: -6px 8px 28px rgba(5, 0, 56, .15);
+      transform: translateY(-50%);
+      transition: transform .22s cubic-bezier(.2, .8, .2, 1), color .15s ease, background .15s ease, opacity .16s ease;
+    }
+    #cheatsheetTab:hover { color: var(--accent); background: #fbfbff; transform: translateY(-50%) translateX(-3px); }
+    body.cheatsheet-open #cheatsheetTab {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-50%) translateX(110%);
+    }
+    #cheatsheetDrawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      z-index: 62;
+      display: flex;
+      height: 100vh;
+      height: 100dvh;
+      width: min(380px, 100vw);
+      flex-direction: column;
+      border-left: 1px solid rgba(5, 0, 56, .08);
+      background: #fff;
+      box-shadow: -20px 0 70px rgba(5, 0, 56, .18);
+      transform: translateX(105%);
+      transition: transform .28s cubic-bezier(.22, .8, .24, 1);
+      will-change: transform;
+    }
+    #cheatsheetDrawer.is-open { transform: translateX(0); }
+    .drawer-tab {
+      display: flex;
+      min-width: 0;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 9px 4px;
+      border-radius: 9px;
+      color: #77778b;
+      font-size: 10.5px;
+      font-weight: 700;
+      line-height: 1.15;
+      text-align: center;
+      transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+    }
+    .drawer-tab:hover { color: #3e3e52; background: #f6f6fa; }
+    .drawer-tab.is-active {
+      background: #fff;
+      color: var(--accent);
+      box-shadow: 0 1px 5px rgba(5, 0, 56, .12);
+    }
+    .drawer-pane { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .cheat-acc {
+      overflow: hidden;
+      border: 1px solid rgba(5, 0, 56, .07);
+      border-radius: 12px;
+      background: #fbfbfd;
+    }
+    .cheat-acc[open] { background: #fff; box-shadow: 0 3px 14px rgba(5, 0, 56, .06); }
+    .cheat-summary {
+      display: flex;
+      cursor: pointer;
+      list-style: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 11px;
+    }
+    .cheat-summary::-webkit-details-marker { display: none; }
+    .cheat-chev { flex-shrink: 0; color: #9a9aae; transition: transform .18s ease; }
+    .cheat-acc[open] .cheat-chev { transform: rotate(180deg); }
+    .cheat-send {
+      flex-shrink: 0;
+      border: 1px solid rgba(66, 98, 255, .22);
+      border-radius: 7px;
+      padding: 4px 7px;
+      background: #eef1ff;
+      color: var(--accent);
+      font-size: 9.5px;
+      font-weight: 800;
+      white-space: nowrap;
+      transition: background .15s ease, color .15s ease;
+    }
+    .cheat-send:hover { background: var(--accent); color: #fff; }
+    .cheat-body { border-top: 1px solid rgba(5, 0, 56, .06); padding: 10px 11px 12px; }
+    .cheat-table { width: 100%; border-collapse: collapse; font-size: 9.5px; line-height: 1.35; }
+    .cheat-table th, .cheat-table td { border-bottom: 1px solid rgba(5, 0, 56, .06); padding: 3px 2px; text-align: center; vertical-align: middle; }
+    .cheat-table th { color: #707086; font-size: 9px; font-weight: 800; }
+    .cheat-table td:first-child, .cheat-table th:first-child { text-align: left; font-weight: 700; color: #3e3e52; }
+    .cheat-table tr:last-child td { border-bottom: 0; }
+    .cheat-table small { color: #9a9aae; font-size: 8px; }
+    .graph-template {
+      border: 1px solid rgba(5, 0, 56, .08);
+      border-radius: 8px;
+      background: #fbfbfd;
+      padding: 6px 4px;
+      color: #55556b;
+      font-size: 10px;
+      font-weight: 700;
+      transition: background .14s ease, border-color .14s ease, color .14s ease;
+    }
+    .graph-template:hover { border-color: rgba(66, 98, 255, .3); background: #eef1ff; color: var(--accent); }
+    .cheat-formulas { margin-top: 9px; display: grid; gap: 5px; color: #55556b; font-size: 10px; line-height: 1.45; }
+    .cheat-formulas b { color: #303044; }
+    .note-item {
+      border: 1px solid rgba(5, 0, 56, .07);
+      border-radius: 11px;
+      background: #fbfbfd;
+      padding: 9px 10px;
+    }
+    .note-text { white-space: pre-wrap; overflow-wrap: anywhere; color: #3e3e52; font-size: 11px; line-height: 1.45; }
+    .sim-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(5, 0, 56, .07);
+      border-radius: 12px;
+      background: #fbfbfd;
+      padding: 10px;
+      transition: border-color .15s ease, background .15s ease, transform .15s ease;
+    }
+    .sim-card:hover { border-color: rgba(66, 98, 255, .28); background: #fff; transform: translateY(-1px); }
+    #simulatorWindow.hidden { display: none; }
+    #simulatorWindow {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(5, 0, 56, .12);
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 24px 80px rgba(5, 0, 56, .28);
+    }
+    #simulatorWindow.is-minimized { height: 46px !important; }
+    #simulatorWindow.is-minimized #simulatorBody,
+    #simulatorWindow.is-minimized #simulatorResizeHandle { display: none; }
+    #simulatorFrame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+    #simulatorResizeHandle {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+      width: 18px;
+      height: 18px;
+      cursor: nwse-resize;
+      touch-action: none;
+    }
+    #simulatorResizeHandle::before {
+      content: '';
+      position: absolute;
+      right: 3px;
+      bottom: 3px;
+      width: 9px;
+      height: 9px;
+      border-right: 2px solid #b8b8c8;
+      border-bottom: 2px solid #b8b8c8;
+      border-radius: 0 0 2px 0;
+    }
+    @media (max-width: 639px) {
+      #cheatsheetTab { padding: 9px 10px; font-size: 10.5px; }
+      #cheatsheetDrawer { width: 100vw; }
+    }
+
     /* Toast */
     #toast {
       opacity: 0;
@@ -908,6 +1085,173 @@
       </div>
     </div>
 
+    <!-- Выдвижная шторка шпаргалок -->
+    <button id="cheatsheetTab" type="button" aria-controls="cheatsheetDrawer" aria-expanded="false" title="Открыть шпоры и заметки">
+      <i data-lucide="book-open" class="h-4 w-4 text-accent"></i>
+      <span>Шпоры</span>
+      <kbd data-hotkey-kbd="cheatsheet" class="rounded border border-black/10 bg-[#f5f5f8] px-1.5 py-0.5 text-[9px] font-bold text-[#77778b]">K</kbd>
+      <i data-lucide="chevron-left" class="h-3.5 w-3.5 text-[#9a9aae]"></i>
+    </button>
+
+    <aside id="cheatsheetDrawer" aria-hidden="true" inert aria-label="Шпоры, графики и симуляторы">
+      <div class="flex shrink-0 items-start justify-between gap-3 border-b border-black/[0.06] px-4 py-3.5">
+        <div class="flex min-w-0 items-start gap-3">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eef1ff] text-accent">
+            <i data-lucide="book-open" class="h-5 w-5"></i>
+          </span>
+          <div class="min-w-0">
+            <h2 class="text-[14px] font-semibold tracking-[-0.01em]">Шпоры и инструменты</h2>
+            <p class="mt-0.5 text-[10.5px] leading-relaxed text-[#8b8b9e]">Формулы, заметки, графики и симуляторы</p>
+          </div>
+        </div>
+        <button id="cheatsheetCloseBtn" type="button" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#8b8b9e] transition hover:bg-[#f4f4f7] hover:text-ink" aria-label="Закрыть шпоры">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+
+      <div class="shrink-0 p-2">
+        <div class="grid grid-cols-3 gap-1 rounded-xl bg-[#f5f5f8] p-1" role="tablist" aria-label="Разделы шторки">
+          <button type="button" class="drawer-tab is-active" data-drawer-tab="notes" role="tab" aria-selected="true">
+            <i data-lucide="notebook-tabs" class="h-3.5 w-3.5"></i>
+            <span>Шпоры и заметки</span>
+          </button>
+          <button type="button" class="drawer-tab" data-drawer-tab="graph" role="tab" aria-selected="false">
+            <i data-lucide="line-chart" class="h-3.5 w-3.5"></i>
+            <span>График f(x)</span>
+          </button>
+          <button type="button" class="drawer-tab" data-drawer-tab="sims" role="tab" aria-selected="false">
+            <i data-lucide="flask-conical" class="h-3.5 w-3.5"></i>
+            <span>Симуляторы</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="drawer-pane px-4 pb-5" data-drawer-pane="notes">
+        <section>
+          <div class="mb-2.5 flex items-end justify-between gap-2">
+            <div>
+              <h3 class="text-[12px] font-semibold">Базовый справочник</h3>
+              <p class="mt-0.5 text-[10px] text-[#8b8b9e]">Разверните блок и вставьте его на доску</p>
+            </div>
+          </div>
+          <div id="cheatAccordion" class="space-y-2"></div>
+        </section>
+
+        <section class="mt-5 border-t border-black/[0.06] pt-4">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h3 class="text-[12px] font-semibold">Заметки этой доски</h3>
+              <p class="mt-0.5 text-[10px] text-[#8b8b9e]">Синхронизируются с участниками доски</p>
+            </div>
+            <span id="notesSyncBadge" class="rounded-full bg-[#f2f2f6] px-2 py-1 text-[9px] font-semibold text-[#8b8b9e]">локально</span>
+          </div>
+          <textarea id="noteInput" rows="3" maxlength="1600" placeholder="Своя формула или заметка…" class="scroll-slim mt-2.5 w-full resize-y rounded-xl border border-black/[0.1] bg-white px-3 py-2.5 text-[11.5px] leading-relaxed text-ink outline-none transition placeholder:text-[#9a9aae] focus:border-accent focus:ring-4 focus:ring-accent/10"></textarea>
+          <div class="mt-2 flex items-center gap-2">
+            <select id="noteSnippetSelect" class="h-9 min-w-0 flex-1 rounded-lg border border-black/[0.1] bg-white px-2 text-[10.5px] font-medium text-[#5b5b6e] outline-none focus:border-accent" aria-label="Прикрепить мини-шпаргалку">
+              <option value="">+ Мини-шпаргалка…</option>
+            </select>
+            <button id="addNoteBtn" type="button" class="h-9 shrink-0 rounded-lg bg-accent px-3 text-[10.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">Добавить</button>
+          </div>
+          <div id="notesList" class="mt-3 space-y-2" aria-live="polite"></div>
+        </section>
+
+        <section class="mt-5 border-t border-black/[0.06] pt-4">
+          <p class="mb-2 text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Быстрые действия</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="cheatAxesBtn" type="button" class="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2 text-[10.5px] font-semibold text-[#3e3e52] transition hover:bg-[#f7f7f9]">
+              <i data-lucide="axis-3d" class="h-3.5 w-3.5"></i>
+              <span>Оси координат</span>
+            </button>
+            <button id="cheatArrowBtn" type="button" class="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent px-2 text-[10.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">
+              <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i>
+              <span>Стрелка-вектор</span>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <div class="drawer-pane hidden px-4 pb-5" data-drawer-pane="graph">
+        <div class="mt-1">
+          <h3 class="text-[12px] font-semibold">Построение графика</h3>
+          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Введите функцию от x — превью обновится сразу.</p>
+        </div>
+
+        <label for="graphFormula" class="mt-3 block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">y = f(x)</label>
+        <input id="graphFormula" type="text" value="x^2 - 4*x + 3" spellcheck="false" autocomplete="off" class="mt-1.5 h-10 w-full rounded-xl border border-black/[0.1] bg-white px-3 font-mono text-[12px] text-ink outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10" />
+
+        <div id="graphTemplates" class="mt-2 grid grid-cols-3 gap-1.5">
+          <button type="button" data-graph-template="x^2" class="graph-template">x²</button>
+          <button type="button" data-graph-template="sin(x)" class="graph-template">sin(x)</button>
+          <button type="button" data-graph-template="cos(x)" class="graph-template">cos(x)</button>
+          <button type="button" data-graph-template="sqrt(x)" class="graph-template">√x</button>
+          <button type="button" data-graph-template="1/x" class="graph-template">1/x</button>
+          <button type="button" data-graph-template="0.5*x + 1" class="graph-template">kx + b</button>
+        </div>
+
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <label class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">X от
+            <input id="graphXMin" type="number" value="-10" step="0.5" class="mt-1 h-9 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] font-medium text-ink outline-none focus:border-accent" />
+          </label>
+          <label class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">X до
+            <input id="graphXMax" type="number" value="10" step="0.5" class="mt-1 h-9 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] font-medium text-ink outline-none focus:border-accent" />
+          </label>
+          <label class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Масштаб, px/ед.
+            <input id="graphScale" type="number" value="24" min="8" max="80" step="1" class="mt-1 h-9 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] font-medium text-ink outline-none focus:border-accent" />
+          </label>
+          <label class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Цвет линии
+            <input id="graphColor" type="color" value="#4262ff" class="mt-1 h-9 w-full cursor-pointer rounded-lg border border-black/[0.1] bg-white p-1" />
+          </label>
+        </div>
+
+        <canvas id="graphPreviewCanvas" class="mt-3 block w-full rounded-xl border border-black/[0.07] bg-[#fbfbfd]" style="height:220px" aria-label="Превью графика"></canvas>
+        <p id="graphStatus" class="mt-1.5 min-h-[15px] text-[9.5px] leading-relaxed text-[#8b8b9e]">Введите функцию.</p>
+
+        <button id="graphInsertBtn" type="button" class="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[11.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0] disabled:cursor-not-allowed disabled:opacity-50">
+          <i data-lucide="line-chart" class="h-4 w-4"></i>
+          <span>Вставить график на доску</span>
+        </button>
+      </div>
+
+      <div class="drawer-pane hidden px-4 pb-5" data-drawer-pane="sims">
+        <div class="mt-1">
+          <h3 class="text-[12px] font-semibold">HTML-симуляторы</h3>
+          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Запускайте локальные или внешние страницы в плавающем окне поверх доски.</p>
+        </div>
+        <div id="simulatorList" class="mt-3 space-y-2"></div>
+        <div class="mt-4 border-t border-black/[0.06] pt-3">
+          <label for="simulatorUrlInput" class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Свой URL или путь</label>
+          <div class="mt-1.5 flex gap-2">
+            <input id="simulatorUrlInput" type="text" placeholder="sims/my-sim.html" spellcheck="false" autocomplete="off" class="h-9 min-w-0 flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] text-ink outline-none focus:border-accent" />
+            <button id="simulatorOpenBtn" type="button" class="h-9 shrink-0 rounded-lg bg-accent px-3 text-[10.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">Открыть</button>
+          </div>
+          <p class="mt-2 text-[9.5px] leading-relaxed text-[#9a9aae]">Пути задаются в массиве <code class="rounded bg-[#f2f2f6] px-1 py-0.5 text-[9px]">SIMULATORS_LIST</code> в коде страницы.</p>
+        </div>
+      </div>
+    </aside>
+
+    <div id="simulatorWindow" class="fixed z-[61] hidden h-[460px] w-[620px]" role="dialog" aria-modal="false" aria-labelledby="simulatorTitle">
+      <div id="simulatorDragHandle" class="flex h-[46px] shrink-0 cursor-move select-none items-center justify-between gap-2 border-b border-black/[0.07] bg-[#fbfbfd] px-3" style="touch-action:none">
+        <div class="flex min-w-0 items-center gap-2">
+          <span class="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#eef1ff] text-accent">
+            <i data-lucide="flask-conical" class="h-3.5 w-3.5"></i>
+          </span>
+          <span id="simulatorTitle" class="truncate text-[11.5px] font-semibold">Симулятор</span>
+        </div>
+        <div class="flex shrink-0 items-center gap-0.5">
+          <button id="simulatorMinBtn" type="button" class="grid h-7 w-7 place-items-center rounded-md text-[#77778b] transition hover:bg-[#ececf2] hover:text-ink" aria-label="Свернуть окно">
+            <i data-lucide="minus" class="h-3.5 w-3.5"></i>
+          </button>
+          <button id="simulatorCloseBtn" type="button" class="grid h-7 w-7 place-items-center rounded-md text-[#77778b] transition hover:bg-[#ffeceb] hover:text-[#d9483b]" aria-label="Закрыть симулятор">
+            <i data-lucide="x" class="h-3.5 w-3.5"></i>
+          </button>
+        </div>
+      </div>
+      <div id="simulatorBody" class="relative min-h-0 flex-1 bg-white">
+        <iframe id="simulatorFrame" title="HTML-симулятор" allow="fullscreen; clipboard-read; clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+      <div id="simulatorResizeHandle" aria-hidden="true"></div>
+    </div>
+
     <!-- Модальные окна -->
     <div id="modalLayer" class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#050038]/30 p-4 backdrop-blur-[2px]">
       <div id="renameModal" class="modal-panel hidden w-full max-w-[400px] rounded-2xl bg-white p-5 shadow-[0_24px_80px_rgba(5,0,56,.3)]" role="dialog" aria-modal="true" aria-labelledby="renameTitle">
@@ -1006,56 +1350,6 @@
         </div>
       </div>
 
-      <div id="cheatsheetModal" class="modal-panel hidden max-h-[calc(100dvh-24px)] w-full max-w-[500px] overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_24px_80px_rgba(5,0,56,.3)]" role="dialog" aria-modal="true" aria-labelledby="cheatsheetTitle">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex min-w-0 items-start gap-3">
-            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eef1ff] text-accent">
-              <i data-lucide="book-open" class="h-5 w-5"></i>
-            </span>
-            <div class="min-w-0">
-              <h2 id="cheatsheetTitle" class="text-[15px] font-semibold">Шпаргалки и графики</h2>
-              <p class="mt-1 text-[11.5px] leading-relaxed text-[#8b8b9e]">Быстрые формулы и заготовки для математики и физики.</p>
-            </div>
-          </div>
-          <button type="button" data-close-modal class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#8b8b9e] transition hover:bg-[#f4f4f7] hover:text-ink" aria-label="Закрыть">
-            <i data-lucide="x" class="h-4 w-4"></i>
-          </button>
-        </div>
-
-        <div class="mt-4 grid gap-3 sm:grid-cols-2">
-          <div class="rounded-xl border border-black/[0.05] bg-[#f8f8fa] p-3">
-            <p class="text-[9.5px] font-semibold uppercase tracking-[0.09em] text-[#9a9aae]">Математика</p>
-            <ul class="mt-1.5 space-y-1 text-[11.5px] leading-relaxed text-[#3e3e52]">
-              <li>ax² + bx + c = 0</li>
-              <li>x = (−b ± √(b² − 4ac)) / 2a</li>
-              <li>(xⁿ)′ = n·xⁿ⁻¹</li>
-              <li>sin²α + cos²α = 1</li>
-              <li>S круга = πr²</li>
-            </ul>
-          </div>
-          <div class="rounded-xl border border-black/[0.05] bg-[#f8f8fa] p-3">
-            <p class="text-[9.5px] font-semibold uppercase tracking-[0.09em] text-[#9a9aae]">Физика</p>
-            <ul class="mt-1.5 space-y-1 text-[11.5px] leading-relaxed text-[#3e3e52]">
-              <li>v = v₀ + at</li>
-              <li>s = v₀t + at² / 2</li>
-              <li>F = ma</li>
-              <li>I = U / R</li>
-              <li>E = mc²</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="mt-4 flex flex-col gap-2 sm:flex-row">
-          <button id="cheatAxesBtn" type="button" class="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-[11.5px] font-semibold text-[#3e3e52] transition hover:bg-[#f7f7f9]">
-            <i data-lucide="axis-3d" class="h-4 w-4"></i>
-            <span>Вставить оси координат</span>
-          </button>
-          <button id="cheatArrowBtn" type="button" class="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-3 text-[11.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">
-            <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
-            <span>Стрелка-вектор</span>
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -1163,6 +1457,132 @@
       const AXES_HALF = AXES_SIZE / 2;
       const AXES_TICK_STEP = 24;
       const AXES_STROKE_WIDTH = 2;
+      const NOTES_STORAGE_KEY = 'miro-board-notes-v1';
+      const SIMULATORS_LIST = [
+        { title: 'Маятник', url: 'sims/pendulum.html', description: 'Колебания и период' },
+        { title: 'Бросок под углом', url: 'sims/projectile.html', description: 'Траектория и скорость' },
+        { title: 'Электрическая цепь', url: 'sims/circuit.html', description: 'Ток, напряжение, сопротивление' }
+      ];
+      const NOTE_SNIPPETS = {
+        trig: { label: 'Тригонометрия', text: 'sin²α + cos²α = 1\nsin 2α = 2 sin α cos α\ncos 2α = cos²α − sin²α' },
+        algebra: { label: 'Алгебра', text: 'D = b² − 4ac\nx = (−b ± √D) / 2a\nx₁ + x₂ = −b/a,  x₁x₂ = c/a' },
+        derivatives: { label: 'Производные', text: '(xⁿ)′ = n·xⁿ⁻¹\n(sin x)′ = cos x\n(cos x)′ = −sin x\n(eˣ)′ = eˣ\n(ln x)′ = 1/x' },
+        physics: { label: 'Физика', text: 'v = v₀ + at\ns = v₀t + at²/2\nF = ma\nI = U/R\nE = mc²' }
+      };
+      const CHEATSHEET_ITEMS = [
+        {
+          id: 'trig',
+          title: 'Тригонометрия',
+          subtitle: 'Таблица значений, тождества и приведение',
+          cardTitle: 'Тригонометрия',
+          cardLines: [
+            'Углы: 0°, 30°, 45°, 60°, 90°, 180°',
+            'sin α: 0, 1/2, √2/2, √3/2, 1, 0',
+            'cos α: 1, √3/2, √2/2, 1/2, 0, −1',
+            'tan α: 0, 1/√3, 1, √3, —, 0',
+            'cot α: —, √3, 1, 1/√3, 0, —',
+            '',
+            'sin²α + cos²α = 1',
+            'sin 2α = 2 sin α cos α',
+            'cos 2α = cos²α − sin²α',
+            'sin(π/2 − α) = cos α',
+            'cos(π − α) = −cos α',
+            'tan(π + α) = tan α'
+          ],
+          html: `
+            <table class="cheat-table">
+              <thead><tr><th>α</th><th>0°</th><th>30°<br><small>π/6</small></th><th>45°<br><small>π/4</small></th><th>60°<br><small>π/3</small></th><th>90°<br><small>π/2</small></th><th>180°<br><small>π</small></th></tr></thead>
+              <tbody>
+                <tr><td>sin α</td><td>0</td><td>1/2</td><td>√2/2</td><td>√3/2</td><td>1</td><td>0</td></tr>
+                <tr><td>cos α</td><td>1</td><td>√3/2</td><td>√2/2</td><td>1/2</td><td>0</td><td>−1</td></tr>
+                <tr><td>tan α</td><td>0</td><td>1/√3</td><td>1</td><td>√3</td><td>—</td><td>0</td></tr>
+                <tr><td>cot α</td><td>—</td><td>√3</td><td>1</td><td>1/√3</td><td>0</td><td>—</td></tr>
+              </tbody>
+            </table>
+            <div class="cheat-formulas">
+              <p><b>Основное:</b> sin²α + cos²α = 1</p>
+              <p><b>Двойной угол:</b> sin 2α = 2sinα·cosα; cos 2α = cos²α − sin²α</p>
+              <p><b>Приведение:</b> sin(π/2 − α) = cosα; cos(π − α) = −cosα; tan(π + α) = tanα</p>
+            </div>`
+        },
+        {
+          id: 'algebra',
+          title: 'Алгебра и производные',
+          subtitle: 'ФСУ, квадратные уравнения, степени и логарифмы',
+          cardTitle: 'Алгебра и производные',
+          cardLines: [
+            '(a ± b)² = a² ± 2ab + b²',
+            'a² − b² = (a − b)(a + b)',
+            '(a ± b)³ = a³ ± 3a²b + 3ab² ± b³',
+            'a³ ± b³ = (a ± b)(a² ∓ ab + b²)',
+            '',
+            'D = b² − 4ac,  x = (−b ± √D) / 2a',
+            'x₁ + x₂ = −b/a,  x₁x₂ = c/a',
+            '',
+            'aᵐ·aⁿ = aᵐ⁺ⁿ,  (aᵐ)ⁿ = aᵐⁿ',
+            'logₐ(xy) = logₐx + logₐy',
+            'logₐ(xⁿ) = n·logₐx,  a^(logₐb) = b',
+            '',
+            '(xⁿ)′ = n·xⁿ⁻¹,  (sin x)′ = cos x',
+            '(cos x)′ = −sin x,  (eˣ)′ = eˣ',
+            '(ln x)′ = 1/x,  (√x)′ = 1/(2√x)'
+          ],
+          html: `
+            <div class="cheat-formulas">
+              <p><b>ФСУ:</b> (a ± b)² = a² ± 2ab + b²; a² − b² = (a − b)(a + b)</p>
+              <p>(a ± b)³ = a³ ± 3a²b + 3ab² ± b³; a³ ± b³ = (a ± b)(a² ∓ ab + b²)</p>
+              <p><b>Квадратное:</b> D = b² − 4ac; x = (−b ± √D) / 2a</p>
+              <p><b>Виета:</b> x₁ + x₂ = −b/a; x₁x₂ = c/a</p>
+              <p><b>Степени:</b> aᵐ·aⁿ = aᵐ⁺ⁿ; (aᵐ)ⁿ = aᵐⁿ; a⁻ⁿ = 1/aⁿ; a⁰ = 1</p>
+              <p><b>Логарифмы:</b> logₐ(xy) = logₐx + logₐy; logₐ(x/y) = logₐx − logₐy; logₐ(xⁿ) = n·logₐx; a^(logₐb) = b</p>
+            </div>
+            <table class="cheat-table mt-2">
+              <thead><tr><th>f(x)</th><th>f′(x)</th></tr></thead>
+              <tbody>
+                <tr><td>C</td><td>0</td></tr>
+                <tr><td>xⁿ</td><td>n·xⁿ⁻¹</td></tr>
+                <tr><td>sin x</td><td>cos x</td></tr>
+                <tr><td>cos x</td><td>−sin x</td></tr>
+                <tr><td>tan x</td><td>1/cos²x</td></tr>
+                <tr><td>eˣ</td><td>eˣ</td></tr>
+                <tr><td>ln x</td><td>1/x</td></tr>
+                <tr><td>√x</td><td>1/(2√x)</td></tr>
+              </tbody>
+            </table>`
+        },
+        {
+          id: 'physics',
+          title: 'Физика (база)',
+          subtitle: 'Кинематика, Ньютон, Ом, работа и энергия',
+          cardTitle: 'Физика: база',
+          cardLines: [
+            'Кинематика:',
+            'v = v₀ + at',
+            's = v₀t + at²/2',
+            'v² − v₀² = 2as',
+            '',
+            'Динамика:',
+            'F = ma,  F₁ = −F₂',
+            'Fтр = μN,  P = mg',
+            '',
+            'Электричество:',
+            'I = U/R,  U = IR,  R = U/I',
+            '',
+            'Работа и энергия:',
+            'A = Fs·cosα,  N = A/t',
+            'Ek = mv²/2,  Ep = mgh',
+            'E = Ek + Ep = const'
+          ],
+          html: `
+            <div class="cheat-formulas">
+              <p><b>Кинематика:</b> v = v₀ + at; s = v₀t + at²/2; v² − v₀² = 2as</p>
+              <p><b>Ньютон:</b> F = ma; F₁ = −F₂; Fтр = μN; P = mg</p>
+              <p><b>Ом:</b> I = U/R; U = IR; R = U/I. Последовательно: R = R₁ + R₂. Параллельно: 1/R = 1/R₁ + 1/R₂</p>
+              <p><b>Работа:</b> A = Fs·cosα; N = A/t</p>
+              <p><b>Энергия:</b> Ek = mv²/2; Ep = mgh; E = Ek + Ep = const</p>
+            </div>`
+        }
+      ];
 
       function uuid() {
         if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -1465,9 +1885,49 @@
       const hotkeysModal = $('#hotkeysModal');
       const hotkeysList = $('#hotkeysList');
       const hotkeysResetBtn = $('#hotkeysResetBtn');
-      const cheatsheetModal = $('#cheatsheetModal');
+      const cheatsheetTab = $('#cheatsheetTab');
+      const cheatsheetDrawer = $('#cheatsheetDrawer');
+      const cheatsheetCloseBtn = $('#cheatsheetCloseBtn');
+      const cheatAccordion = $('#cheatAccordion');
       const cheatAxesBtn = $('#cheatAxesBtn');
       const cheatArrowBtn = $('#cheatArrowBtn');
+      const noteInput = $('#noteInput');
+      const noteSnippetSelect = $('#noteSnippetSelect');
+      const addNoteBtn = $('#addNoteBtn');
+      const notesList = $('#notesList');
+      const notesSyncBadge = $('#notesSyncBadge');
+      const graphFormula = $('#graphFormula');
+      const graphXMin = $('#graphXMin');
+      const graphXMax = $('#graphXMax');
+      const graphScale = $('#graphScale');
+      const graphColor = $('#graphColor');
+      const graphPreviewCanvas = $('#graphPreviewCanvas');
+      const graphStatus = $('#graphStatus');
+      const graphInsertBtn = $('#graphInsertBtn');
+      const simulatorList = $('#simulatorList');
+      const simulatorUrlInput = $('#simulatorUrlInput');
+      const simulatorOpenBtn = $('#simulatorOpenBtn');
+      const simulatorWindow = $('#simulatorWindow');
+      const simulatorDragHandle = $('#simulatorDragHandle');
+      const simulatorTitle = $('#simulatorTitle');
+      const simulatorMinBtn = $('#simulatorMinBtn');
+      const simulatorCloseBtn = $('#simulatorCloseBtn');
+      const simulatorFrame = $('#simulatorFrame');
+      const simulatorResizeHandle = $('#simulatorResizeHandle');
+
+      let currentNotes = [];
+      let currentNotesRef = null;
+      let currentNotesBoardId = '';
+      let notesLoadToken = 0;
+      let notesSeededBoards = new Set();
+      let notesSeedingBoardId = '';
+      let activeDrawerTab = 'notes';
+      let graphPreviewFrame = 0;
+      let graphCompiled = null;
+      let graphCompiledKey = '';
+      let simulatorDragState = null;
+      let simulatorResizeState = null;
+      let simulatorRestoreHeight = 460;
       const addColumnsBtn = $('#addColumnsBtn');
       const uploadBtn = $('#uploadBtn');
       const photoInput = $('#photoInput');
@@ -2054,6 +2514,7 @@
         if (safeId && removeInvalid) removeBoardFromLocalState(safeId);
         state.currentBoardId = '';
         persist();
+        loadBoardNotes('');
 
         // На недоступной доске не оставляем содержимое предыдущей доски:
         // рисование и синхронизация заблокированы до перехода на рабочую доску.
@@ -2096,6 +2557,7 @@
       function activateBoard(id) {
         if (cloudEnabled) loadCloudBoardContent(id);
         else loadLocalBoardContent(id);
+        loadBoardNotes(id);
         attachCursors(id);
         updateOnlineCount();
       }
@@ -3548,6 +4010,7 @@
           currentObjectsRef.off();
           currentObjectsRef = null;
         }
+        detachNotesListener();
       }
 
       function onRemoteObjectAdded(snapshot) {
@@ -5794,8 +6257,923 @@
         return HOTKEY_ACTIONS.find(action => hotkeys[action.id] === code) || null;
       }
 
+      function renderCheatAccordion() {
+        if (!cheatAccordion) return;
+        cheatAccordion.innerHTML = CHEATSHEET_ITEMS.map((item, index) => `
+          <details class="cheat-acc"${index === 0 ? ' open' : ''}>
+            <summary class="cheat-summary">
+              <span class="min-w-0 flex-1">
+                <span class="block text-[11.5px] font-semibold leading-tight">${escapeHtml(item.title)}</span>
+                <span class="mt-0.5 block text-[9px] leading-snug text-[#8b8b9e]">${escapeHtml(item.subtitle)}</span>
+              </span>
+              <button type="button" class="cheat-send" data-cheat-insert="${escapeHtml(item.id)}">На доску</button>
+              <i data-lucide="chevron-down" class="cheat-chev h-3.5 w-3.5"></i>
+            </summary>
+            <div class="cheat-body">${item.html}</div>
+          </details>
+        `).join('');
+      }
+
+      function addBoardCard(title, lines, accent) {
+        if (boardAccess !== 'ready' || !state.currentBoardId) {
+          showToast('Сначала выберите рабочую доску', 'error');
+          return null;
+        }
+        const bodyText = (Array.isArray(lines) ? lines : [String(lines || '')]).join('\n').trim();
+        if (!bodyText) {
+          showToast('Нечего вставлять на доску', 'error');
+          return null;
+        }
+
+        const width = 432;
+        const pad = 22;
+        const body = new fabric.Textbox(bodyText, {
+          left: pad,
+          top: 58,
+          width: width - pad * 2,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: 12.5,
+          fontWeight: 500,
+          fill: '#33334a',
+          lineHeight: 1.48,
+          splitByGrapheme: true,
+          selectable: false,
+          evented: false
+        });
+        const height = Math.max(118, 58 + body.height + 20);
+        const bg = new fabric.Rect({
+          left: 0,
+          top: 0,
+          width,
+          height,
+          rx: 17,
+          ry: 17,
+          fill: '#ffffff',
+          stroke: 'rgba(5,0,56,.09)',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false
+        });
+        const titleText = new fabric.Text(String(title || 'Шпаргалка'), {
+          left: pad,
+          top: 17,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: 15,
+          fontWeight: 700,
+          fill: '#202036',
+          selectable: false,
+          evented: false
+        });
+        const rule = new fabric.Rect({
+          left: pad,
+          top: 43,
+          width: 34,
+          height: 3,
+          rx: 1.5,
+          ry: 1.5,
+          fill: accent || '#4262ff',
+          selectable: false,
+          evented: false
+        });
+        const group = new fabric.Group([bg, titleText, rule, body], {
+          left: getViewportCenter().x,
+          top: getViewportCenter().y,
+          originX: 'center',
+          originY: 'center',
+          perPixelTargetFind: false
+        });
+
+        canvas.add(group);
+        ensureObjectId(group);
+        syncObjectToFirebase(group);
+        recordCreation(group);
+        selectTool('cursor');
+        canvas.setActiveObject(group);
+        canvas.requestRenderAll();
+        showToast('Карточка добавлена на доску');
+        if (window.innerWidth < 640) closeCheatsheetDrawer();
+        return group;
+      }
+
+      function insertCheatCard(item) {
+        if (!item) return;
+        addBoardCard(item.cardTitle, item.cardLines, '#4262ff');
+      }
+
+      function readNotesCache(boardId) {
+        const safeId = sanitizeBoardId(boardId);
+        if (!safeId) return [];
+        try {
+          const all = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
+          return normalizeBoardNotes(all && all[safeId]);
+        } catch (_) {
+          return [];
+        }
+      }
+
+      function writeNotesCache(boardId, notes) {
+        const safeId = sanitizeBoardId(boardId);
+        if (!safeId) return;
+        try {
+          let all = {};
+          try { all = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}') || {}; } catch (_) { all = {}; }
+          const packed = {};
+          (Array.isArray(notes) ? notes : []).forEach((note) => {
+            if (!note || !note.id || !note.text) return;
+            packed[note.id] = {
+              text: note.text,
+              createdAt: note.createdAt || Date.now(),
+              updatedAt: note.updatedAt || note.createdAt || Date.now(),
+              author: note.author || ''
+            };
+          });
+          if (Object.keys(packed).length) all[safeId] = packed;
+          else delete all[safeId];
+          localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(all));
+        } catch (_) {}
+      }
+
+      function normalizeBoardNotes(raw) {
+        if (!raw) return [];
+        const entries = [];
+        if (Array.isArray(raw)) {
+          raw.forEach((value, index) => {
+            if (value && typeof value === 'object') entries.push([value.id || String(index), value]);
+            else if (typeof value === 'string') entries.push([String(index), { text: value }]);
+          });
+        } else if (typeof raw === 'object') {
+          Object.keys(raw).forEach((id) => {
+            const value = raw[id];
+            if (value && typeof value === 'object') entries.push([id, value]);
+            else if (typeof value === 'string') entries.push([id, { text: value }]);
+          });
+        }
+        const notes = [];
+        entries.forEach(([id, value]) => {
+          const text = String(value && value.text != null ? value.text : '').trim().slice(0, 1600);
+          if (!text) return;
+          const createdAt = Number(value.createdAt) || Date.now();
+          const updatedAt = Number(value.updatedAt) || createdAt;
+          notes.push({
+            id: String(id || uuid()),
+            text,
+            createdAt,
+            updatedAt,
+            author: String(value.author || '').slice(0, 40)
+          });
+        });
+        return notes.sort((a, b) => b.updatedAt - a.updatedAt);
+      }
+
+      function notePayload(note) {
+        return {
+          text: note.text,
+          createdAt: note.createdAt,
+          updatedAt: note.updatedAt,
+          author: note.author || ''
+        };
+      }
+
+      function notesTimestamp(value) {
+        const date = new Date(Number(value) || Date.now());
+        try {
+          return date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function renderNotes() {
+        if (!notesList) return;
+        const boardReady = !!(state.currentBoardId && boardAccess === 'ready');
+        if (noteInput) noteInput.disabled = !boardReady;
+        if (addNoteBtn) addNoteBtn.disabled = !boardReady;
+        if (noteSnippetSelect) noteSnippetSelect.disabled = !boardReady;
+        if (notesSyncBadge) {
+          notesSyncBadge.textContent = !boardReady ? 'нет доски' : (currentNotesRef ? 'в облаке' : 'локально');
+          notesSyncBadge.style.color = currentNotesRef ? '#0f9d76' : '#8b8b9e';
+        }
+
+        if (!currentNotes.length) {
+          notesList.innerHTML = '<div class="rounded-xl border border-dashed border-black/[0.09] bg-[#fbfbfd] px-3 py-4 text-center text-[10px] leading-relaxed text-[#9a9aae]">Пока заметок нет. Добавьте формулу или прикрепите мини-шпаргалку.</div>';
+          return;
+        }
+
+        notesList.innerHTML = currentNotes.map((note) => `
+          <article class="note-item" data-note-id="${escapeHtml(note.id)}">
+            <p class="note-text">${escapeHtml(note.text)}</p>
+            <div class="mt-2 flex items-center justify-between gap-2">
+              <span class="min-w-0 truncate text-[9px] text-[#9a9aae]">${escapeHtml(note.author || 'Гость')} · ${escapeHtml(notesTimestamp(note.updatedAt))}</span>
+              <span class="flex shrink-0 items-center gap-1">
+                <button type="button" data-note-action="insert" class="rounded-md border border-[#c9d2ff] bg-[#eef1ff] px-2 py-1 text-[9px] font-bold text-accent transition hover:bg-accent hover:text-white">Вставить на холст</button>
+                <button type="button" data-note-action="delete" class="rounded-md px-1.5 py-1 text-[9px] font-bold text-[#d9483b] transition hover:bg-[#ffeceb]">Удалить</button>
+              </span>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function loadBoardNotes(boardId) {
+        const safeId = sanitizeBoardId(boardId);
+        detachNotesListener();
+        const token = ++notesLoadToken;
+        currentNotesBoardId = safeId;
+        notesSeedingBoardId = '';
+        currentNotes = safeId ? readNotesCache(safeId) : [];
+        renderNotes();
+        if (!safeId || !cloudEnabled || !db) return;
+
+        const ref = db.ref('boards_data/' + safeId + '/notes');
+        currentNotesRef = ref;
+        renderNotes();
+        ref.on('value', (snapshot) => {
+          if (token !== notesLoadToken || currentNotesBoardId !== safeId || state.currentBoardId !== safeId) return;
+          if (notesSeedingBoardId === safeId) return;
+          const remote = normalizeBoardNotes(snapshot.val());
+          if (!remote.length && currentNotes.length && !notesSeededBoards.has(safeId)) {
+            // Один раз за сессию переносим локальный кэш в пустую облачную ветку.
+            notesSeededBoards.add(safeId);
+            notesSeedingBoardId = safeId;
+            const seedNotes = currentNotes.slice();
+            let remaining = seedNotes.length;
+            let failed = false;
+            seedNotes.forEach((note) => {
+              ref.child(note.id).set(notePayload(note)).catch((err) => {
+                failed = true;
+                handleFirebaseError(err);
+              }).then(() => {
+                remaining -= 1;
+                if (remaining > 0) return;
+                notesSeedingBoardId = '';
+                if (failed) showToast('Не все заметки удалось синхронизировать', 'error');
+              });
+            });
+            return;
+          }
+          currentNotes = remote;
+          writeNotesCache(safeId, remote);
+          renderNotes();
+        }, handleFirebaseError);
+      }
+
+      function detachNotesListener() {
+        notesLoadToken += 1;
+        if (currentNotesRef) {
+          currentNotesRef.off();
+          currentNotesRef = null;
+        }
+      }
+
+      function addBoardNote() {
+        if (!state.currentBoardId || boardAccess !== 'ready') {
+          showToast('Сначала выберите рабочую доску', 'error');
+          return;
+        }
+        const text = String(noteInput.value || '').trim().slice(0, 1600);
+        if (!text) {
+          noteInput.focus();
+          return;
+        }
+        const now = Date.now();
+        const note = {
+          id: uuid(),
+          text,
+          createdAt: now,
+          updatedAt: now,
+          author: displayName()
+        };
+        currentNotes = [note].concat(currentNotes).sort((a, b) => b.updatedAt - a.updatedAt);
+        writeNotesCache(currentNotesBoardId, currentNotes);
+        renderNotes();
+        noteInput.value = '';
+        noteInput.focus();
+        if (currentNotesRef) currentNotesRef.child(note.id).set(notePayload(note)).catch(handleFirebaseError);
+        showToast('Заметка сохранена');
+      }
+
+      function deleteBoardNote(noteId) {
+        const note = currentNotes.find(item => item.id === noteId);
+        if (!note) return;
+        currentNotes = currentNotes.filter(item => item.id !== noteId);
+        writeNotesCache(currentNotesBoardId, currentNotes);
+        renderNotes();
+        if (currentNotesRef) currentNotesRef.child(noteId).remove().catch(handleFirebaseError);
+        showToast('Заметка удалена');
+      }
+
+      function insertNoteOnBoard(noteId) {
+        const note = currentNotes.find(item => item.id === noteId);
+        if (!note) return;
+        addBoardCard('Заметка', note.text.split('\n'), '#e5a000');
+      }
+
+      function openCheatsheetDrawer() {
+        closeAllMenus();
+        cheatsheetDrawer.inert = false;
+        cheatsheetDrawer.classList.add('is-open');
+        cheatsheetDrawer.setAttribute('aria-hidden', 'false');
+        cheatsheetTab.setAttribute('aria-expanded', 'true');
+        document.body.classList.add('cheatsheet-open');
+        setDrawerTab(activeDrawerTab);
+      }
+
+      function closeCheatsheetDrawer() {
+        if (cheatsheetDrawer.contains(document.activeElement)) {
+          cheatsheetTab.focus({ preventScroll: true });
+        }
+        cheatsheetDrawer.classList.remove('is-open');
+        cheatsheetDrawer.inert = true;
+        cheatsheetDrawer.setAttribute('aria-hidden', 'true');
+        cheatsheetTab.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('cheatsheet-open');
+      }
+
+      function toggleCheatsheetDrawer() {
+        if (cheatsheetDrawer.classList.contains('is-open')) closeCheatsheetDrawer();
+        else openCheatsheetDrawer();
+      }
+
+      function setDrawerTab(tab) {
+        const next = ['notes', 'graph', 'sims'].includes(tab) ? tab : 'notes';
+        activeDrawerTab = next;
+        $$('.drawer-tab', cheatsheetDrawer).forEach((button) => {
+          const active = button.dataset.drawerTab === next;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        $$('.drawer-pane', cheatsheetDrawer).forEach((pane) => {
+          pane.classList.toggle('hidden', pane.dataset.drawerPane !== next);
+        });
+        if (next === 'graph') requestAnimationFrame(drawGraphPreview);
+      }
+
+      const GRAPH_FUNCTION_NAMES = [
+        'sinh', 'cosh', 'tanh', 'asin', 'acos', 'atan', 'sqrt', 'cbrt',
+        'log10', 'log', 'ln', 'sin', 'cos', 'tan', 'cot', 'abs', 'exp',
+        'floor', 'ceil', 'round', 'sign', 'pow', 'min', 'max'
+      ];
+
+      function compileGraphExpression(raw) {
+        let source = String(raw || '').trim();
+        if (!source) throw new Error('Введите функцию y = f(x)');
+        source = source.replace(/^y\s*=/i, '').trim();
+        const cacheKey = source;
+        if (graphCompiledKey === cacheKey && graphCompiled) return graphCompiled;
+
+        let expr = source
+          .replace(/[−–—]/g, '-')
+          .replace(/[×·]/g, '*')
+          .replace(/÷/g, '/')
+          .replace(/π/g, 'pi')
+          .replace(/√\s*\(/g, 'sqrt(')
+          .replace(/\^/g, '**');
+
+        const placeholders = [];
+        GRAPH_FUNCTION_NAMES
+          .slice()
+          .sort((a, b) => b.length - a.length)
+          .forEach((name) => {
+            const pattern = new RegExp('(^|[^A-Za-z_])' + name + '\\s*\\(', 'g');
+            expr = expr.replace(pattern, (match, prefix) => {
+              const token = '__MIRO_FN_' + placeholders.length + '__';
+              const value = name === 'cot' ? '__miroCot' : (name === 'ln' ? 'Math.log' : 'Math.' + name);
+              placeholders.push({ token, value });
+              return prefix + token + '(';
+            });
+          });
+        expr = expr.replace(/\bpi\b/g, 'Math.PI');
+        expr = expr.replace(/(^|[^A-Za-z0-9_])e(?![A-Za-z0-9_])/g, '$1Math.E');
+        expr = expr.replace(/(^|[^A-Za-z_])x(?![A-Za-z0-9_])/g, '$1__MIRO_X__');
+        expr = expr.replace(/(\d|\)|__MIRO_X__)\s*(?=(__MIRO_X__|__MIRO_FN_\d+__|\(|Math\.[A-Za-z]))/g, '$1*');
+        expr = expr.replace(/__MIRO_X__/g, 'x');
+        placeholders.forEach((item) => {
+          expr = expr.split(item.token).join(item.value);
+        });
+
+        const stripped = expr
+          .replace(/Math\.(?:sinh|cosh|tanh|asin|acos|atan|sqrt|cbrt|log10|log|floor|ceil|round|sign|sin|cos|tan|abs|exp|pow|min|max|PI|E)/g, '')
+          .replace(/__miroCot/g, '');
+        if (/[^0-9x+\-*/%.,()\s]/.test(stripped)) {
+          throw new Error('В формуле есть недопустимые символы или функции');
+        }
+        if (!expr.trim()) throw new Error('Пустая формула');
+
+        let fn;
+        try {
+          fn = new Function('x', 'const __miroCot = (v) => 1 / Math.tan(v); return (' + expr + ');');
+        } catch (_) {
+          throw new Error('Не удалось разобрать формулу');
+        }
+        try {
+          const test = fn(0.37);
+          if (typeof test !== 'number') throw new Error('bad');
+        } catch (_) {
+          throw new Error('Формула не вычисляется');
+        }
+        graphCompiledKey = cacheKey;
+        graphCompiled = { fn, source, normalized: expr };
+        return graphCompiled;
+      }
+
+      function readGraphSettings() {
+        let xMin = Number(graphXMin.value);
+        let xMax = Number(graphXMax.value);
+        if (!Number.isFinite(xMin) || !Number.isFinite(xMax)) throw new Error('Проверьте диапазон по X');
+        if (xMin === xMax) throw new Error('X от и X до не должны совпадать');
+        if (xMin > xMax) { const temp = xMin; xMin = xMax; xMax = temp; }
+        const span = xMax - xMin;
+        if (span < 0.1) throw new Error('Слишком узкий диапазон по X');
+        if (span > 200) throw new Error('Слишком широкий диапазон по X (макс. 200)');
+        const scale = clamp(Number(graphScale.value) || 24, 8, 80);
+        const colorValue = String(graphColor.value || '').trim();
+        const color = /^#[0-9a-f]{6}$/i.test(colorValue) ? colorValue : '#4262ff';
+        return { xMin, xMax, span, scale, color };
+      }
+
+      function graphGridStep(span, scale) {
+        const targetUnits = Math.max(0.0001, 26 / Math.max(1, scale));
+        const raw = Math.max(targetUnits, span / 24);
+        const power = Math.pow(10, Math.floor(Math.log10(raw)));
+        const ratio = raw / power;
+        const nice = ratio <= 1 ? 1 : ratio <= 2 ? 2 : ratio <= 5 ? 5 : 10;
+        return nice * power;
+      }
+
+      function formatGraphNumber(value) {
+        const rounded = Math.round(value * 1000) / 1000;
+        return String(rounded).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+      }
+
+      function graphPointSegments(fn, xMin, xMax, mapPoint, maxJump) {
+        const segments = [];
+        let segment = [];
+        let lastY = null;
+        const count = 800;
+        const step = (xMax - xMin) / count;
+        const flush = () => {
+          if (segment.length) segments.push(segment);
+          segment = [];
+          lastY = null;
+        };
+        for (let i = 0; i <= count; i += 1) {
+          const x = xMin + step * i;
+          let y;
+          try { y = fn(x); } catch (_) { y = NaN; }
+          if (!Number.isFinite(y)) {
+            flush();
+            continue;
+          }
+          const point = mapPoint(x, y);
+          if (!point) {
+            flush();
+            continue;
+          }
+          if (lastY != null && maxJump && Math.abs(y - lastY) > maxJump) flush();
+          segment.push(point);
+          lastY = y;
+        }
+        flush();
+        return segments;
+      }
+
+      function drawGraphPreview() {
+        if (!graphPreviewCanvas) return;
+        const cssW = Math.max(220, Math.round(graphPreviewCanvas.clientWidth || 320));
+        const cssH = 220;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        graphPreviewCanvas.width = Math.round(cssW * dpr);
+        graphPreviewCanvas.height = Math.round(cssH * dpr);
+        const ctx = graphPreviewCanvas.getContext('2d');
+        if (!ctx) return;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssW, cssH);
+        ctx.fillStyle = '#fbfbfd';
+        ctx.fillRect(0, 0, cssW, cssH);
+
+        let compiled;
+        let settings;
+        try {
+          compiled = compileGraphExpression(graphFormula.value);
+          settings = readGraphSettings();
+        } catch (err) {
+          graphStatus.textContent = err.message;
+          graphStatus.style.color = '#d9483b';
+          graphInsertBtn.disabled = true;
+          return;
+        }
+
+        const { xMin, xMax, span, color } = settings;
+        const plotL = 9;
+        const plotT = 9;
+        const plotW = Math.max(40, cssW - 18);
+        const plotH = Math.max(40, cssH - 18);
+        const xScale = plotW / span;
+        const yCenter = plotT + plotH / 2;
+        const step = graphGridStep(span, xScale);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(plotL, plotT, plotW, plotH);
+        ctx.clip();
+
+        ctx.strokeStyle = '#e9ebf3';
+        ctx.lineWidth = 1;
+        const firstX = Math.ceil(xMin / step) * step;
+        for (let gx = firstX; gx <= xMax + step * 0.001; gx += step) {
+          const sx = plotL + (gx - xMin) * xScale;
+          ctx.beginPath();
+          ctx.moveTo(sx, plotT);
+          ctx.lineTo(sx, plotT + plotH);
+          ctx.stroke();
+        }
+        const yHalf = plotH / (2 * xScale);
+        const firstY = Math.ceil(-yHalf / step) * step;
+        for (let gy = firstY; gy <= yHalf + step * 0.001; gy += step) {
+          const sy = yCenter - gy * xScale;
+          ctx.beginPath();
+          ctx.moveTo(plotL, sy);
+          ctx.lineTo(plotL + plotW, sy);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#8b8e9f';
+        ctx.lineWidth = 1.4;
+        if (0 >= xMin && 0 <= xMax) {
+          const sx = plotL + (0 - xMin) * xScale;
+          ctx.beginPath();
+          ctx.moveTo(sx, plotT);
+          ctx.lineTo(sx, plotT + plotH);
+          ctx.stroke();
+        }
+        if (0 >= -yHalf && 0 <= yHalf) {
+          ctx.beginPath();
+          ctx.moveTo(plotL, yCenter);
+          ctx.lineTo(plotL + plotW, yCenter);
+          ctx.stroke();
+        }
+
+        const segments = graphPointSegments(
+          compiled.fn,
+          xMin,
+          xMax,
+          (x, y) => {
+            const sy = yCenter - y * xScale;
+            if (sy < plotT - 2 || sy > plotT + plotH + 2) return null;
+            return [plotL + (x - xMin) * xScale, sy];
+          },
+          (plotH / xScale) * 0.65
+        );
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        segments.forEach((segment) => {
+          if (segment.length < 2) return;
+          ctx.beginPath();
+          ctx.moveTo(segment[0][0], segment[0][1]);
+          for (let i = 1; i < segment.length; i += 1) ctx.lineTo(segment[i][0], segment[i][1]);
+          ctx.stroke();
+        });
+        ctx.restore();
+
+        const totalPoints = segments.reduce((sum, segment) => sum + segment.length, 0);
+        if (!totalPoints) {
+          graphStatus.textContent = 'На этом диапазоне нет видимых точек';
+          graphStatus.style.color = '#d9483b';
+          graphInsertBtn.disabled = true;
+        } else {
+          graphStatus.textContent = 'y = ' + compiled.source + ' · X: ' + formatGraphNumber(xMin) + '…' + formatGraphNumber(xMax);
+          graphStatus.style.color = '#8b8b9e';
+          graphInsertBtn.disabled = false;
+        }
+      }
+
+      function requestGraphPreview() {
+        if (graphPreviewFrame) return;
+        graphPreviewFrame = requestAnimationFrame(() => {
+          graphPreviewFrame = 0;
+          if (cheatsheetDrawer.classList.contains('is-open') && activeDrawerTab === 'graph') drawGraphPreview();
+        });
+      }
+
+      function buildGraphCard(compiled, settings) {
+        const { xMin, xMax, span, scale, color } = settings;
+        const plotW = clamp(span * scale, 260, 1000);
+        const plotH = Math.round(plotW * 0.7);
+        const padL = 16;
+        const padT = 56;
+        const cardW = Math.round(plotW + padL * 2);
+        const cardH = Math.round(plotH + padT + 20);
+        const yCenter = padT + plotH / 2;
+        const xScale = plotW / span;
+        const yHalf = plotH / (2 * scale);
+        const step = graphGridStep(span, scale);
+        const children = [];
+
+        children.push(new fabric.Rect({
+          left: 0,
+          top: 0,
+          width: cardW,
+          height: cardH,
+          rx: 18,
+          ry: 18,
+          fill: '#ffffff',
+          stroke: 'rgba(5,0,56,.09)',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false
+        }));
+
+        children.push(new fabric.Text('y = ' + compiled.source.slice(0, 58), {
+          left: padL,
+          top: 16,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: 14,
+          fontWeight: 700,
+          fill: '#292940',
+          selectable: false,
+          evented: false
+        }));
+        children.push(new fabric.Text('X: ' + formatGraphNumber(xMin) + ' … ' + formatGraphNumber(xMax), {
+          left: padL,
+          top: 36,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: 9,
+          fontWeight: 500,
+          fill: '#8b8b9e',
+          selectable: false,
+          evented: false
+        }));
+
+        const gridLine = (x1, y1, x2, y2, stroke, width) => new fabric.Line([x1, y1, x2, y2], {
+          stroke,
+          strokeWidth: width,
+          strokeUniform: true,
+          selectable: false,
+          evented: false
+        });
+
+        const firstX = Math.ceil(xMin / step) * step;
+        for (let gx = firstX; gx <= xMax + step * 0.001; gx += step) {
+          const sx = padL + (gx - xMin) * xScale;
+          children.push(gridLine(sx, padT, sx, padT + plotH, '#eaecf4', 1));
+        }
+        const firstY = Math.ceil(-yHalf / step) * step;
+        for (let gy = firstY; gy <= yHalf + step * 0.001; gy += step) {
+          const sy = yCenter - gy * scale;
+          children.push(gridLine(padL, sy, padL + plotW, sy, '#eaecf4', 1));
+        }
+
+        if (0 >= xMin && 0 <= xMax) {
+          const sx = padL + (0 - xMin) * xScale;
+          children.push(gridLine(sx, padT, sx, padT + plotH, '#8b8e9f', 1.4));
+          children.push(new fabric.Text('y', {
+            left: sx + 5,
+            top: padT + 2,
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSize: 10,
+            fontWeight: 700,
+            fill: '#7b7f93',
+            selectable: false,
+            evented: false
+          }));
+        }
+        if (0 >= -yHalf && 0 <= yHalf) {
+          children.push(gridLine(padL, yCenter, padL + plotW, yCenter, '#8b8e9f', 1.4));
+          children.push(new fabric.Text('x', {
+            left: padL + plotW - 10,
+            top: yCenter - 17,
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSize: 10,
+            fontWeight: 700,
+            fill: '#7b7f93',
+            selectable: false,
+            evented: false
+          }));
+        }
+
+        const segments = graphPointSegments(
+          compiled.fn,
+          xMin,
+          xMax,
+          (x, y) => {
+            const sy = yCenter - y * scale;
+            if (sy < padT - 2 || sy > padT + plotH + 2) return null;
+            return [padL + (x - xMin) * xScale, sy];
+          },
+          (plotH / scale) * 0.65
+        );
+        let pathData = '';
+        segments.forEach((segment) => {
+          if (segment.length < 2) return;
+          segment.forEach((point, index) => {
+            pathData += (index === 0 ? 'M ' : 'L ') + point[0].toFixed(2) + ' ' + point[1].toFixed(2) + ' ';
+          });
+        });
+        if (!pathData) throw new Error('На выбранном диапазоне нет видимых точек графика');
+
+        children.push(new fabric.Path(pathData.trim(), {
+          fill: 'transparent',
+          stroke: color,
+          strokeWidth: 3,
+          strokeUniform: true,
+          strokeLineCap: 'round',
+          strokeLineJoin: 'round',
+          selectable: false,
+          evented: false
+        }));
+
+        return new fabric.Group(children, {
+          left: getViewportCenter().x,
+          top: getViewportCenter().y,
+          originX: 'center',
+          originY: 'center',
+          perPixelTargetFind: false
+        });
+      }
+
+      function insertGraphOnBoard() {
+        if (boardAccess !== 'ready' || !state.currentBoardId) {
+          showToast('Сначала выберите рабочую доску', 'error');
+          return;
+        }
+        let compiled;
+        let settings;
+        let group;
+        try {
+          compiled = compileGraphExpression(graphFormula.value);
+          settings = readGraphSettings();
+          group = buildGraphCard(compiled, settings);
+        } catch (err) {
+          graphStatus.textContent = err.message || 'Не удалось построить график';
+          graphStatus.style.color = '#d9483b';
+          graphInsertBtn.disabled = true;
+          showToast(err.message || 'Ошибка в формуле', 'error');
+          return;
+        }
+
+        canvas.add(group);
+        ensureObjectId(group);
+        syncObjectToFirebase(group);
+        recordCreation(group);
+        selectTool('cursor');
+        canvas.setActiveObject(group);
+        canvas.requestRenderAll();
+        showToast('График добавлен на доску');
+        if (window.innerWidth < 640) closeCheatsheetDrawer();
+      }
+
+      function renderSimulatorCards() {
+        if (!simulatorList) return;
+        simulatorList.innerHTML = SIMULATORS_LIST.map((sim, index) => `
+          <div class="sim-card">
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#eef1ff] text-accent">
+              <i data-lucide="flask-conical" class="h-4 w-4"></i>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-[11px] font-semibold">${escapeHtml(sim.title || 'Симулятор')}</span>
+              <span class="mt-0.5 block truncate text-[9.5px] text-[#8b8b9e]">${escapeHtml(sim.description || sim.url || '')}</span>
+            </span>
+            <button type="button" class="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 text-[9.5px] font-bold text-white shadow-[0_2px_8px_rgba(66,98,255,.25)] transition hover:bg-[#3451e0]" data-sim-index="${index}">Запустить</button>
+          </div>
+        `).join('');
+      }
+
+      function resolveSimulatorUrl(raw) {
+        const value = String(raw || '').trim();
+        if (!value) throw new Error('Введите URL или путь к симулятору');
+        if (/^javascript:/i.test(value)) throw new Error('Такой URL запрещён');
+        let resolved;
+        try {
+          resolved = new URL(value, location.href);
+        } catch (_) {
+          throw new Error('Некорректный URL');
+        }
+        if (!['http:', 'https:', 'file:'].includes(resolved.protocol)) {
+          throw new Error('Поддерживаются только http(s) и локальные файлы');
+        }
+        return resolved.href;
+      }
+
+      function positionSimulatorWindow() {
+        const width = Math.min(620, Math.max(300, window.innerWidth - 32));
+        const height = Math.min(460, Math.max(230, window.innerHeight - 96));
+        const left = Math.max(8, Math.round((window.innerWidth - width) / 2));
+        const top = Math.max(64, Math.round((window.innerHeight - height) / 2));
+        simulatorWindow.style.width = width + 'px';
+        simulatorWindow.style.height = height + 'px';
+        simulatorWindow.style.left = left + 'px';
+        simulatorWindow.style.top = top + 'px';
+        simulatorRestoreHeight = height;
+        simulatorWindow.dataset.positioned = '1';
+      }
+
+      function openSimulator(title, rawUrl) {
+        let url;
+        try {
+          url = resolveSimulatorUrl(rawUrl);
+        } catch (err) {
+          showToast(err.message, 'error');
+          return;
+        }
+        if (!simulatorWindow.dataset.positioned) positionSimulatorWindow();
+        simulatorTitle.textContent = title || 'Симулятор';
+        simulatorFrame.src = url;
+        simulatorWindow.classList.remove('hidden', 'is-minimized');
+        simulatorWindow.style.height = Math.max(230, simulatorRestoreHeight) + 'px';
+        simulatorMinBtn.innerHTML = '<i data-lucide="minus" class="h-3.5 w-3.5"></i>';
+        simulatorMinBtn.setAttribute('aria-label', 'Свернуть окно');
+        refreshIcons();
+        closeCheatsheetDrawer();
+        showToast('Симулятор открыт');
+      }
+
+      function closeSimulator() {
+        simulatorWindow.classList.add('hidden');
+        simulatorWindow.classList.remove('is-minimized');
+        simulatorFrame.src = 'about:blank';
+        simulatorDragState = null;
+        simulatorResizeState = null;
+      }
+
+      function toggleSimulatorMinimize() {
+        if (!simulatorWindow.classList.contains('hidden')) {
+          if (simulatorWindow.classList.contains('is-minimized')) {
+            simulatorWindow.classList.remove('is-minimized');
+            simulatorWindow.style.height = Math.max(230, simulatorRestoreHeight) + 'px';
+          } else {
+            simulatorRestoreHeight = Math.max(230, simulatorWindow.getBoundingClientRect().height);
+            simulatorWindow.classList.add('is-minimized');
+          }
+        }
+        const minimized = simulatorWindow.classList.contains('is-minimized');
+        simulatorMinBtn.innerHTML = '<i data-lucide="' + (minimized ? 'maximize-2' : 'minus') + '" class="h-3.5 w-3.5"></i>';
+        simulatorMinBtn.setAttribute('aria-label', minimized ? 'Развернуть окно' : 'Свернуть окно');
+        refreshIcons();
+      }
+
+      function onSimulatorPointerMove(event) {
+        if (simulatorDragState) {
+          const state = simulatorDragState;
+          let left = event.clientX - state.dx;
+          let top = event.clientY - state.dy;
+          const width = simulatorWindow.offsetWidth;
+          left = clamp(left, 8 - width + 80, window.innerWidth - 80);
+          top = clamp(top, 8, window.innerHeight - 52);
+          simulatorWindow.style.left = Math.round(left) + 'px';
+          simulatorWindow.style.top = Math.round(top) + 'px';
+        } else if (simulatorResizeState) {
+          const state = simulatorResizeState;
+          const width = clamp(state.startW + event.clientX - state.startX, 300, Math.max(300, window.innerWidth - 16));
+          const height = clamp(state.startH + event.clientY - state.startY, 230, Math.max(230, window.innerHeight - 16));
+          simulatorWindow.style.width = Math.round(width) + 'px';
+          simulatorWindow.style.height = Math.round(height) + 'px';
+          simulatorRestoreHeight = Math.round(height);
+        }
+      }
+
+      function stopSimulatorPointerAction() {
+        simulatorDragState = null;
+        simulatorResizeState = null;
+      }
+
+      simulatorDragHandle.addEventListener('pointerdown', (event) => {
+        if (event.target.closest('button')) return;
+        if (simulatorWindow.classList.contains('is-minimized')) return;
+        const rect = simulatorWindow.getBoundingClientRect();
+        simulatorDragState = {
+          dx: event.clientX - rect.left,
+          dy: event.clientY - rect.top,
+          pointerId: event.pointerId
+        };
+        try {
+          if (simulatorDragHandle.setPointerCapture) simulatorDragHandle.setPointerCapture(event.pointerId);
+        } catch (_) {}
+        event.preventDefault();
+      });
+
+      simulatorResizeHandle.addEventListener('pointerdown', (event) => {
+        const rect = simulatorWindow.getBoundingClientRect();
+        simulatorResizeState = {
+          startX: event.clientX,
+          startY: event.clientY,
+          startW: rect.width,
+          startH: rect.height,
+          pointerId: event.pointerId
+        };
+        try {
+          if (simulatorResizeHandle.setPointerCapture) simulatorResizeHandle.setPointerCapture(event.pointerId);
+        } catch (_) {}
+        event.preventDefault();
+      });
+
+      document.addEventListener('pointermove', onSimulatorPointerMove);
+      document.addEventListener('pointerup', stopSimulatorPointerAction);
+      document.addEventListener('pointercancel', stopSimulatorPointerAction);
+      simulatorMinBtn.addEventListener('click', toggleSimulatorMinimize);
+      simulatorCloseBtn.addEventListener('click', closeSimulator);
+
       function openCheatsheet() {
-        openModal(cheatsheetModal);
+        openCheatsheetDrawer();
       }
 
       function runHotkeyAction(actionId) {
@@ -5808,7 +7186,7 @@
           return;
         }
         if (actionId === 'cheatsheet') {
-          openCheatsheet();
+          toggleCheatsheetDrawer();
           return;
         }
         if (actionId === 'arrow') {
@@ -5835,16 +7213,98 @@
       hotkeysResetBtn.addEventListener('click', resetHotkeys);
 
       cheatAxesBtn.addEventListener('click', () => {
-        closeModal();
+        closeCheatsheetDrawer();
         addCoordinateAxes();
       });
 
       cheatArrowBtn.addEventListener('click', () => {
-        closeModal();
+        closeCheatsheetDrawer();
         selectTool('arrow');
         showToast('Потяните по холсту, чтобы нарисовать стрелку');
       });
 
+      cheatsheetTab.addEventListener('click', toggleCheatsheetDrawer);
+      cheatsheetCloseBtn.addEventListener('click', closeCheatsheetDrawer);
+
+      $$('.drawer-tab', cheatsheetDrawer).forEach((button) => {
+        button.addEventListener('click', () => setDrawerTab(button.dataset.drawerTab));
+      });
+
+      cheatAccordion.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-cheat-insert]');
+        if (!button) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const item = CHEATSHEET_ITEMS.find(entry => entry.id === button.dataset.cheatInsert);
+        insertCheatCard(item);
+      });
+
+      addNoteBtn.addEventListener('click', addBoardNote);
+      noteInput.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+          event.preventDefault();
+          addBoardNote();
+        }
+      });
+      noteSnippetSelect.addEventListener('change', () => {
+        const snippet = NOTE_SNIPPETS[noteSnippetSelect.value];
+        if (!snippet) return;
+        const current = noteInput.value.trim();
+        noteInput.value = (current ? current + '\n\n' : '') + snippet.text;
+        noteSnippetSelect.value = '';
+        noteInput.focus();
+      });
+      notesList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-note-action]');
+        if (!button) return;
+        const card = button.closest('[data-note-id]');
+        if (!card) return;
+        const noteId = card.dataset.noteId;
+        if (button.dataset.noteAction === 'delete') deleteBoardNote(noteId);
+        else if (button.dataset.noteAction === 'insert') insertNoteOnBoard(noteId);
+      });
+
+      graphFormula.addEventListener('input', requestGraphPreview);
+      [graphXMin, graphXMax, graphScale, graphColor].forEach((input) => {
+        input.addEventListener('input', requestGraphPreview);
+        input.addEventListener('change', requestGraphPreview);
+      });
+      $('#graphTemplates').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-graph-template]');
+        if (!button) return;
+        graphFormula.value = button.dataset.graphTemplate;
+        requestGraphPreview();
+      });
+      graphInsertBtn.addEventListener('click', insertGraphOnBoard);
+      window.addEventListener('resize', () => {
+        if (cheatsheetDrawer.classList.contains('is-open') && activeDrawerTab === 'graph') requestGraphPreview();
+      });
+
+      simulatorList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-sim-index]');
+        if (!button) return;
+        const sim = SIMULATORS_LIST[Number(button.dataset.simIndex)];
+        if (sim) openSimulator(sim.title, sim.url);
+      });
+      simulatorOpenBtn.addEventListener('click', () => {
+        openSimulator('Свой симулятор', simulatorUrlInput.value);
+      });
+      simulatorUrlInput.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        openSimulator('Свой симулятор', simulatorUrlInput.value);
+      });
+
+      Object.keys(NOTE_SNIPPETS).forEach((key) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = NOTE_SNIPPETS[key].label;
+        noteSnippetSelect.appendChild(option);
+      });
+      renderCheatAccordion();
+      renderSimulatorCards();
+      renderNotes();
+      refreshIcons();
       updateHotkeyLabels();
 
       /* ---------- Keyboard ---------- */
@@ -5881,12 +7341,21 @@
             activeNow && (activeNow.type === 'i-text' || activeNow.type === 'textbox' || activeNow.type === 'text');
           if (fabricTextarea) return;
           if (activeModal) closeModal();
+          else if (cheatsheetDrawer.classList.contains('is-open')) closeCheatsheetDrawer();
+          else if (!simulatorWindow.classList.contains('hidden')) closeSimulator();
           else closeAllMenus();
           return;
         }
         if (activeModal) return;
         if (boardAccess !== 'ready') return;
         if (isEditable(event.target) || isEditingText()) return;
+        if (event.target instanceof HTMLElement && event.target.closest('#cheatsheetDrawer, #simulatorWindow')) {
+          if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.repeat && event.code === hotkeys.cheatsheet) {
+            event.preventDefault();
+            toggleCheatsheetDrawer();
+          }
+          return;
+        }
         if (arrowDraft) return;
 
         if (event.ctrlKey || event.metaKey) {
@@ -5961,6 +7430,7 @@
         if (event.code !== 'Space') return;
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         if (boardAccess !== 'ready' || activeModal || isEditable(event.target) || isEditingText()) return;
+        if (event.target instanceof HTMLElement && event.target.closest('#cheatsheetDrawer, #simulatorWindow')) return;
         if (!spaceDown) setSpaceDown(true);
         event.preventDefault();
       });
