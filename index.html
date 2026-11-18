@@ -49,6 +49,46 @@
     .float-card {
       box-shadow: 0 1px 2px rgba(5, 0, 56, 0.05), 0 8px 24px rgba(5, 0, 56, 0.07);
     }
+    .sync-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: 2px;
+      padding-left: 8px;
+      border-left: 1px solid rgba(5, 0, 56, 0.08);
+    }
+    .sync-dot {
+      width: 7px;
+      height: 7px;
+      flex: none;
+      border-radius: 999px;
+      background: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.10);
+      transition: background .2s ease, box-shadow .2s ease;
+    }
+    .sync-status[data-state="offline"] .sync-dot {
+      background: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+      animation: sync-pulse 1.2s ease-in-out infinite;
+    }
+    .sync-status[data-state="local"] .sync-dot {
+      background: #a0a0b2;
+      box-shadow: none;
+    }
+    .sync-label {
+      white-space: nowrap;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    @keyframes sync-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .5; transform: scale(.82); }
+    }
+    @media (max-width: 1180px) {
+      .sync-label { display: none; }
+      .sync-status { padding-left: 6px; }
+    }
     .menu-panel {
       box-shadow: 0 4px 10px rgba(5, 0, 56, 0.06), 0 18px 48px rgba(5, 0, 56, 0.16);
       transform-origin: top left;
@@ -67,6 +107,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .menu-panel.is-open { animation: none; }
+      .sync-status[data-state="offline"] .sync-dot { animation: none; }
     }
 
     /* Toolbar */
@@ -1145,6 +1186,10 @@
             <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
           </span>
           <span class="whitespace-nowrap text-[11px] font-medium text-[#6b6b7e]"><span id="onlineCount">1</span> онлайн</span>
+          <span id="syncStatus" class="sync-status" data-state="local" title="Локальный режим" aria-live="polite">
+            <span class="sync-dot" aria-hidden="true"></span>
+            <span class="sync-label">Локальный режим</span>
+          </span>
         </div>
         <div class="mx-0.5 hidden h-6 w-px bg-black/[0.07] md:block"></div>
         <label class="hidden h-9 items-center gap-2 rounded-lg bg-[#f5f5f7] px-2 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20 md:flex">
@@ -1978,6 +2023,12 @@
       let currentObjectsRef = null;
       let currentCursorsRef = null;
       let cursorRef = null;
+      let connectionRef = null;
+      let firebaseConnected = false;
+      let connectionMonitorAttached = false;
+      let cloudResyncTimer = null;
+      let cloudResyncInFlight = false;
+      let cloudResyncQueued = false;
       let boardDataSession = 0;
       let cursorsSession = 0;
       let lastCursorSent = 0;
@@ -2104,6 +2155,7 @@
       const remoteCursorsLayer = $('#remoteCursors');
       const onlineCount = $('#onlineCount');
       const onlineAvatars = $('#onlineAvatars');
+      const syncStatus = $('#syncStatus');
       const clearConfirmBtn = $('#clearConfirmBtn');
       const toast = $('#toast');
       const toastText = $('#toastText');
@@ -4190,6 +4242,10 @@
       function detachCloudBoardData() {
         boardDataSession += 1;
         cancelTransformSync();
+        if (cloudResyncTimer) {
+          clearTimeout(cloudResyncTimer);
+          cloudResyncTimer = null;
+        }
         if (currentObjectsRef) {
           currentObjectsRef.off();
           currentObjectsRef = null;
@@ -4205,12 +4261,8 @@
         const id = snapshot.key;
         if (pendingRemoteIds.has(id)) return;
         if (findObjectById(id)) {
-          // After the initial batch load, Firebase sends child_added for
-          // every existing object. Reuse the change handler so a write by
-          // another user that landed between once('value') and listener
-          // attachment is not lost. Own echoes are ignored here to avoid
-          // applying a stale write after the local object has moved on.
-          if (data.updatedBy !== state.userId) onRemoteObjectChanged(snapshot);
+          // Если объект с таким miroId уже есть на холсте, передаём в onRemoteObjectChanged
+          onRemoteObjectChanged(snapshot);
           return;
         }
 
@@ -4227,13 +4279,18 @@
             obj.miroId = id;
             hydrateCustomObjectData(obj, data);
             applyToolToObject(obj);
-            isRemoteUpdate = true;
-            canvas.add(obj);
-            if (obj.miroBack) canvas.sendToBack(obj);
-            isRemoteUpdate = false;
-            normalizeObjectHitArea(obj);
-            updateSelectedHitAreas();
-            canvas.requestRenderAll();
+            obj.dirty = true;
+            obj.setCoords();
+            try {
+              isRemoteUpdate = true;
+              canvas.add(obj);
+              if (obj.miroBack) canvas.sendToBack(obj);
+              normalizeObjectHitArea(obj);
+              updateSelectedHitAreas();
+              canvas.requestRenderAll();
+            } finally {
+              isRemoteUpdate = false;
+            }
             lastObjectState.set(id, serializeObject(obj));
           });
         } catch (err) {
@@ -4246,6 +4303,7 @@
       function canUpdateObjectInPlace(existing, data) {
         if (!existing || !data) return false;
         if (existing.type !== data.type) return false;
+        if (existing.miroSticker && data.miroSticker && Array.isArray(data.objects)) return true;
         if (existing.type === 'group' || existing.type === 'activeSelection') return false;
         if (Array.isArray(data.objects)) return false;
         if (existing.type === 'image' && data.src && existing.getSrc && existing.getSrc() !== data.src) return false;
@@ -4253,42 +4311,76 @@
       }
 
       function updateObjectInPlace(existing, data) {
-        if (existing.type === 'path' && Array.isArray(data.path) &&
-            typeof existing._setPath === 'function' && !deepEqual(existing.path, data.path)) {
-          existing._setPath(data.path, data);
+        try {
+          isRemoteUpdate = true;
+          if (existing.type === 'path' && Array.isArray(data.path) &&
+              typeof existing._setPath === 'function' && !deepEqual(existing.path, data.path)) {
+            existing._setPath(data.path, data);
+            existing.dirty = true;
+            existing.setCoords();
+          }
+
+          const isTextObject = existing.type === 'text' || existing.type === 'i-text' || existing.type === 'textbox';
+          // Serialized text styles use a range array, while a live Fabric text
+          // object expects the per-character object form.
+          const dataStyles = isTextObject && Array.isArray(data.styles)
+            ? fabric.util.stylesFromArray(data.styles, data.text != null ? data.text : existing.text)
+            : data.styles;
+          // Serialized line endpoints are relative to the line center, while
+          // the live object stores absolute endpoints. Width/height/left/top
+          // carry the same geometry without corrupting the line.
+          const isLine = existing.type === 'line';
+
+          const update = {};
+          Object.keys(data).forEach((key) => {
+            if (key === 'type' || key === 'version' || key === 'miroId' ||
+                key === 'updatedBy' || key === 'updatedAt' || key === 'objects') return;
+            if (existing.type === 'path' && key === 'path') return;
+            if (isLine && (key === 'x1' || key === 'y1' || key === 'x2' || key === 'y2')) return;
+            const value = key === 'styles' && isTextObject ? dataStyles : data[key];
+            if (!deepEqual(existing[key], value)) update[key] = value;
+          });
+
+          // Text update
+          if (isTextObject && data.text !== undefined && existing.text !== data.text) {
+            existing.set('text', data.text);
+            existing.dirty = true;
+            existing.setCoords();
+          }
+
+          // Sticker / group child update
+          if (existing.miroSticker && Array.isArray(data.objects) && typeof existing.getObjects === 'function') {
+            const children = existing.getObjects();
+            data.objects.forEach((childData, idx) => {
+              const child = children[idx];
+              if (!child || !childData) return;
+              const childUpdate = {};
+              ['fill', 'stroke', 'strokeWidth', 'text', 'fontSize', 'fontFamily', 'fontWeight'].forEach((prop) => {
+                if (childData[prop] !== undefined && !deepEqual(child[prop], childData[prop])) {
+                  childUpdate[prop] = childData[prop];
+                }
+              });
+              if (Object.keys(childUpdate).length) {
+                child.set(childUpdate);
+                child.dirty = true;
+                if (typeof child.setCoords === 'function') child.setCoords();
+              }
+            });
+          }
+
+          if (Object.keys(update).length) existing.set(update);
+          existing.dirty = true;
+          existing.setCoords();
+          if (data.miroBack) canvas.sendToBack(existing);
+          applyToolToObject(existing);
+          normalizeObjectHitArea(existing);
+          updateSelectedHitAreas();
+          queueSimEmbedRefresh();
+          canvas.requestRenderAll();
+          if (existing.miroId) lastObjectState.set(existing.miroId, serializeObject(existing));
+        } finally {
+          isRemoteUpdate = false;
         }
-
-        const isTextObject = existing.type === 'text' || existing.type === 'i-text' || existing.type === 'textbox';
-        // Serialized text styles use a range array, while a live Fabric text
-        // object expects the per-character object form.
-        const dataStyles = isTextObject && Array.isArray(data.styles)
-          ? fabric.util.stylesFromArray(data.styles, data.text != null ? data.text : existing.text)
-          : data.styles;
-        // Serialized line endpoints are relative to the line center, while
-        // the live object stores absolute endpoints. Width/height/left/top
-        // carry the same geometry without corrupting the line.
-        const isLine = existing.type === 'line';
-
-        const update = {};
-        Object.keys(data).forEach((key) => {
-          if (key === 'type' || key === 'version' || key === 'miroId' ||
-              key === 'updatedBy' || key === 'updatedAt' || key === 'objects') return;
-          if (existing.type === 'path' && key === 'path') return;
-          if (isLine && (key === 'x1' || key === 'y1' || key === 'x2' || key === 'y2')) return;
-          const value = key === 'styles' && isTextObject ? dataStyles : data[key];
-          if (!deepEqual(existing[key], value)) update[key] = value;
-        });
-
-        if (Object.keys(update).length) existing.set(update);
-        existing.setCoords();
-        existing.dirty = true;
-        if (data.miroBack) canvas.sendToBack(existing);
-        applyToolToObject(existing);
-        normalizeObjectHitArea(existing);
-        updateSelectedHitAreas();
-        queueSimEmbedRefresh();
-        canvas.requestRenderAll();
-        if (existing.miroId) lastObjectState.set(existing.miroId, serializeObject(existing));
       }
 
       function onRemoteObjectChanged(snapshot) {
@@ -4315,8 +4407,8 @@
         // Repair paths restored by an older version with a black fill.
         if (existing.type === 'path' && (!existing.fill || existing.fill === 'rgb(0,0,0)')) {
           existing.set('fill', 'transparent');
-          existing.setCoords();
           existing.dirty = true;
+          existing.setCoords();
           canvas.requestRenderAll();
         }
 
@@ -4335,10 +4427,13 @@
         const session = boardDataSession;
         pendingRemoteIds.add(id);
         cancelledRemoteIds.delete(id);
-        isRemoteUpdate = true;
-        if (activeObjectUses(existing)) canvas.discardActiveObject();
-        canvas.remove(existing);
-        isRemoteUpdate = false;
+        try {
+          isRemoteUpdate = true;
+          if (activeObjectUses(existing)) canvas.discardActiveObject();
+          canvas.remove(existing);
+        } finally {
+          isRemoteUpdate = false;
+        }
         try {
           fabric.util.enlivenObjects([data], (objects) => {
             if (session !== boardDataSession) return;
@@ -4349,17 +4444,22 @@
             obj.miroId = id;
             hydrateCustomObjectData(obj, data);
             applyToolToObject(obj);
-            isRemoteUpdate = true;
-            if (index >= 0) {
-              canvas.insertAt(obj, Math.min(index, canvas.getObjects().length));
-            } else {
-              canvas.add(obj);
+            obj.dirty = true;
+            obj.setCoords();
+            try {
+              isRemoteUpdate = true;
+              if (index >= 0) {
+                canvas.insertAt(obj, Math.min(index, canvas.getObjects().length));
+              } else {
+                canvas.add(obj);
+              }
+              if (obj.miroBack) canvas.sendToBack(obj);
+              normalizeObjectHitArea(obj);
+              updateSelectedHitAreas();
+              canvas.requestRenderAll();
+            } finally {
+              isRemoteUpdate = false;
             }
-            if (obj.miroBack) canvas.sendToBack(obj);
-            isRemoteUpdate = false;
-            normalizeObjectHitArea(obj);
-            updateSelectedHitAreas();
-            canvas.requestRenderAll();
             lastObjectState.set(id, serializeObject(obj));
           });
         } catch (err) {
@@ -4381,18 +4481,26 @@
           lastObjectState.delete(id);
           return;
         }
-        isRemoteUpdate = true;
-        if (activeObjectUses(existing)) canvas.discardActiveObject();
-        canvas.remove(existing);
-        canvas.requestRenderAll();
-        isRemoteUpdate = false;
+        try {
+          isRemoteUpdate = true;
+          if (activeObjectUses(existing)) canvas.discardActiveObject();
+          canvas.remove(existing);
+          canvas.requestRenderAll();
+        } finally {
+          isRemoteUpdate = false;
+        }
         lastObjectState.delete(id);
       }
 
       function attachCloudObjectListeners(objectsRef, session) {
         objectsRef.on('child_added', (snap) => {
           if (session !== boardDataSession) return;
-          onRemoteObjectAdded(snap);
+          const id = snap.key;
+          if (findObjectById(id)) {
+            onRemoteObjectChanged(snap);
+          } else {
+            onRemoteObjectAdded(snap);
+          }
         });
         objectsRef.on('child_changed', (snap) => {
           if (session !== boardDataSession) return;
@@ -4405,7 +4513,15 @@
       }
 
       function loadCloudBoardContent(id) {
-        detachCloudBoardData();
+        if (currentObjectsRef) {
+          currentObjectsRef.off();
+          currentObjectsRef = null;
+        }
+        cancelTransformSync();
+        if (cloudResyncTimer) {
+          clearTimeout(cloudResyncTimer);
+          cloudResyncTimer = null;
+        }
         clearRemoteCursors();
         const session = ++boardDataSession;
         pendingRemoteIds.clear();
@@ -4413,15 +4529,26 @@
 
         currentObjectsRef = db.ref('boards_data/' + id + '/objects');
 
-        isRemoteUpdate = true;
-        canvas.clear();
-        canvas.backgroundColor = null;
-        canvas.discardActiveObject();
-        isRemoteUpdate = false;
+        try {
+          isRemoteUpdate = true;
+          canvas.clear();
+          canvas.backgroundColor = null;
+          canvas.discardActiveObject();
+        } finally {
+          isRemoteUpdate = false;
+        }
         lastObjectState.clear();
         refreshSimEmbedOverlays();
 
         const objectsRef = currentObjectsRef;
+        let liveListenersAttached = false;
+
+        const attachLiveListeners = () => {
+          if (liveListenersAttached) return;
+          if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
+          liveListenersAttached = true;
+          attachCloudObjectListeners(objectsRef, session);
+        };
 
         const finishLoad = () => {
           if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
@@ -4430,11 +4557,20 @@
           rememberAllObjectStates();
           updateHistoryButtons();
           refreshSimEmbedOverlays();
-          attachCloudObjectListeners(objectsRef, session);
+          canvas.requestRenderAll();
+          // Attach on every path: successful snapshot, empty board and
+          // once('value') failure. Without this a user who loads the board
+          // while offline would never receive subsequent live updates.
+          attachLiveListeners();
         };
 
         objectsRef.once('value').then((snapshot) => {
           if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
+          if (!snapshot || !snapshot.exists()) {
+            finishLoad();
+            return;
+          }
+
           const value = snapshot.val() || {};
           const entries = [];
           Object.keys(value).forEach((key) => {
@@ -4457,15 +4593,18 @@
               entries.map(entry => entry.data),
               (objects) => {
                 if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
-                isRemoteUpdate = true;
                 try {
+                  isRemoteUpdate = true;
                   (objects || []).forEach((obj) => {
                     if (!obj) return;
+                    obj.dirty = true;
+                    obj.setCoords();
                     canvas.add(obj);
                   });
                   canvas.getObjects().forEach((obj) => {
                     if (obj.miroBack) canvas.sendToBack(obj);
                   });
+                  canvas.requestRenderAll();
                 } finally {
                   isRemoteUpdate = false;
                 }
@@ -4480,11 +4619,16 @@
               }
             );
           } catch (err) {
-            isRemoteUpdate = false;
             console.warn('Не удалось загрузить объекты доски:', err);
             finishLoad();
           }
-        }).catch(handleFirebaseError);
+        }).catch((err) => {
+          if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
+          handleFirebaseError(err);
+          // Keep live listeners attached even when the initial read failed
+          // (offline, permission hiccup, temporary network error).
+          finishLoad();
+        });
       }
 
       function loadLocalBoardContent(id) {
@@ -8744,6 +8888,137 @@
         renderParticipants();
       }
 
+      function setSyncStatus(status) {
+        if (!syncStatus) return;
+        const safeStatus = status === 'online' || status === 'offline' ? status : 'local';
+        const label = safeStatus === 'online'
+          ? 'Синхронизация активна'
+          : safeStatus === 'offline'
+            ? 'Переподключение к базе...'
+            : 'Локальный режим';
+        syncStatus.dataset.state = safeStatus;
+        syncStatus.title = label;
+        syncStatus.setAttribute('aria-label', label);
+        const labelEl = syncStatus.querySelector('.sync-label');
+        if (labelEl) labelEl.textContent = label;
+      }
+
+      function scheduleCloudResync(delay = 300) {
+        if (!cloudEnabled || !db || !currentObjectsRef) return;
+        if (cloudResyncTimer) clearTimeout(cloudResyncTimer);
+        cloudResyncTimer = setTimeout(() => {
+          cloudResyncTimer = null;
+          resyncCloudBoard();
+        }, Math.max(0, delay));
+      }
+
+      async function resyncCloudBoard() {
+        if (!cloudEnabled || !db || !currentObjectsRef || boardAccess !== 'ready') return;
+        if (cloudResyncInFlight) {
+          cloudResyncQueued = true;
+          return;
+        }
+
+        const objectsRef = currentObjectsRef;
+        const session = boardDataSession;
+        const boardId = state.currentBoardId;
+        const localIdsAtStart = new Set();
+        canvas.getObjects().forEach((obj) => {
+          if (obj && obj.miroId) localIdsAtStart.add(obj.miroId);
+        });
+
+        cloudResyncInFlight = true;
+        try {
+          const snapshot = await objectsRef.once('value');
+          if (session !== boardDataSession || objectsRef !== currentObjectsRef ||
+              boardId !== state.currentBoardId) return;
+
+          const value = snapshot.val() || {};
+          const remoteIds = new Set();
+          Object.keys(value).forEach((id) => {
+            const data = value[id];
+            if (!data || typeof data !== 'object') return;
+            if (typeof data.type !== 'string' || !fabric.util.getKlass(data.type)) return;
+            remoteIds.add(id);
+            const remoteSnapshot = { key: id, val: () => data };
+            if (findObjectById(id)) onRemoteObjectChanged(remoteSnapshot);
+            else onRemoteObjectAdded(remoteSnapshot);
+          });
+
+          // Firebase's local cache keeps pending writes, so a locally created
+          // object is present in this snapshot until the server acknowledges
+          // it. Only remove objects that were already on the canvas when
+          // reconciliation started and are truly absent from the snapshot.
+          canvas.getObjects().slice().forEach((obj) => {
+            if (!obj || !obj.miroId) return;
+            if (remoteIds.has(obj.miroId)) return;
+            if (!localIdsAtStart.has(obj.miroId)) return;
+            onRemoteObjectRemoved({ key: obj.miroId });
+          });
+          canvas.requestRenderAll();
+        } catch (err) {
+          if (session === boardDataSession && objectsRef === currentObjectsRef) {
+            console.warn('Не удалось досинхронизировать доску:', err);
+          }
+        } finally {
+          cloudResyncInFlight = false;
+          if (cloudResyncQueued) {
+            cloudResyncQueued = false;
+            scheduleCloudResync(180);
+          }
+        }
+      }
+
+      function handleCloudReconnect() {
+        if (!cloudEnabled || !db) return;
+        try {
+          if (typeof db.goOnline === 'function') db.goOnline();
+        } catch (err) {
+          console.warn('Не удалось восстановить соединение Firebase:', err);
+        }
+        setSyncStatus(firebaseConnected ? 'online' : 'offline');
+        scheduleCloudResync(100);
+      }
+
+      function attachConnectionMonitor() {
+        if (!cloudEnabled || !db) {
+          setSyncStatus('local');
+          return;
+        }
+        setSyncStatus(firebaseConnected ? 'online' : 'offline');
+        if (connectionMonitorAttached) return;
+        connectionMonitorAttached = true;
+
+        connectionRef = db.ref('.info/connected');
+        connectionRef.on('value', (snapshot) => {
+          const connected = snapshot.val() === true;
+          const restored = connected && !firebaseConnected;
+          firebaseConnected = connected;
+          setSyncStatus(connected ? 'online' : 'offline');
+          if (restored) {
+            try {
+              if (typeof db.goOnline === 'function') db.goOnline();
+            } catch (_) {}
+            scheduleCloudResync(100);
+          }
+        }, (err) => {
+          console.warn('Не удалось получить статус Firebase:', err);
+          firebaseConnected = false;
+          setSyncStatus('offline');
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) handleCloudReconnect();
+        });
+        window.addEventListener('online', handleCloudReconnect);
+        window.addEventListener('offline', () => {
+          if (cloudEnabled) {
+            firebaseConnected = false;
+            setSyncStatus('offline');
+          }
+        });
+      }
+
       function detachCursors() {
         cursorsSession += 1;
         if (currentCursorsRef) {
@@ -9039,6 +9314,7 @@
       updateHistoryButtons();
       refreshIcons();
 
+      attachConnectionMonitor();
       updateOnlineCount();
       // Никакой доски по умолчанию нет: запускаем проверку только для ID,
       // найденного в ссылке или localStorage. Слушатели данных и курсоров
