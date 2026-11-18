@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Электрическая цепь</title>
+  <style>
+    :root { --accent: #4262ff; --ink: #202036; --muted: #8b8b9e; --line: rgba(5,0,56,.09); }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #fbfbfd;
+      color: var(--ink);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    canvas { display: block; width: 100%; flex: 1; min-height: 0; }
+    .panel {
+      display: grid;
+      flex-shrink: 0;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 16px;
+      align-items: end;
+      border-top: 1px solid var(--line);
+      background: rgba(255,255,255,.94);
+      padding: 11px 14px 13px;
+      backdrop-filter: blur(8px);
+    }
+    .field { min-width: 0; }
+    .field span { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .field output { color: var(--ink); }
+    input[type=range] { width: 100%; margin: 7px 0 0; accent-color: var(--accent); }
+    .readout {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+      color: var(--muted);
+      font-size: 10.5px;
+    }
+    .readout b { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="Схема электрической цепи"></canvas>
+  <div class="panel">
+    <label class="field">
+      <span>Напряжение, В <output id="voltageOut">12</output></span>
+      <input id="voltage" type="range" min="1" max="24" step="0.5" value="12" />
+    </label>
+    <label class="field">
+      <span>Сопротивление, Ом <output id="resistanceOut">24</output></span>
+      <input id="resistance" type="range" min="1" max="100" step="1" value="24" />
+    </label>
+    <div class="readout">
+      <span>Ток I = U / R: <b id="current">0.50 А</b></span>
+      <span>Мощность P = U · I: <b id="power">6.00 Вт</b></span>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const canvas = document.getElementById('scene');
+      const ctx = canvas.getContext('2d');
+      const voltageInput = document.getElementById('voltage');
+      const resistanceInput = document.getElementById('resistance');
+      const voltageOut = document.getElementById('voltageOut');
+      const resistanceOut = document.getElementById('resistanceOut');
+      const currentOut = document.getElementById('current');
+      const powerOut = document.getElementById('power');
+
+      let voltage = 12;
+      let resistance = 24;
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+      let offset = 0;
+      let last = 0;
+
+      function current() {
+        return voltage / Math.max(1, resistance);
+      }
+
+      function updateReadout() {
+        const i = current();
+        voltageOut.textContent = voltage.toFixed(1);
+        resistanceOut.textContent = resistance.toFixed(0);
+        currentOut.textContent = i.toFixed(2) + ' А';
+        powerOut.textContent = (voltage * i).toFixed(2) + ' Вт';
+      }
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = Math.max(1, canvas.clientWidth);
+        height = Math.max(1, canvas.clientHeight);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function loopRect() {
+        const marginX = Math.max(46, width * 0.12);
+        const marginY = Math.max(42, height * 0.15);
+        return {
+          left: marginX,
+          right: width - marginX,
+          top: marginY,
+          bottom: height - marginY,
+          w: width - marginX * 2,
+          h: height - marginY * 2
+        };
+      }
+
+      function pathPoint(t, rect) {
+        const perimeter = 2 * (rect.w + rect.h);
+        let d = ((t % perimeter) + perimeter) % perimeter;
+        if (d < rect.w) return { x: rect.left + d, y: rect.top, angle: 0 };
+        d -= rect.w;
+        if (d < rect.h) return { x: rect.right, y: rect.top + d, angle: Math.PI / 2 };
+        d -= rect.h;
+        if (d < rect.w) return { x: rect.right - d, y: rect.bottom, angle: Math.PI };
+        d -= rect.w;
+        return { x: rect.left, y: rect.bottom - d, angle: -Math.PI / 2 };
+      }
+
+      function drawWire(rect) {
+        ctx.strokeStyle = '#6f7388';
+        ctx.lineWidth = 2.2;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.rect(rect.left, rect.top, rect.w, rect.h);
+        ctx.stroke();
+      }
+
+      function drawBattery(rect) {
+        const x = rect.left;
+        const cy = (rect.top + rect.bottom) / 2;
+        ctx.fillStyle = '#fbfbfd';
+        ctx.fillRect(x - 8, cy - 34, 16, 68);
+        ctx.strokeStyle = '#6f7388';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(x - 16, cy - 24);
+        ctx.lineTo(x + 16, cy - 24);
+        ctx.moveTo(x - 9, cy - 10);
+        ctx.lineTo(x + 9, cy - 10);
+        ctx.moveTo(x - 16, cy + 6);
+        ctx.lineTo(x + 16, cy + 6);
+        ctx.moveTo(x - 9, cy + 20);
+        ctx.lineTo(x + 9, cy + 20);
+        ctx.stroke();
+        ctx.fillStyle = '#8b8b9e';
+        ctx.font = '700 10px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('U', x, cy + 46);
+        ctx.fillStyle = '#4262ff';
+        ctx.font = '800 14px Inter, system-ui, sans-serif';
+        ctx.fillText('+', x - 26, cy - 17);
+        ctx.fillStyle = '#8b8b9e';
+        ctx.fillText('−', x - 26, cy + 12);
+      }
+
+      function drawResistor(rect) {
+        const y = rect.top;
+        const cx = (rect.left + rect.right) / 2;
+        const w = Math.min(120, rect.w * 0.32);
+        const h = 22;
+        const left = cx - w / 2;
+        ctx.fillStyle = '#fbfbfd';
+        ctx.fillRect(left - 2, y - h / 2, w + 8, h + 2);
+        ctx.strokeStyle = '#6f7388';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        const teeth = 7;
+        const step = w / teeth;
+        ctx.moveTo(left, y);
+        for (let i = 0; i < teeth; i += 1) {
+          ctx.lineTo(left + step * (i + 0.25), y - h / 2);
+          ctx.lineTo(left + step * (i + 0.75), y + h / 2);
+        }
+        ctx.lineTo(left + w, y);
+        ctx.stroke();
+        ctx.fillStyle = '#8b8b9e';
+        ctx.font = '700 10px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('R', cx, y - 24);
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, width, height);
+        const rect = loopRect();
+        drawWire(rect);
+        drawBattery(rect);
+        drawResistor(rect);
+
+        const i = current();
+        const count = 18;
+        const perimeter = 2 * (rect.w + rect.h);
+        const speed = 0.00035 + i * 0.0009;
+        ctx.fillStyle = '#4262ff';
+        for (let n = 0; n < count; n += 1) {
+          const p = pathPoint((n / count) * perimeter + offset, rect);
+          ctx.globalAlpha = 0.35 + 0.6 * Math.min(1, i / 1.2);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = '#8b8b9e';
+        ctx.font = '600 10px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('I = ' + i.toFixed(2) + ' А', rect.left + 12, rect.bottom - 14);
+        ctx.textAlign = 'right';
+        ctx.fillText('R = ' + resistance.toFixed(0) + ' Ом', rect.right - 12, rect.bottom - 14);
+        offset += speed * (performance.now() - last || 16);
+        last = performance.now();
+      }
+
+      function frame() {
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      voltageInput.addEventListener('input', () => {
+        voltage = Number(voltageInput.value);
+        updateReadout();
+      });
+      resistanceInput.addEventListener('input', () => {
+        resistance = Number(resistanceInput.value);
+        updateReadout();
+      });
+      window.addEventListener('resize', resize);
+
+      resize();
+      updateReadout();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>

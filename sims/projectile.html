@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Бросок под углом</title>
+  <style>
+    :root { --accent: #4262ff; --ink: #202036; --muted: #8b8b9e; --line: rgba(5,0,56,.09); }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #fbfbfd;
+      color: var(--ink);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    canvas { display: block; width: 100%; flex: 1; min-height: 0; }
+    .panel {
+      display: grid;
+      flex-shrink: 0;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px 14px;
+      align-items: end;
+      border-top: 1px solid var(--line);
+      background: rgba(255,255,255,.94);
+      padding: 11px 14px 13px;
+      backdrop-filter: blur(8px);
+    }
+    .field { min-width: 0; }
+    .field span { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .field output { color: var(--ink); }
+    input[type=range] { width: 100%; margin: 7px 0 0; accent-color: var(--accent); }
+    .actions { display: flex; gap: 6px; grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+    button {
+      height: 34px;
+      border: 0;
+      border-radius: 9px;
+      background: var(--accent);
+      padding: 0 13px;
+      color: #fff;
+      font: 700 11px/1 Inter, system-ui, sans-serif;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(66,98,255,.28);
+      white-space: nowrap;
+    }
+    button.secondary { border: 1px solid var(--line); background: #fff; color: #55556b; box-shadow: none; }
+    button:active { transform: translateY(1px); }
+    .stats { grid-column: 1 / span 2; display: flex; flex-wrap: wrap; gap: 5px 14px; color: var(--muted); font-size: 10px; }
+    .stats b { color: var(--accent); }
+    @media (max-width: 480px) {
+      .panel { grid-template-columns: 1fr auto; }
+      .actions { grid-column: 2; grid-row: 1 / span 3; flex-direction: column; }
+      .stats { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="Траектория броска под углом"></canvas>
+  <div class="panel">
+    <label class="field">
+      <span>Угол, ° <output id="angleOut">45</output></span>
+      <input id="angle" type="range" min="10" max="80" step="1" value="45" />
+    </label>
+    <label class="field">
+      <span>Скорость, м/с <output id="speedOut">18</output></span>
+      <input id="speed" type="range" min="5" max="35" step="1" value="18" />
+    </label>
+    <div class="actions">
+      <button id="launch" type="button">Запуск</button>
+      <button id="clear" type="button" class="secondary">Сброс</button>
+    </div>
+    <div class="stats">
+      <span>Дальность <b id="range">—</b></span>
+      <span>Высота <b id="height">—</b></span>
+      <span>Время <b id="time">—</b></span>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const canvas = document.getElementById('scene');
+      const ctx = canvas.getContext('2d');
+      const angleInput = document.getElementById('angle');
+      const speedInput = document.getElementById('speed');
+      const angleOut = document.getElementById('angleOut');
+      const speedOut = document.getElementById('speedOut');
+      const rangeOut = document.getElementById('range');
+      const heightOut = document.getElementById('height');
+      const timeOut = document.getElementById('time');
+      const launchBtn = document.getElementById('launch');
+      const clearBtn = document.getElementById('clear');
+
+      const gravity = 9.81;
+      let angle = 45;
+      let speed = 18;
+      let points = [];
+      let flight = 0;
+      let running = false;
+      let last = 0;
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = Math.max(1, canvas.clientWidth);
+        height = Math.max(1, canvas.clientHeight);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw();
+      }
+
+      function simulate() {
+        const a = angle * Math.PI / 180;
+        const vx = speed * Math.cos(a);
+        const vy = speed * Math.sin(a);
+        const total = 2 * vy / gravity;
+        const result = [];
+        const steps = 240;
+        for (let i = 0; i <= steps; i += 1) {
+          const t = total * i / steps;
+          result.push({ t, x: vx * t, y: vy * t - 0.5 * gravity * t * t });
+        }
+        return { points: result, total, range: vx * total, maxHeight: vy * vy / (2 * gravity) };
+      }
+
+      function updateStats(data) {
+        rangeOut.textContent = data.range.toFixed(1) + ' м';
+        heightOut.textContent = data.maxHeight.toFixed(1) + ' м';
+        timeOut.textContent = data.total.toFixed(2) + ' с';
+      }
+
+      function plot() {
+        const data = simulate();
+        points = data.points;
+        updateStats(data);
+        return data;
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, width, height);
+        if (!points.length) plot();
+
+        const padL = 42;
+        const padR = 24;
+        const padT = 28;
+        const padB = 42;
+        const plotW = Math.max(40, width - padL - padR);
+        const plotH = Math.max(40, height - padT - padB);
+        const maxX = Math.max(1, points[points.length - 1].x * 1.08);
+        const maxY = Math.max(1, Math.max(...points.map(p => p.y)) * 1.22);
+        const sx = x => padL + (x / maxX) * plotW;
+        const sy = y => padT + plotH - (y / maxY) * plotH;
+
+        // Сетка
+        ctx.strokeStyle = '#eaecf4';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 5; i += 1) {
+          const y = padT + (plotH / 5) * i;
+          ctx.beginPath();
+          ctx.moveTo(padL, y);
+          ctx.lineTo(padL + plotW, y);
+          ctx.stroke();
+          const x = padL + (plotW / 5) * i;
+          ctx.beginPath();
+          ctx.moveTo(x, padT);
+          ctx.lineTo(x, padT + plotH);
+          ctx.stroke();
+        }
+
+        // Оси и земля
+        ctx.strokeStyle = '#9a9db0';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(padL, padT);
+        ctx.lineTo(padL, padT + plotH);
+        ctx.lineTo(padL + plotW, padT + plotH);
+        ctx.stroke();
+        ctx.fillStyle = '#8b8b9e';
+        ctx.font = '600 10px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(maxY.toFixed(0) + ' м', padL - 7, padT + 4);
+        ctx.textAlign = 'center';
+        ctx.fillText(maxX.toFixed(0) + ' м', padL + plotW, padT + plotH + 18);
+
+        // Планируемая траектория
+        ctx.strokeStyle = 'rgba(66,98,255,.2)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 5]);
+        ctx.beginPath();
+        points.forEach((p, i) => {
+          const px = sx(p.x);
+          const py = sy(p.y);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Пройденный путь
+        const count = Math.max(1, Math.min(points.length, Math.floor(flight) + 1));
+        ctx.strokeStyle = '#4262ff';
+        ctx.lineWidth = 2.6;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < count; i += 1) {
+          const px = sx(points[i].x);
+          const py = sy(points[i].y);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        // Снаряд
+        const current = points[Math.min(count - 1, points.length - 1)];
+        const bx = sx(current.x);
+        const by = sy(current.y);
+        ctx.fillStyle = '#4262ff';
+        ctx.beginPath();
+        ctx.arc(bx, by, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Стартовая точка
+        ctx.fillStyle = '#8b8b9e';
+        ctx.beginPath();
+        ctx.arc(padL, padT + plotH, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function frame(now) {
+        if (!last) last = now;
+        const dt = Math.min((now - last) / 1000, 0.05);
+        last = now;
+        if (running) {
+          flight += dt * 150;
+          if (flight >= points.length - 1) {
+            flight = points.length - 1;
+            running = false;
+            launchBtn.textContent = 'Ещё раз';
+          }
+          draw();
+        }
+        requestAnimationFrame(frame);
+      }
+
+      function refresh() {
+        angle = Number(angleInput.value);
+        speed = Number(speedInput.value);
+        angleOut.textContent = angle;
+        speedOut.textContent = speed;
+        running = false;
+        flight = 0;
+        launchBtn.textContent = 'Запуск';
+        plot();
+        draw();
+      }
+
+      angleInput.addEventListener('input', refresh);
+      speedInput.addEventListener('input', refresh);
+      launchBtn.addEventListener('click', () => {
+        plot();
+        flight = 0;
+        running = true;
+        launchBtn.textContent = 'Полёт…';
+        last = 0;
+      });
+      clearBtn.addEventListener('click', () => {
+        refresh();
+      });
+      window.addEventListener('resize', resize);
+
+      resize();
+      refresh();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,3329 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Физический симулятор — Репетиторство (Physics Sandbox Pro)</title>
+<style>
+  /* ===== СТИЛИСТИКА ОРИГИНАЛЬНОГО ДИЗАЙНА PYGAME ===== */
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: #19191c;
+    color: #f0f0f0;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #simCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: default;
+  }
+
+  /* Панели в стиле оригинального HUD (полупрозрачный графит) */
+  .hud-panel {
+    background: rgba(18, 18, 22, 0.90);
+    border: 1px solid #383842;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+  }
+
+  /* ЕДИНЫЙ ВЕРХНИЙ ТУЛБАР (FLEXBOX — НИЧТО НЕ НАКЛАДЫВАЕТСЯ) */
+  #headerBar {
+    position: absolute;
+    top: 10px;
+    left: 14px;
+    right: 14px;
+    height: 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 12px;
+    gap: 10px;
+    z-index: 20;
+  }
+
+  .header-left, .header-center, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .brand {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #64b4f0;
+    margin-right: 6px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .scenario-btn {
+    padding: 6px 10px;
+    background: #25252c;
+    border: 1px solid #3c3c46;
+    border-radius: 6px;
+    color: #c8c8d2;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .scenario-btn:hover {
+    background: #343440;
+    border-color: #64b4f0;
+    color: #fff;
+  }
+  .scenario-btn.active {
+    background: #204470;
+    border-color: #64b4f0;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(100, 180, 240, 0.3);
+  }
+
+  .separator {
+    width: 1px;
+    height: 22px;
+    background: #383842;
+    margin: 0 2px;
+  }
+
+  /* Кнопки воспроизведения */
+  .control-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .btn-play {
+    background: #285e34;
+    border-color: #4caf50;
+    color: #fff;
+  }
+  .btn-play:hover { background: #327541; }
+  .btn-play.paused {
+    background: #a03636;
+    border-color: #ff6b6b;
+  }
+  .btn-play.paused:hover { background: #b83e3e; }
+
+  .btn-step {
+    background: #2b2b32;
+    border-color: #4a4a55;
+    color: #e0e0e0;
+  }
+  .btn-step:hover { background: #3c3c46; }
+
+  .btn-reset {
+    background: #422424;
+    border-color: #7a3a3a;
+    color: #ffb8b8;
+  }
+  .btn-reset:hover { background: #552d2d; }
+
+  .speed-select {
+    padding: 4px 6px;
+    background: #25252c;
+    border: 1px solid #41414b;
+    border-radius: 4px;
+    color: #e0e0e0;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .btn-menu {
+    padding: 6px 14px;
+    background: #326496;
+    border: 1px solid #5090d0;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(50, 100, 150, 0.4);
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-menu:hover { background: #3d7ab8; }
+
+  .btn-inspector-toggle {
+    padding: 6px 12px;
+    background: #2b2b32;
+    border: 1px solid #4a4a55;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-inspector-toggle:hover { background: #3c3c46; }
+
+  /* Левый плавающий HUD (оригинал Pygame: угол, статус, удары, физика) */
+  #leftHud {
+    position: absolute;
+    top: 68px;
+    left: 14px;
+    width: 320px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .status-badge {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+  .status-paused { color: #ff6464; }
+  .status-active { color: #64ff64; }
+
+  .hud-stat {
+    font-size: 12.5px;
+    color: #c8c8d0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .hud-stat span.value {
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .u-mode-btn {
+    padding: 3px 8px;
+    background: #1b2e44;
+    border: 1px solid #356292;
+    border-radius: 4px;
+    color: #78c0ff;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .u-mode-btn:hover { background: #254060; }
+
+  .incline-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-mini {
+    padding: 2px 7px;
+    background: #2d2d34;
+    border: 1px solid #4a4a56;
+    border-radius: 4px;
+    color: #e0e0e0;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-mini:hover { background: #3e3e4a; }
+
+  /* Блок информации под разные сценарии */
+  #dynamicScenarioInfo {
+    border-top: 1px solid #32323a;
+    padding-top: 8px;
+    margin-top: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .info-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #64b4f0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .info-row {
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .val-badge {
+    font-family: 'Consolas', monospace;
+    font-weight: 700;
+    font-size: 12.5px;
+  }
+  .conserved { color: #5ad25a; }
+  .loss { color: #f07878; }
+  .warning { color: #f0d250; }
+
+  /* Выпадающее меню создания объектов */
+  #addDropdown {
+    position: absolute;
+    top: 62px;
+    right: 14px;
+    width: 220px;
+    padding: 6px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 30;
+  }
+  #addDropdown.visible { display: flex; }
+
+  /* Выпадающее меню сценариев */
+  #scenarioDropdown {
+    position: absolute;
+    top: 62px;
+    left: 14px;
+    width: 240px;
+    padding: 6px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 30;
+  }
+  #scenarioDropdown.visible { display: flex; }
+
+  .dropdown-item {
+    padding: 7px 10px;
+    background: #242429;
+    border: 1px solid #383842;
+    border-radius: 5px;
+    color: #f0f0f0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.12s;
+  }
+  .dropdown-item:hover {
+    background: #343440;
+    border-color: #64b4f0;
+    color: #fff;
+  }
+
+  /* Инспектор свойств справа */
+  #inspector {
+    position: absolute;
+    top: 68px;
+    right: 14px;
+    width: 240px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    z-index: 10;
+  }
+
+  .inspector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #32323a;
+    padding-bottom: 6px;
+  }
+  .inspector-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #64b4f0;
+  }
+
+  .nav-btn {
+    padding: 2px 7px;
+    background: #2a2a30;
+    border: 1px solid #4a4a55;
+    border-radius: 4px;
+    color: #e0e0e0;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .nav-btn:hover { background: #3a3a44; }
+
+  .inspector-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+  }
+  .inspector-label { color: #a0a0aa; }
+  .inspector-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .inspector-val {
+    min-width: 48px;
+    text-align: center;
+    font-weight: 700;
+    color: #ffeb3b;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+  }
+  .inspector-input {
+    width: 56px;
+    height: 22px;
+    background: #1c1c24;
+    border: 1px solid #4a4a58;
+    border-radius: 4px;
+    color: #ffeb3b;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    transition: all 0.15s;
+    -moz-appearance: textfield;
+    padding: 0 2px;
+  }
+  .inspector-input::-webkit-outer-spin-button,
+  .inspector-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .inspector-input:focus {
+    border-color: #64b4f0;
+    background: #252532;
+    box-shadow: 0 0 6px rgba(100, 180, 240, 0.4);
+    color: #ffffff;
+  }
+
+  .btn-delete {
+    margin-top: 4px;
+    padding: 7px;
+    background: #a03636;
+    border: 1px solid #d04646;
+    border-radius: 5px;
+    color: #ffffff;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-delete:hover { background: #be3e3e; }
+
+  /* Модальное окно сохранения сценариев */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100;
+  }
+  .modal-window {
+    width: 480px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    padding: 16px 18px;
+    gap: 12px;
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #383844;
+    padding-bottom: 8px;
+  }
+  .modal-title {
+    font-size: 15px; font-weight: 800; color: #64b4f0;
+  }
+  .scenarios-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 380px; overflow-y: auto; padding-right: 4px;
+  }
+  .scenario-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px;
+    background: #24242c;
+    border: 1px solid #383844;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  .scenario-item:hover {
+    background: #2c2c36;
+    border-color: #64b4f0;
+  }
+  .scenario-info {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .scenario-name {
+    font-size: 13px; font-weight: 700; color: #ffffff;
+  }
+  .scenario-meta {
+    font-size: 11px; color: #888894;
+  }
+  .scenario-actions {
+    display: flex; gap: 6px;
+  }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 9px 18px;
+    background: rgba(20, 30, 45, 0.95);
+    border: 1px solid #64b4f0;
+    border-radius: 20px;
+    color: #ffffff;
+    font-size: 12.5px;
+    font-weight: 700;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    z-index: 200;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+  }
+
+  /* Баннеры режимов */
+  #linkBanner {
+    position: absolute;
+    top: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 18px;
+    background: rgba(40, 28, 16, 0.95);
+    border: 1px solid #ffa500;
+    border-radius: 6px;
+    color: #ffb830;
+    font-size: 13px;
+    font-weight: 700;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(255, 165, 0, 0.3);
+    z-index: 25;
+  }
+
+  #forcePullBanner {
+    position: absolute;
+    top: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 18px;
+    background: rgba(35, 15, 35, 0.95);
+    border: 1px solid #d25ad2;
+    border-radius: 6px;
+    color: #f0a0f0;
+    font-size: 13px;
+    font-weight: 700;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(210, 90, 210, 0.4);
+    z-index: 25;
+  }
+
+  /* Кнопки быстрого действия в правом нижнем углу */
+  #forceActionButtons {
+    bottom: 12px;
+    right: 16px;
+    position: absolute;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+  .action-pill {
+    padding: 6px 12px;
+    background: rgba(25, 25, 30, 0.88);
+    border: 1px solid #4a4a58;
+    border-radius: 20px;
+    color: #dcdce4;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+    backdrop-filter: blur(4px);
+  }
+  .action-pill:hover {
+    background: #383844;
+    border-color: #64b4f0;
+    color: #fff;
+  }
+  .action-pill.force-active {
+    background: #6a1a6a;
+    border-color: #d25ad2;
+    color: #fff;
+    box-shadow: 0 0 10px rgba(210, 90, 210, 0.5);
+  }
+
+  /* Модальное окно горячих клавиш */
+  #hotkeyModal {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: none;
+    justify-content: center; align-items: center;
+    z-index: 100;
+  }
+  #hotkeyModal.visible { display: flex; }
+  .hotkey-window {
+    width: 440px;
+    max-width: 90vw;
+    max-height: 80vh;
+    padding: 16px 18px;
+    overflow-y: auto;
+  }
+  .hotkey-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 12.5px;
+    border-bottom: 1px solid #2a2a34;
+  }
+  .hotkey-key {
+    padding: 2px 8px;
+    background: #2d2d36;
+    border: 1px solid #4a4a56;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #f0f0f0;
+  }
+  .hotkey-desc { color: #a0a0aa; }
+</style>
+</head>
+<body>
+
+<canvas id="simCanvas"></canvas>
+
+<!-- ЕДИНЫЙ ВЕРХНИЙ ТУЛБАР: сценарии слева, запуск по центру, инструменты справа -->
+<div id="headerBar" class="hud-panel">
+  <!-- Слева: Сценарии для уроков -->
+  <div class="header-left">
+    <div class="brand">⚛ Physics Sandbox</div>
+    <button class="btn-menu" onclick="toggleScenarioDropdown()" id="btnScenDropdown">📋 Сценарии ▼</button>
+  </div>
+
+  <!-- По центру: Воспроизведение симуляции -->
+  <div class="header-center">
+    <button id="btnPlay" class="control-btn btn-play paused" onclick="togglePlay()">▶ СТАРТ</button>
+    <button class="control-btn btn-step" onclick="stepFrame()" title="Один шаг [Shift+→]">⏭ ШАГ</button>
+    <button class="control-btn btn-reset" onclick="resetScenario()" title="Сбросить сцену [R]">⏮ СБРОС</button>
+    <select id="speedSelect" class="speed-select" onchange="setSpeed(this.value)">
+      <option value="0.25">0.25×</option>
+      <option value="0.5">0.5×</option>
+      <option value="1.0" selected>1.0×</option>
+      <option value="2.0">2.0×</option>
+    </select>
+  </div>
+
+  <!-- Справа: Инспектор и Добавление -->
+  <div class="header-right">
+    <button class="btn-inspector-toggle" onclick="toggleInspector()">👁 Инспектор</button>
+    <button class="btn-menu" onclick="toggleAddMenu()">➕ ДОБАВИТЬ... ▼</button>
+  </div>
+</div>
+
+<!-- Левый HUD: статус, угол W/S, динамическая физическая информация -->
+<div id="leftHud" class="hud-panel">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2px;">
+    <span style="font-size:11px; font-weight:700; color:#888894; text-transform:uppercase; letter-spacing:0.5px;">Панель инфо</span>
+    <button class="btn-mini" id="btnCollapseHud" onclick="toggleLeftHud()" title="Свернуть/развернуть панель" style="padding:1px 6px;">▼</button>
+  </div>
+  <div id="leftHudContent">
+    <div class="status-row">
+      <span id="hudStatus" class="status-badge status-paused">ПАУЗА</span>
+      <button class="u-mode-btn" id="btnRestitution" onclick="cycleRestitution()" title="Переключить режим удара [U]">
+        Удары [U]: Абс. упругий (1.0)
+      </button>
+    </div>
+
+    <div class="hud-stat">
+      <span>Угол плоскости [W/S]:</span>
+      <div class="incline-controls">
+        <button class="btn-mini" onclick="adjustAlpha(-0.05)">−</button>
+        <span class="value" id="hudAngle">0.0°</span>
+        <button class="btn-mini" onclick="adjustAlpha(0.05)">+</button>
+      </div>
+    </div>
+
+    <div class="hud-stat">
+      <span>Объектов на сцене:</span>
+      <span class="value" id="hudCount">0</span>
+    </div>
+
+    <!-- Динамический блок под активный сценарий (ЗСИ или Наклонная плоскость) -->
+    <div id="dynamicScenarioInfo">
+      <!-- Содержимое генерируется динамически в updateHUD() -->
+    </div>
+  </div>
+</div>
+
+<!-- Выпадающее меню добавления -->
+<div id="addDropdown" class="hud-panel">
+  <div class="dropdown-item" onclick="createBody('rect', false)">📦 Подвижный квадрат</div>
+  <div class="dropdown-item" onclick="createBody('circle', false)">🔵 Подвижный шар</div>
+  <div class="dropdown-item" onclick="createBody('rect', true)">🧱 Статичный квадрат</div>
+  <div class="dropdown-item" onclick="createBody('circle', true)">🎱 Статичный шар</div>
+  <div class="dropdown-item" onclick="startLinking('rope')">🪢 Нерастяжимая нить</div>
+  <div class="dropdown-item" onclick="startLinking('elastic')">〰️ Резинка</div>
+  <div class="dropdown-item" onclick="startLinking('spring')">🔩 Пружина</div>
+</div>
+
+<!-- Выпадающее меню сценариев -->
+<div id="scenarioDropdown" class="hud-panel">
+  <div class="dropdown-item scenario-btn active" data-scen="sandbox" onclick="setScenario('sandbox')">🛠️ Песочница</div>
+  <div class="dropdown-item scenario-btn" data-scen="elastic" onclick="setScenario('elastic')">⚡ Упругий удар (ЗСИ)</div>
+  <div class="dropdown-item scenario-btn" data-scen="inelastic" onclick="setScenario('inelastic')">💥 Неупругий удар (ЗСИ)</div>
+  <div class="dropdown-item scenario-btn" data-scen="incline" onclick="setScenario('incline')">📐 Наклонная плоскость</div>
+  <div class="dropdown-item scenario-btn" data-scen="spring_rope" onclick="setScenario('spring_rope')">🪢 Связанные тела</div>
+  <div style="height:1px; background:#383842; margin:4px 0;"></div>
+  <div class="dropdown-item" onclick="saveCurrentScenarioPrompt()">💾 Сохранить текущую сцену</div>
+  <div class="dropdown-item" onclick="openScenariosModal()">📂 Управление сценариями...</div>
+</div>
+
+<!-- Инспектор выбранного объекта -->
+<div id="inspector" class="hud-panel">
+  <div class="inspector-header">
+    <span id="inspTitle" class="inspector-title">Тело #1</span>
+    <div style="display:flex; gap:4px;">
+      <button class="nav-btn" onclick="selectAdjacent(-1)">◀</button>
+      <button class="nav-btn" onclick="selectAdjacent(1)">▶</button>
+    </div>
+  </div>
+
+  <div id="inspBodyFields">
+    <div class="inspector-row">
+      <span class="inspector-label">Масса m:</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('m', -0.5)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspMass" onchange="setPropDirect('m', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('m', 0.5)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Размер:</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('size', -0.1)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspSize" onchange="setPropDirect('size', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('size', 0.1)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Коорд. X:</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('x', -0.5)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspX" onchange="setPropDirect('x', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('x', 0.5)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Коорд. Y:</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('y', -0.5)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspY" onchange="setPropDirect('y', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('y', 0.5)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Скор. Vx:</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('vx', -0.5)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspVx" onchange="setPropDirect('vx', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('vx', 0.5)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Скор. Vy:</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('vy', -0.5)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspVy" onchange="setPropDirect('vy', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('vy', 0.5)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Трение μ:</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('mu', -0.05)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspMu" onchange="setPropDirect('mu', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('mu', 0.05)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Упругость e:</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('restitution', -0.1)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspRest" onchange="setPropDirect('restitution', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('restitution', 0.1)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Сила Fx (Н):</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('fx', -2)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspFx" onchange="setPropDirect('fx', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('fx', 2)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Сила Fy (Н):</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modProp('fy', -2)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspFy" onchange="setPropDirect('fy', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modProp('fy', 2)">▶</button>
+      </div>
+    </div>
+    <button class="btn-delete" onclick="deleteCurrentEntity()">❌ УДАЛИТЬ ОБЪЕКТ</button>
+  </div>
+
+  <div id="inspLinkFields" style="display:none;">
+    <div class="inspector-row">
+      <span class="inspector-label">Параметр:</span>
+      <div class="inspector-controls">
+        <button class="btn-mini" onclick="modLinkProp(-0.5)">◀</button>
+        <input type="number" step="any" class="inspector-input" id="inspLinkVal" onchange="setLinkPropDirect(this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="btn-mini" onclick="modLinkProp(0.5)">▶</button>
+      </div>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-label">Натяжение T:</span>
+      <span class="inspector-val" id="inspLinkForce" style="color:#50e6d2;">0.0 Н</span>
+    </div>
+    <button class="btn-delete" onclick="deleteCurrentEntity()">❌ УДАЛИТЬ СВЯЗЬ</button>
+  </div>
+
+  <!-- Блок множественного выделения -->
+  <div id="inspMultiFields" style="display:none; flex-direction:column; gap:8px;">
+    <div style="font-size:12px; color:#c8c8d2; line-height:1.4;">
+      Выделено тел: <b id="inspMultiCount" style="color:#64b4f0;">2</b>
+    </div>
+    <button class="control-btn btn-step" onclick="duplicateSelected()" style="justify-content:center;">📋 Дублировать [Ctrl+D]</button>
+    <button class="control-btn btn-step" onclick="toggleMultiStatic()" style="justify-content:center;">🧱 Переключить статику</button>
+    <button class="control-btn btn-step" onclick="zeroMultiVelocity()" style="justify-content:center;">🛑 Обнулить скорости</button>
+    <button class="btn-delete" onclick="deleteSelectedEntities()">❌ Удалить выделенные [Del]</button>
+  </div>
+</div>
+
+<!-- Баннер режима связывания -->
+<div id="linkBanner">
+  <span id="linkBannerText">РЕЖИМ СВЯЗИ: Кликните по ПЕРВОМУ телу</span>
+  <button class="btn-mini" onclick="cancelLinking()">Отмена (ESC)</button>
+</div>
+
+<!-- Баннер режима тяги силы [F] -->
+<div id="forcePullBanner">
+  🎯 РЕЖИМ ТЯГИ СИЛЫ: Переместите курсор мыши от тела и отпустите [F] для фиксации силы!
+</div>
+
+<!-- Быстрые сенсорные кнопки -->
+<div id="forceActionButtons">
+  <button class="action-pill" onclick="toggleHotkeyModal()">
+    ⌨ Клавиши
+  </button>
+  <button class="action-pill" id="pillForce" onclick="toggleForceModeButton()">
+    🎯 Приложить силу [F]
+  </button>
+  <button class="action-pill" onclick="clearAllExternalForces()">
+    🧹 Сброс сил [C]
+  </button>
+</div>
+
+<!-- Модальное окно управления сохраненными сценариями -->
+<div id="scenariosModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeScenariosModal()">
+  <div class="modal-window hud-panel">
+    <div class="modal-header">
+      <div class="modal-title">📂 Сохраненные сценарии</div>
+      <button class="nav-btn" onclick="closeScenariosModal()" style="font-size:14px; padding:2px 8px;">✕</button>
+    </div>
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <button class="scenario-btn" onclick="saveCurrentScenarioPrompt()" style="background:#204470; color:#fff; border-color:#64b4f0;">
+        💾 Сохранить текущую сцену
+      </button>
+      <div>
+        <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importScenarioFile(event)">
+        <button class="scenario-btn" onclick="document.getElementById('importFileInput').click()">
+          📥 Импорт .JSON
+        </button>
+      </div>
+    </div>
+
+    <div id="scenariosListContainer" class="scenarios-list">
+      <!-- Список генерируется через renderScenariosList() -->
+    </div>
+  </div>
+</div>
+
+<!-- Всплывающие уведомления (Toast) -->
+<div id="toast" class="toast"></div>
+
+<!-- Модальное окно горячих клавиш -->
+<div id="hotkeyModal" onclick="if(event.target===this)toggleHotkeyModal()">
+  <div class="hotkey-window hud-panel">
+    <div class="modal-header">
+      <div class="modal-title">⌨ Горячие клавиши</div>
+      <button class="nav-btn" onclick="toggleHotkeyModal()" style="font-size:14px; padding:2px 8px;">✕</button>
+    </div>
+    <div style="margin-top:10px; display:flex; flex-direction:column; gap:2px;">
+      <div class="hotkey-row"><span class="hotkey-desc">Пауза / Старт</span><span class="hotkey-key">Пробел</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Наклон плоскости ↑↓</span><span class="hotkey-key">W / S</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Тяга силы (зажать)</span><span class="hotkey-key">F</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Сброс внешних сил</span><span class="hotkey-key">C</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Сброс сцены</span><span class="hotkey-key">R</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Режим ударов</span><span class="hotkey-key">U</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Шаг симуляции</span><span class="hotkey-key">Shift + →</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Навигация по объектам</span><span class="hotkey-key">← / →</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Множественное выделение</span><span class="hotkey-key">Shift + Клик</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Рамка выделения</span><span class="hotkey-key">Перетяните по пустому</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Дублировать</span><span class="hotkey-key">Ctrl + D</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Копировать</span><span class="hotkey-key">Ctrl + C</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Вставить</span><span class="hotkey-key">Ctrl + V</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Удалить</span><span class="hotkey-key">Delete</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Отмена режима / Закрыть</span><span class="hotkey-key">Escape</span></div>
+      <div class="hotkey-row"><span class="hotkey-desc">Масштаб</span><span class="hotkey-key">Колесо мыши</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   ФИЗИЧЕСКИЙ СИМУЛЯТОР С ИСПРАВЛЕННОЙ МЕХАНИКОЙ И СТРОГОЙ ГРАВИТАЦИЕЙ
+   ========================================================================== */
+
+const COLORS = {
+  bg: '#19191c',
+  grid: '#323237',
+  plane: '#c8c8d2',
+  planeWedge: 'rgba(75, 95, 120, 0.22)',
+  text: '#f0f0f0',
+  rope: '#c8a064',
+  elastic: '#f07878',
+  spring: '#64b4f0',
+  F_mg: '#e65a5a',     // Красный (mg)
+  F_N: '#5ad25a',      // Зеленый (N)
+  F_tr: '#f0d250',     // Желтый (Fтр)
+  F_ext: '#d25ad2',    // Сиреневый (Fвнеш)
+  F_rope: '#50e6d2',   // Бирюзовый (T)
+  velocity: '#5ac8e6', // Голубой (v)
+  proj: '#e6955a'      // Оранжевый (компоненты mg)
+};
+
+const G = 9.8;
+const FIXED_DT = 1 / 60;
+const PIXELS_PER_NEWTON = 10;
+let PPM = 45.0;
+
+// --- КАМЕРА С МАТРИЦЕЙ ПОВОРОТА ПЛОСКОСТИ ---
+class Camera {
+  constructor() {
+    this.alpha = 0.0;
+    this.cam_wx = 0.0;
+    this.cam_wy = 1.5;
+    this.anchor_x = window.innerWidth / 2 - 40;
+    this.anchor_y = window.innerHeight / 2 + 130;
+  }
+
+  update(bodies) {
+    this.anchor_x = window.innerWidth / 2 - 40;
+    this.anchor_y = window.innerHeight / 2 + 130;
+    if (!bodies || bodies.length === 0) return;
+    let avg_x = 0, avg_y = 0;
+    for (const b of bodies) {
+      avg_x += b.x;
+      avg_y += b.y;
+    }
+    const target_x = avg_x / bodies.length;
+    const target_y = Math.max(0.5, avg_y / bodies.length);
+    this.cam_wx += (target_x - this.cam_wx) * 0.08;
+    this.cam_wy += (target_y - this.cam_wy) * 0.08;
+  }
+
+  worldToScreen(wx, wy) {
+    const dx = wx - this.cam_wx;
+    const dy = wy - this.cam_wy;
+    // Поворот на угол alpha
+    const x_rot = dx * Math.cos(this.alpha) - dy * Math.sin(this.alpha);
+    const y_rot = dx * Math.sin(this.alpha) + dy * Math.cos(this.alpha);
+    return {
+      x: this.anchor_x + x_rot * PPM,
+      y: this.anchor_y - y_rot * PPM
+    };
+  }
+
+  screenToWorld(sx, sy) {
+    const scr_dx = (sx - this.anchor_x) / PPM;
+    const scr_dy = -(sy - this.anchor_y) / PPM;
+    const wx = scr_dx * Math.cos(-this.alpha) - scr_dy * Math.sin(-this.alpha) + this.cam_wx;
+    const wy = scr_dx * Math.sin(-this.alpha) + scr_dy * Math.cos(-this.alpha) + this.cam_wy;
+    return { x: wx, y: wy };
+  }
+
+  screenToLocalForce(body, mouse_x, mouse_y) {
+    const center_s = this.worldToScreen(body.x, body.y + body.size / 2);
+    const dx_pix = mouse_x - center_s.x;
+    const dy_pix = -(mouse_y - center_s.y);
+
+    const lx = (dx_pix * Math.cos(-this.alpha) - dy_pix * Math.sin(-this.alpha)) / PIXELS_PER_NEWTON;
+    const ly = (dx_pix * Math.sin(-this.alpha) + dy_pix * Math.cos(-this.alpha)) / PIXELS_PER_NEWTON;
+    return { x: lx, y: ly };
+  }
+
+  localToScreenVec(lx, ly) {
+    const dx = lx * Math.cos(this.alpha) - ly * Math.sin(this.alpha);
+    const dy = lx * Math.sin(this.alpha) + ly * Math.cos(this.alpha);
+    return { x: dx * PIXELS_PER_NEWTON, y: dy * PIXELS_PER_NEWTON };
+  }
+}
+
+// --- ФИЗИЧЕСКОЕ ТЕЛО СТРОГО ПО ЗАКОНАМ НЬЮТОНА ---
+class PhysicsBody {
+  constructor(id, mass, mu, x, y = 0.0, size = 1.0, shape = 'rect', is_static = false, vx = 0.0) {
+    this.id = id;
+    this.m = mass;
+    this.mu = mu;
+    this.size = size;
+    this.shape = shape;
+    this.is_static = is_static;
+    this.x = x;
+    this.y = y;
+    this.vx = vx;
+    this.vy = 0.0;
+    this.ax = 0.0;
+    this.ay = 0.0;
+
+    this.restitution_modes = [0.0, 0.5, 1.0];
+    this.rest_idx = 2;
+    this.restitution = this.restitution_modes[this.rest_idx];
+
+    this.preview_F_ext = { x: 0.0, y: 0.0 };
+    this.locked_F_ext = { x: 0.0, y: 0.0 };
+
+    this.rope_force_x = 0.0;
+    this.rope_force_y = 0.0;
+
+    const r = Math.floor(80 + Math.random() * 140);
+    const g = Math.floor(80 + Math.random() * 140);
+    const b = Math.floor(100 + Math.random() * 140);
+    this.color = is_static ? '#5a6470' : `rgb(${r},${g},${b})`;
+
+    this.forces_values = { mg: 0, N: 0, F_tr: 0, F_ext: 0 };
+    this.forces_vectors = {
+      mg: { x: 0, y: 0 },
+      N: { x: 0, y: 0 },
+      F_tr: { x: 0, y: 0 },
+      F_ext: { x: 0, y: 0 },
+      F_rope: { x: 0, y: 0 }
+    };
+  }
+
+  update(dt, alpha, ext_force) {
+    if (this.is_static) {
+      this.vx = 0.0;
+      this.vy = 0.0;
+      this.ax = 0.0;
+      this.ay = 0.0;
+      for (const k in this.forces_vectors) {
+        this.forces_vectors[k] = { x: 0.0, y: 0.0 };
+      }
+      return;
+    }
+
+    // ИСПРАВЛЕНИЕ ГЛАВНОГО ФИЗИЧЕСКОГО БАГА С НАПРАВЛЕНИЕМ СИЛЫ ТЯЖЕСТИ!
+    // При подъеме плоскости вверх вправо (+X направлен вверх по склону),
+    // составляющая силы тяжести, скатывающая тело ВНИЗ СО СКЛОНА, направлена в сторону -X!
+    // mg_x = -mg * sin(alpha) (скатывает вниз со склона к основанию!)
+    // mg_y = -mg * cos(alpha) (прижимает к склону!)
+    const mg = this.m * G;
+    const mg_x = -mg * Math.sin(alpha);
+    const mg_y = -mg * Math.cos(alpha);
+
+    const ext_x = ext_force.x;
+    const ext_y = ext_force.y;
+
+    const net_F_y = mg_y + ext_y + this.rope_force_y;
+
+    // Нормальная реакция опоры N
+    let N = 0.0;
+    if (this.y <= 0.01) {
+      N = Math.max(0.0, -net_F_y);
+    }
+    this.ay = (net_F_y + N) / this.m;
+
+    // Скатывающие и внешние силы вдоль наклонной плоскости
+    const F_push_x = mg_x + ext_x + this.rope_force_x;
+    let F_tr_x = 0.0;
+
+    if (this.y <= 0.01) {
+      const max_friction = this.mu * N;
+      if (Math.abs(this.vx) < 0.02) {
+        // Сила трения покоя: удерживает тело, если F_push_x <= max_friction
+        if (Math.abs(F_push_x) <= max_friction) {
+          F_tr_x = -F_push_x;
+          this.vx = 0.0;
+        } else {
+          F_tr_x = -Math.sign(F_push_x) * max_friction;
+        }
+      } else {
+        // Трение скольжения: направлено строго против движения
+        F_tr_x = -Math.sign(this.vx) * max_friction;
+      }
+    }
+
+    const net_F_x = F_push_x + F_tr_x;
+    this.ax = net_F_x / this.m;
+
+    const vx_old = this.vx;
+    this.vx += this.ax * dt;
+
+    // Остановка при затухании скорости и достаточном трении покоя
+    if (N > 0 && vx_old * this.vx < 0 && Math.abs(F_push_x) <= (this.mu * N)) {
+      this.vx = 0.0;
+      this.ax = 0.0;
+    }
+
+    this.x += this.vx * dt;
+    this.vy += this.ay * dt;
+    this.y += this.vy * dt;
+
+    // Стабилизация контакта с землёй
+    if (this.y < 0) {
+      this.y = 0;
+      if (this.vy < -0.05) {
+        this.vy = -this.vy * this.restitution;
+      } else {
+        this.vy = 0.0;
+      }
+    }
+    if (this.y <= 0.001 && Math.abs(this.vy) < 0.02) {
+      this.vy = 0.0;
+    }
+
+    // Сохранение значений для отображения
+    this.forces_values.mg = mg;
+    this.forces_values.N = N;
+    this.forces_values.F_tr = Math.abs(F_tr_x);
+    this.forces_values.F_ext = Math.hypot(ext_x, ext_y);
+
+    this.forces_vectors.mg = { x: mg_x, y: mg_y };
+    this.forces_vectors.N = { x: 0, y: N };
+    this.forces_vectors.F_tr = { x: F_tr_x, y: 0 };
+    this.forces_vectors.F_ext = { x: ext_x, y: ext_y };
+    this.forces_vectors.F_rope = { x: this.rope_force_x, y: this.rope_force_y };
+  }
+}
+
+// --- НИТЬ ВЕРЛЕ ---
+class RopeNode {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.old_x = x; this.old_y = y;
+  }
+}
+
+class RopeConstraint {
+  constructor(id, body_a, body_b, max_length = null, is_elastic = false) {
+    this.id = id;
+    this.body_a = body_a;
+    this.body_b = body_b;
+    this.is_elastic = is_elastic;
+    this.type_name = is_elastic ? "Резинка" : "Нить";
+
+    const ax = body_a.x, ay = body_a.y + body_a.size / 2;
+    const bx = body_b.x, by = body_b.y + body_b.size / 2;
+    this.max_length = max_length !== null ? max_length : Math.hypot(bx - ax, by - ay);
+    this.tension_force = 0.0;
+
+    const ROPE_SEGMENTS = 30;
+    this.segments = [];
+    for (let i = 0; i < ROPE_SEGMENTS; i++) {
+      const t = i / (ROPE_SEGMENTS - 1);
+      this.segments.push(new RopeNode(ax + (bx - ax) * t, ay + (by - ay) * t));
+    }
+  }
+
+  update_physics(dt, alpha, bodies) {
+    const ax = this.body_a.x, ay = this.body_a.y + this.body_a.size / 2;
+    const bx = this.body_b.x, by = this.body_b.y + this.body_b.size / 2;
+    const dx = bx - ax, dy = by - ay;
+    const dist = Math.hypot(dx, dy) || 0.0001;
+    const nx = dx / dist, ny = dy / dist;
+
+    if (this.is_elastic) {
+      // Резинка: односторонний закон Гука (только при растяжении dist > this.max_length)
+      // с коэффициентом жесткости k = 35 и демпфированием damping = 1.5,
+      // записывая силу в rope_force_x/y
+      if (dist > this.max_length) {
+        const stretch = dist - this.max_length;
+        const dvx = this.body_b.vx - this.body_a.vx;
+        const dvy = this.body_b.vy - this.body_a.vy;
+        const v_rel_n = dvx * nx + dvy * ny;
+        const k = 35.0;
+        const damping = 1.5;
+        const force_mag = Math.max(0, k * stretch + damping * v_rel_n);
+        this.tension_force = force_mag;
+
+        const fx = nx * force_mag;
+        const fy = ny * force_mag;
+
+        this.body_a.rope_force_x += fx;
+        this.body_a.rope_force_y += fy;
+        this.body_b.rope_force_x -= fx;
+        this.body_b.rope_force_y -= fy;
+
+        this.body_a.forces_vectors.F_rope = { x: this.body_a.rope_force_x, y: this.body_a.rope_force_y };
+        this.body_b.forces_vectors.F_rope = { x: this.body_b.rope_force_x, y: this.body_b.rope_force_y };
+      } else {
+        this.tension_force = 0.0;
+        this.body_a.forces_vectors.F_rope = { x: 0, y: 0 };
+        this.body_b.forces_vectors.F_rope = { x: 0, y: 0 };
+      }
+
+      this.updateSegments(dt, alpha, ax, ay, bx, by, dist);
+    } else {
+      // Нерастяжимая нить: НЕ добавляем пружинную силу в rope_force_x/y.
+      // Только обновляем визуальные сегменты Верле:
+      // если нить натянута (dist >= this.max_length * 0.995), выстраиваем узлы строго по прямой линии.
+      // если dist < this.max_length, рассчитываем провисание Верле как раньше.
+      this.updateSegments(dt, alpha, ax, ay, bx, by, dist);
+    }
+  }
+
+  updateSegments(dt, alpha, ax, ay, bx, by, dist) {
+    if (dist >= this.max_length * 0.995) {
+      // Нить натянута — узлы строго по прямой линии без провисания
+      const count = this.segments.length;
+      for (let i = 0; i < count; i++) {
+        const t = i / (count - 1);
+        const px = ax + (bx - ax) * t;
+        const py = ay + (by - ay) * t;
+        this.segments[i].x = px;
+        this.segments[i].y = py;
+        this.segments[i].old_x = px;
+        this.segments[i].old_y = py;
+      }
+    } else {
+      // Провисание Верле
+      const gx = -9.8 * Math.sin(alpha);
+      const gy = -9.8 * Math.cos(alpha);
+      const ROPE_DAMPING = 0.95;
+
+      for (let i = 1; i < this.segments.length - 1; i++) {
+        const node = this.segments[i];
+        const tx = node.x, ty = node.y;
+        node.x += (node.x - node.old_x) * ROPE_DAMPING + gx * dt * dt;
+        node.y += (node.y - node.old_y) * ROPE_DAMPING + gy * dt * dt;
+        node.old_x = tx;
+        node.old_y = ty;
+        if (node.y < 0) node.y = 0;
+      }
+
+      this.segments[0].x = ax; this.segments[0].y = ay;
+      this.segments[this.segments.length - 1].x = bx;
+      this.segments[this.segments.length - 1].y = by;
+
+      const target_seg_len = this.max_length / (this.segments.length - 1);
+      const iterations = this.is_elastic ? 5 : 15;
+
+      for (let it = 0; it < iterations; it++) {
+        this.segments[0].x = ax; this.segments[0].y = ay;
+        this.segments[this.segments.length - 1].x = bx;
+        this.segments[this.segments.length - 1].y = by;
+
+        for (let i = 0; i < this.segments.length - 1; i++) {
+          const n1 = this.segments[i], n2 = this.segments[i + 1];
+          const ndx = n2.x - n1.x, ndy = n2.y - n1.y;
+          const ndist = Math.hypot(ndx, ndy) || 0.0001;
+          const diff = target_seg_len - ndist;
+          const percent = (diff / ndist) * 0.5;
+          const ox = ndx * percent, oy = ndy * percent;
+
+          if (i === 0) {
+            n2.x += ox * 2; n2.y += oy * 2;
+          } else if (i === this.segments.length - 2) {
+            n1.x -= ox * 2; n1.y -= oy * 2;
+          } else {
+            n1.x -= ox; n1.y -= oy;
+            n2.x += ox; n2.y += oy;
+          }
+        }
+      }
+    }
+  }
+
+  solveHardConstraint(dt, alpha) {
+    // 1. Вычисляем расстояние dist между центрами body_a и body_b
+    const ax = this.body_a.x, ay = this.body_a.y + this.body_a.size / 2;
+    const bx = this.body_b.x, by = this.body_b.y + this.body_b.size / 2;
+    const dx = bx - ax, dy = by - ay;
+    const dist = Math.hypot(dx, dy) || 0.0001;
+    const nx = dx / dist, ny = dy / dist;
+
+    // 2. Если dist < this.max_length: нить не натянута
+    if (dist < this.max_length) {
+      this.tension_force = 0.0;
+      this.body_a.forces_vectors.F_rope = { x: 0, y: 0 };
+      this.body_b.forces_vectors.F_rope = { x: 0, y: 0 };
+      return;
+    }
+
+    // 3. Обратные массы
+    const wA = this.body_a.is_static ? 0 : 1 / this.body_a.m;
+    const wB = this.body_b.is_static ? 0 : 1 / this.body_b.m;
+    const wSum = wA + wB;
+    if (wSum === 0) return;
+
+    // 4. Скорректировать позиции body_a и body_b вдоль нормали связи,
+    // чтобы расстояние стало строго равно this.max_length
+    const delta = dist - this.max_length;
+    if (!this.body_a.is_static) {
+      this.body_a.x += (wA / wSum) * delta * nx;
+      this.body_a.y += (wA / wSum) * delta * ny;
+      if (this.body_a.y < 0) this.body_a.y = 0;
+    }
+    if (!this.body_b.is_static) {
+      this.body_b.x -= (wB / wSum) * delta * nx;
+      this.body_b.y -= (wB / wSum) * delta * ny;
+      if (this.body_b.y < 0) this.body_b.y = 0;
+    }
+
+    // 5. Проекция относительной скорости вдоль нити v_rel_n
+    const dvx = this.body_b.vx - this.body_a.vx;
+    const dvy = this.body_b.vy - this.body_a.vy;
+    const v_rel_n = dvx * nx + dvy * ny;
+
+    if (v_rel_n > 0) {
+      const impulse_v = v_rel_n / wSum;
+      if (!this.body_a.is_static) {
+        this.body_a.vx += wA * impulse_v * nx;
+        this.body_a.vy += wA * impulse_v * ny;
+      }
+      if (!this.body_b.is_static) {
+        this.body_b.vx -= wB * impulse_v * nx;
+        this.body_b.vy -= wB * impulse_v * ny;
+      }
+    }
+
+    // 6. Реальная физическая сила натяжения:
+    // Проекция внешних сил (mg, N, F_tr, F_ext, другие связи) вдоль нити
+    const fAx = this.body_a.is_static ? 0 : (
+      this.body_a.forces_vectors.mg.x +
+      this.body_a.forces_vectors.N.x +
+      this.body_a.forces_vectors.F_tr.x +
+      this.body_a.forces_vectors.F_ext.x +
+      this.body_a.rope_force_x
+    );
+    const fAy = this.body_a.is_static ? 0 : (
+      this.body_a.forces_vectors.mg.y +
+      this.body_a.forces_vectors.N.y +
+      this.body_a.forces_vectors.F_tr.y +
+      this.body_a.forces_vectors.F_ext.y +
+      this.body_a.rope_force_y
+    );
+    const fBx = this.body_b.is_static ? 0 : (
+      this.body_b.forces_vectors.mg.x +
+      this.body_b.forces_vectors.N.x +
+      this.body_b.forces_vectors.F_tr.x +
+      this.body_b.forces_vectors.F_ext.x +
+      this.body_b.rope_force_x
+    );
+    const fBy = this.body_b.is_static ? 0 : (
+      this.body_b.forces_vectors.mg.y +
+      this.body_b.forces_vectors.N.y +
+      this.body_b.forces_vectors.F_tr.y +
+      this.body_b.forces_vectors.F_ext.y +
+      this.body_b.rope_force_y
+    );
+
+    const fA_n = fAx * nx + fAy * ny;
+    const fB_n = fBx * nx + fBy * ny;
+
+    const mu_red = 1 / wSum;
+    const T_ext = mu_red * (wB * fB_n - wA * fA_n);
+
+    // Центростремительная сила v_tan^2 / L приведенной массы
+    const cur_dvx = this.body_b.vx - this.body_a.vx;
+    const cur_dvy = this.body_b.vy - this.body_a.vy;
+    const cur_vn = cur_dvx * nx + cur_dvy * ny;
+    const vtx = cur_dvx - cur_vn * nx;
+    const vty = cur_dvy - cur_vn * ny;
+    const v_tan_sq = vtx * vtx + vty * vty;
+    const T_centripetal = mu_red * (v_tan_sq / this.max_length);
+
+    let T = T_ext + T_centripetal;
+    if (T < 0) T = 0;
+
+    this.tension_force = T;
+
+    // Обновляем forces_vectors.F_rope у обоих тел
+    if (!this.body_a.is_static) {
+      this.body_a.forces_vectors.F_rope = { x: T * nx, y: T * ny };
+    }
+    if (!this.body_b.is_static) {
+      this.body_b.forces_vectors.F_rope = { x: -T * nx, y: -T * ny };
+    }
+
+    // Выстраивание сегментов по прямой линии при натяжении
+    const newAx = this.body_a.x, newAy = this.body_a.y + this.body_a.size / 2;
+    const newBx = this.body_b.x, newBy = this.body_b.y + this.body_b.size / 2;
+    const count = this.segments.length;
+    for (let i = 0; i < count; i++) {
+      const t = i / (count - 1);
+      const px = newAx + (newBx - newAx) * t;
+      const py = newAy + (newBy - newAy) * t;
+      this.segments[i].x = px;
+      this.segments[i].y = py;
+      this.segments[i].old_x = px;
+      this.segments[i].old_y = py;
+    }
+  }
+}
+
+// --- ПРУЖИНА ГУКА ---
+class SpringConstraint {
+  constructor(id, body_a, body_b, k = 70.0, rest_length = 2.5) {
+    this.id = id;
+    this.body_a = body_a;
+    this.body_b = body_b;
+    this.k = k;
+    this.rest_length = rest_length;
+    this.damping = 2.5;
+    this.tension_force = 0.0;
+    this.segments = [{ x: body_a.x, y: body_a.y }, { x: body_b.x, y: body_b.y }];
+  }
+
+  update_physics(dt, alpha, bodies) {
+    const ax = this.body_a.x, ay = this.body_a.y + this.body_a.size / 2;
+    const bx = this.body_b.x, by = this.body_b.y + this.body_b.size / 2;
+    this.segments[0] = { x: ax, y: ay };
+    this.segments[1] = { x: bx, y: by };
+
+    const dx = bx - ax, dy = by - ay;
+    const dist = Math.hypot(dx, dy) || 0.0001;
+
+    const displacement = dist - this.rest_length;
+    const spring_force = this.k * displacement;
+
+    const dvx = this.body_b.vx - this.body_a.vx;
+    const dvy = this.body_b.vy - this.body_a.vy;
+    const v_along = (dvx * dx + dvy * dy) / dist;
+    const current_damping = (this.body_a.restitution === 1.0) ? 0.0 : this.damping;
+    const damping_force = current_damping * v_along;
+
+    const total_force = spring_force + damping_force;
+    this.tension_force = Math.abs(total_force);
+
+    const fx = (dx / dist) * total_force;
+    const fy = (dy / dist) * total_force;
+
+    this.body_a.rope_force_x += fx;
+    this.body_a.rope_force_y += fy;
+    this.body_b.rope_force_x -= fx;
+    this.body_b.rope_force_y -= fy;
+  }
+}
+
+// --- СИМУЛЯЦИЯ ---
+class PhysicsSimulation {
+  constructor() {
+    this.camera = new Camera();
+    this.alpha = 0.0;
+    this.entity_counter = 4;
+    this.bodies = [];
+    this.ropes = [];
+    this.springs = [];
+    this.selected_entity = null;
+    this.selected_entities = new Set();
+
+    this.paused = true;
+    this.step_frame = false;
+    this.setting_force = false;
+
+    this.linking_mode = null;
+    this.linking_first = null;
+
+    this.currentScenario = 'sandbox';
+    this.initial_p = 0;
+    this.initial_Ek = 0;
+  }
+
+  select(entity, additive = false) {
+    if (!additive) {
+      this.selected_entities.clear();
+    }
+    if (entity) {
+      this.selected_entities.add(entity);
+      this.selected_entity = entity;
+    } else {
+      this.selected_entity = null;
+    }
+  }
+
+  toggleSelect(entity) {
+    if (!entity) return;
+    if (this.selected_entities.has(entity)) {
+      this.selected_entities.delete(entity);
+      this.selected_entity = this.selected_entities.size > 0 ? Array.from(this.selected_entities)[0] : null;
+    } else {
+      this.selected_entities.add(entity);
+      this.selected_entity = entity;
+    }
+  }
+
+  clearSelection() {
+    this.selected_entities.clear();
+    this.selected_entity = null;
+  }
+
+  getAllEntities() {
+    return [...this.bodies, ...this.ropes, ...this.springs];
+  }
+
+  checkCollisions() {
+    const n = this.bodies.length;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const b1 = this.bodies[i], b2 = this.bodies[j];
+        const h1 = b1.size / 2.0, h2 = b2.size / 2.0;
+        const c1x = b1.x, c1y = b1.y + h1;
+        const c2x = b2.x, c2y = b2.y + h2;
+
+        if (b1.shape === 'circle' && b2.shape === 'circle') {
+          const dx = c2x - c1x, dy = c2y - c1y;
+          const dist = Math.hypot(dx, dy) || 0.0001;
+          const overlap = (h1 + h2) - dist;
+          if (overlap > 0) {
+            const nx = dx / dist, ny = dy / dist;
+            const rel_v = (b1.vx - b2.vx) * nx + (b1.vy - b2.vy) * ny;
+            if (rel_v > 0) {
+              const e = Math.min(b1.restitution, b2.restitution);
+              const m1 = b1.m, m2 = b2.m;
+              const impulse = ((1 + e) * rel_v) / (1 / m1 + 1 / m2);
+
+              if (!b1.is_static) {
+                b1.vx -= (impulse / m1) * nx;
+                b1.vy -= (impulse / m1) * ny;
+                b1.x -= nx * overlap * 0.5;
+                b1.y -= ny * overlap * 0.5;
+              }
+              if (!b2.is_static) {
+                b2.vx += (impulse / m2) * nx;
+                b2.vy += (impulse / m2) * ny;
+                b2.x += nx * overlap * 0.5;
+                b2.y += ny * overlap * 0.5;
+              }
+            }
+          }
+        } else {
+          const overlap_x = (h1 + h2) - Math.abs(c1x - c2x);
+          const overlap_y = (h1 + h2) - Math.abs(c1y - c2y);
+
+          if (overlap_x > 0 && overlap_y > 0) {
+            if (overlap_x < overlap_y) {
+              const rel_vx = b1.vx - b2.vx;
+              if ((c1x < c2x && rel_vx > 0) || (c1x > c2x && rel_vx < 0)) {
+                const e = (b1.restitution + b2.restitution) / 2.0;
+                const m1 = b1.m, m2 = b2.m;
+                const new_vx1 = (m1 * b1.vx + m2 * b2.vx + m2 * e * (b2.vx - b1.vx)) / (m1 + m2);
+                const new_vx2 = (m1 * b1.vx + m2 * b2.vx + m1 * e * (b1.vx - b2.vx)) / (m1 + m2);
+                b1.vx = new_vx1;
+                b2.vx = new_vx2;
+              }
+              const sign = c1x > c2x ? 1 : -1;
+              if (!b1.is_static) b1.x += sign * overlap_x * 0.5;
+              if (!b2.is_static) b2.x -= sign * overlap_x * 0.5;
+            } else {
+              const rel_vy = b1.vy - b2.vy;
+              if ((c1y < c2y && rel_vy > 0) || (c1y > c2y && rel_vy < 0)) {
+                const e = (b1.restitution + b2.restitution) / 2.0;
+                const m1 = b1.m, m2 = b2.m;
+                const new_vy1 = (m1 * b1.vy + m2 * b2.vy + m2 * e * (b2.vy - b1.vy)) / (m1 + m2);
+                const new_vy2 = (m1 * b1.vy + m2 * b2.vy + m1 * e * (b1.vy - b2.vy)) / (m1 + m2);
+                b1.vy = new_vy1;
+                b2.vy = new_vy2;
+              }
+              const sign = c1y > c2y ? 1 : -1;
+              if (!b1.is_static) b1.y += sign * overlap_y * 0.5;
+              if (!b2.is_static) b2.y -= sign * overlap_y * 0.5;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  step(dt) {
+    if (!this.paused || this.step_frame) {
+      const SUBSTEPS = 8;
+      const subDt = dt / SUBSTEPS;
+
+      for (let step = 0; step < SUBSTEPS; step++) {
+        for (const b of this.bodies) {
+          b.rope_force_x = 0.0;
+          b.rope_force_y = 0.0;
+        }
+
+        for (const s of this.springs) {
+          s.update_physics(subDt, this.alpha, this.bodies);
+        }
+
+        for (const r of this.ropes) {
+          r.update_physics(subDt, this.alpha, this.bodies);
+        }
+
+        this.checkCollisions();
+
+        for (const b of this.bodies) {
+          const f = (this.setting_force && b === this.selected_entity)
+            ? b.preview_F_ext
+            : b.locked_F_ext;
+          b.update(subDt, this.alpha, f);
+        }
+
+        // Жесткое ограничение для нерастяжимых нитей вызывается ПОСЛЕ b.update(...) на каждом субшаге
+        for (const r of this.ropes) {
+          if (!r.is_elastic) {
+            r.solveHardConstraint(subDt, this.alpha);
+          }
+        }
+      }
+
+      this.step_frame = false;
+    }
+  }
+}
+
+// --- РЕНДЕРИНГ ---
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+const sim = new PhysicsSimulation();
+
+let mouseX = 0, mouseY = 0;
+let isMouseDown = false;
+let draggedBody = null;
+let speedMultiplier = 1.0;
+
+// Переменные множественного выделения и рамки
+let isBoxSelecting = false;
+let boxSelectStart = { x: 0, y: 0 };
+let boxSelectCurrent = { x: 0, y: 0 };
+const dragBodyOffsets = new Map();
+let simClipboard = null;
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function drawArrow(start, end, color, width = 3) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 4) return;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  ctx.lineTo(end.x, end.y);
+  ctx.stroke();
+
+  const angle = Math.atan2(dy, dx);
+  const arrow_len = Math.min(12, len * 0.4);
+  const arrow_rad = 0.45;
+  const p1 = {
+    x: end.x - arrow_len * Math.cos(angle - arrow_rad),
+    y: end.y - arrow_len * Math.sin(angle - arrow_rad)
+  };
+  const p2 = {
+    x: end.x - arrow_len * Math.cos(angle + arrow_rad),
+    y: end.y - arrow_len * Math.sin(angle + arrow_rad)
+  };
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(end.x, end.y);
+  ctx.lineTo(p1.x, p1.y);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawForceWithBadge(start, end, label, valueN, color, offsetMag = 14) {
+  drawArrow(start, end, color, 3);
+
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const bx = end.x + (dx / len) * offsetMag;
+  const by = end.y + (dy / len) * offsetMag;
+
+  const text = `${label} = ${valueN.toFixed(1)} Н`;
+  ctx.font = 'bold 12px "Segoe UI", sans-serif';
+  const textWidth = ctx.measureText(text).width;
+
+  ctx.fillStyle = 'rgba(15, 15, 20, 0.90)';
+  ctx.fillRect(bx - textWidth / 2 - 4, by - 8, textWidth + 8, 16);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx - textWidth / 2 - 4, by - 8, textWidth + 8, 16);
+
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, bx, by);
+}
+
+function drawSpringZigzag(p1, p2, color) {
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 6) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.stroke();
+    return;
+  }
+  const steps = 14;
+  const ux = dx / dist, uy = dy / dist;
+  const nx = -uy, ny = ux;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const cx = p1.x + dx * t;
+    const cy = p1.y + dy * t;
+    const side = (i % 2 === 0) ? 12 : -12;
+    ctx.lineTo(cx + nx * side, cy + ny * side);
+  }
+  ctx.lineTo(p2.x, p2.y);
+  ctx.stroke();
+}
+
+function render() {
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  sim.camera.alpha = sim.alpha;
+  sim.camera.update(sim.bodies);
+
+  // 1. Отрисовка наклонного клина (если плоскость наклонена) для понятности
+  if (Math.abs(sim.alpha) > 0.01) {
+    const pOrigin = sim.camera.worldToScreen(0, 0);
+    const pTop = sim.camera.worldToScreen(35, 0);
+    // Горизонтальная проекция основания
+    const pBase = sim.camera.worldToScreen(35 * Math.cos(sim.alpha), -35 * Math.sin(sim.alpha));
+
+    ctx.fillStyle = COLORS.planeWedge;
+    ctx.beginPath();
+    ctx.moveTo(pOrigin.x, pOrigin.y);
+    ctx.lineTo(pTop.x, pTop.y);
+    ctx.lineTo(pBase.x, pBase.y);
+    ctx.closePath();
+    ctx.fill();
+
+    // Горизонтальная линия основания клина
+    ctx.strokeStyle = 'rgba(200, 200, 210, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pOrigin.x, pOrigin.y);
+    ctx.lineTo(pBase.x, pBase.y);
+    ctx.stroke();
+
+    // Ограничитель внизу склона на x=0
+    const stopTop = sim.camera.worldToScreen(0, 1.2);
+    ctx.strokeStyle = '#e07070';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(pOrigin.x, pOrigin.y);
+    ctx.lineTo(stopTop.x, stopTop.y);
+    ctx.stroke();
+  }
+
+  // 2. Линия плоскости и линейка (отметки расстояния)
+  const p1 = sim.camera.worldToScreen(sim.camera.cam_wx - 100, 0);
+  const p2 = sim.camera.worldToScreen(sim.camera.cam_wx + 100, 0);
+
+  ctx.strokeStyle = COLORS.plane;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.stroke();
+
+  // Насечки сетки с шагом в 1 метр
+  ctx.font = '11px "Segoe UI", sans-serif';
+  const startM = Math.floor(sim.camera.cam_wx) - 25;
+  const endM = Math.floor(sim.camera.cam_wx) + 25;
+  for (let m = startM; m <= endM; m++) {
+    const s = sim.camera.worldToScreen(m, 0);
+    const e = sim.camera.worldToScreen(m, -0.3);
+
+    ctx.strokeStyle = COLORS.grid;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(e.x, e.y);
+    ctx.stroke();
+
+    if (m % 2 === 0 && PPM > 15) {
+      ctx.fillStyle = '#80808c';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${m}м`, s.x, s.y + 16);
+    }
+  }
+
+  // 3. Отрисовка Пружин
+  for (const s of sim.springs) {
+    const p1_s = sim.camera.worldToScreen(s.segments[0].x, s.segments[0].y);
+    const p2_s = sim.camera.worldToScreen(s.segments[1].x, s.segments[1].y);
+    drawSpringZigzag(p1_s, p2_s, COLORS.spring);
+
+    if (s.tension_force > 0.1) {
+      const mid = { x: (p1_s.x + p2_s.x) / 2, y: (p1_s.y + p2_s.y) / 2 };
+      ctx.fillStyle = COLORS.spring;
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`Fупр = ${s.tension_force.toFixed(1)} Н`, mid.x, mid.y - 14);
+    }
+  }
+
+  // 4. Отрисовка Нитей
+  for (const r of sim.ropes) {
+    const color = r.is_elastic ? COLORS.elastic : COLORS.rope;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let i = 0; i < r.segments.length; i++) {
+      const pt = sim.camera.worldToScreen(r.segments[i].x, r.segments[i].y);
+      if (i === 0) ctx.moveTo(pt.x, pt.y);
+      else ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.stroke();
+
+    if (r.tension_force > 0.1) {
+      const midPt = sim.camera.worldToScreen(r.segments[15].x, r.segments[15].y);
+      ctx.fillStyle = color;
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`T = ${r.tension_force.toFixed(1)} Н`, midPt.x, midPt.y - 12);
+    }
+  }
+
+  // 5. Отрисовка Тел
+  for (const b of sim.bodies) {
+    const center_s = sim.camera.worldToScreen(b.x, b.y + b.size / 2);
+    const isSelected = sim.selected_entities ? sim.selected_entities.has(b) : (b === sim.selected_entity);
+    const isPrimary = (b === sim.selected_entity);
+
+    ctx.save();
+    if (b.shape === 'circle') {
+      const radius_px = (b.size / 2) * PPM;
+      ctx.beginPath();
+      ctx.arc(center_s.x, center_s.y, radius_px, 0, Math.PI * 2);
+      ctx.fillStyle = b.color;
+      ctx.fill();
+      ctx.strokeStyle = isPrimary ? '#ffffff' : (isSelected ? '#64b4f0' : COLORS.text);
+      ctx.lineWidth = (isPrimary || isSelected) ? 3 : 1.5;
+      ctx.stroke();
+
+      if (isSelected && sim.selected_entities && sim.selected_entities.size > 1) {
+        ctx.beginPath();
+        ctx.arc(center_s.x, center_s.y, radius_px + 5, 0, Math.PI * 2);
+        ctx.strokeStyle = '#64b4f0';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${b.m.toFixed(1)}кг`, center_s.x, center_s.y);
+      ctx.restore();
+    } else {
+      const hw = (b.size / 2) * PPM;
+      const hh = (b.size / 2) * PPM;
+      ctx.translate(center_s.x, center_s.y);
+      ctx.rotate(-sim.camera.alpha);
+
+      ctx.fillStyle = b.color;
+      ctx.fillRect(-hw, -hh, hw * 2, hh * 2);
+      ctx.strokeStyle = isPrimary ? '#ffffff' : (isSelected ? '#64b4f0' : COLORS.text);
+      ctx.lineWidth = (isPrimary || isSelected) ? 3 : 1.5;
+      ctx.strokeRect(-hw, -hh, hw * 2, hh * 2);
+
+      if (isSelected && sim.selected_entities && sim.selected_entities.size > 1) {
+        ctx.strokeStyle = '#64b4f0';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(-hw - 5, -hh - 5, (hw + 5) * 2, (hh + 5) * 2);
+        ctx.setLineDash([]);
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${b.m.toFixed(1)}кг`, 0, 0);
+
+      ctx.restore();
+    }
+
+    if (b === sim.selected_entity) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(center_s.x, center_s.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 6. Отрисовка ВЕКТОРОВ СИЛ С ПОДПИСЯМИ
+    const force_labels = {
+      mg: 'mg',
+      N: 'N',
+      F_tr: 'Fтр',
+      F_ext: 'Fвнеш',
+      F_rope: 'T'
+    };
+    const force_colors = {
+      mg: COLORS.F_mg,
+      N: COLORS.F_N,
+      F_tr: COLORS.F_tr,
+      F_ext: COLORS.F_ext,
+      F_rope: COLORS.F_rope
+    };
+
+    let forceIdx = 0;
+    for (const f_key of ['mg', 'N', 'F_tr', 'F_ext', 'F_rope']) {
+      const f_vec = b.forces_vectors[f_key];
+      const mag = Math.hypot(f_vec.x, f_vec.y);
+
+      if (mag > 0.05) {
+        const d_pix = sim.camera.localToScreenVec(f_vec.x, f_vec.y);
+        const end_s = {
+          x: center_s.x + d_pix.x,
+          y: center_s.y - d_pix.y
+        };
+
+        const badgeOffset = 14 + (forceIdx % 3) * 16;
+        drawForceWithBadge(center_s, end_s, force_labels[f_key], mag, force_colors[f_key], badgeOffset);
+        forceIdx++;
+      }
+    }
+
+    // Вектор скорости
+    const speed = Math.hypot(b.vx, b.vy);
+    if (speed > 0.08) {
+      const v_pix = sim.camera.localToScreenVec(b.vx, b.vy);
+      const v_scale = 0.45;
+      const v_end = {
+        x: center_s.x + v_pix.x * v_scale,
+        y: center_s.y - v_pix.y * v_scale
+      };
+      drawArrow(center_s, v_end, COLORS.velocity, 2);
+      ctx.fillStyle = COLORS.velocity;
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(`v = ${speed.toFixed(1)} м/с`, v_end.x + 8, v_end.y);
+    }
+  }
+
+  // 7. Отрисовка тяги силы [F]
+  if (sim.setting_force && sim.selected_entity) {
+    const b = sim.selected_entity;
+    const center_s = sim.camera.worldToScreen(b.x, b.y + b.size / 2);
+    const forceVec = sim.camera.screenToLocalForce(b, mouseX, mouseY);
+    const mag = Math.hypot(forceVec.x, forceVec.y);
+
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = 'rgba(210, 90, 210, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(center_s.x, center_s.y);
+    ctx.lineTo(mouseX, mouseY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    drawForceWithBadge(center_s, { x: mouseX, y: mouseY }, 'Fвнеш (тяга)', mag, COLORS.F_ext);
+  }
+
+  // 8. Отрисовка рамки множественного выделения (Marquee select)
+  if (isBoxSelecting) {
+    const minX = Math.min(boxSelectStart.x, boxSelectCurrent.x);
+    const maxX = Math.max(boxSelectStart.x, boxSelectCurrent.x);
+    const minY = Math.min(boxSelectStart.y, boxSelectCurrent.y);
+    const maxY = Math.max(boxSelectStart.y, boxSelectCurrent.y);
+    const w = maxX - minX;
+    const h = maxY - minY;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(100, 180, 240, 0.14)';
+    ctx.fillRect(minX, minY, w, h);
+    ctx.strokeStyle = '#64b4f0';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(minX, minY, w, h);
+    ctx.restore();
+  }
+
+  updateHUD();
+}
+
+// --- ОБНОВЛЕНИЕ HUD ПО СЦЕНАРИЯМ ---
+function updateHUD() {
+  document.getElementById('hudStatus').textContent = sim.paused ? 'ПАУЗА' : 'АКТИВНО';
+  document.getElementById('hudStatus').className = `status-badge ${sim.paused ? 'status-paused' : 'status-active'}`;
+  document.getElementById('hudAngle').textContent = `${(sim.alpha * 180 / Math.PI).toFixed(1)}°`;
+  document.getElementById('hudCount').textContent = `${sim.bodies.length} тел | ${sim.ropes.length + sim.springs.length} связей`;
+
+  if (sim.bodies.length > 0) {
+    const el_labels = { 0.0: "Неупругий (0.0)", 0.5: "Упругий (0.5)", 1.0: "Абс. упругий (1.0)" };
+    const rVal = sim.bodies[0].restitution;
+    document.getElementById('btnRestitution').textContent = `Удары [U]: ${el_labels[rVal] || rVal.toFixed(1)}`;
+  }
+
+  const dynBox = document.getElementById('dynamicScenarioInfo');
+
+  // 1. Сценарии ЗСИ (Упругий и Неупругий удар)
+  if (sim.currentScenario === 'elastic' || sim.currentScenario === 'inelastic') {
+    let total_p = 0.0, total_Ek = 0.0;
+    for (const b of sim.bodies) {
+      if (b.is_static) continue;
+      total_p += b.m * b.vx;
+      total_Ek += 0.5 * b.m * (b.vx * b.vx + b.vy * b.vy);
+    }
+
+    if (sim.currentScenario === 'elastic') {
+      dynBox.innerHTML = `
+        <div class="info-title">
+          <span>Законы сохранения</span>
+          <span class="val-badge conserved">p=const | Ek=const</span>
+        </div>
+        <div class="info-row">
+          <span style="color:#a0a0aa;">Импульс системы p:</span>
+          <span class="val-badge conserved">${total_p.toFixed(2)} кг·м/с</span>
+        </div>
+        <div class="info-row">
+          <span style="color:#a0a0aa;">Кин. энергия Ek:</span>
+          <span class="val-badge conserved">${total_Ek.toFixed(2)} Дж</span>
+        </div>
+      `;
+    } else {
+      const loss = Math.max(0, sim.initial_Ek - total_Ek);
+      dynBox.innerHTML = `
+        <div class="info-title">
+          <span>Законы сохранения</span>
+          <span class="val-badge loss">p=const | Ek≠const</span>
+        </div>
+        <div class="info-row">
+          <span style="color:#a0a0aa;">Импульс системы p:</span>
+          <span class="val-badge conserved">${total_p.toFixed(2)} кг·м/с</span>
+        </div>
+        <div class="info-row">
+          <span style="color:#a0a0aa;">Кин. энергия Ek:</span>
+          <span class="val-badge loss">${total_Ek.toFixed(2)} Дж</span>
+        </div>
+        <div class="info-row">
+          <span style="color:#f07878;">Потери деформации Q:</span>
+          <span class="val-badge loss">ΔEk = ${loss.toFixed(2)} Дж</span>
+        </div>
+      `;
+    }
+  }
+  // 2. Сценарий Наклонная плоскость
+  else if (sim.currentScenario === 'incline') {
+    const b = sim.bodies[0];
+    const alphaDeg = (sim.alpha * 180 / Math.PI).toFixed(1);
+    const tanA = Math.tan(sim.alpha);
+    const mu = b ? b.mu : 0.35;
+    const isSliding = tanA > mu;
+    const F_down = b ? (b.m * G * Math.sin(sim.alpha)) : 0;
+    const F_tr_max = b ? (mu * b.m * G * Math.cos(sim.alpha)) : 0;
+    const accel = isSliding ? G * (Math.sin(sim.alpha) - mu * Math.cos(sim.alpha)) : 0;
+
+    dynBox.innerHTML = `
+      <div class="info-title">
+        <span>Динамика на плоскости</span>
+        <span class="val-badge ${isSliding ? 'loss' : 'conserved'}">
+          ${isSliding ? 'СКОЛЬЗИТ ВНИЗ' : 'ПОКОЙ'}
+        </span>
+      </div>
+      <div class="info-row">
+        <span style="color:#a0a0aa;">Условие скольжения:</span>
+        <span class="val-badge ${isSliding ? 'loss' : 'conserved'}">
+          tg(α)=${tanA.toFixed(2)} ${isSliding ? '>' : '≤'} μ=${mu.toFixed(2)}
+        </span>
+      </div>
+      <div class="info-row">
+        <span style="color:#a0a0aa;">Скатывающая сила:</span>
+        <span class="val-badge" style="color:#e6955a;">mg·sin(α) = ${F_down.toFixed(1)} Н</span>
+      </div>
+      <div class="info-row">
+        <span style="color:#a0a0aa;">Макс. трение покоя:</span>
+        <span class="val-badge" style="color:#f0d250;">μ·N = ${F_tr_max.toFixed(1)} Н</span>
+      </div>
+      <div class="info-row">
+        <span style="color:#a0a0aa;">Ускорение бруска:</span>
+        <span class="val-badge" style="color:#64b4f0;">a = ${accel.toFixed(2)} м/с²</span>
+      </div>
+    `;
+  }
+  // 3. Песочница и связанные тела
+  else {
+    dynBox.innerHTML = `
+      <div class="info-title">
+        <span>Физические свойства</span>
+        <span class="val-badge" style="color:#64b4f0;">Sandbox Mode</span>
+      </div>
+      <div class="info-row">
+        <span style="color:#a0a0aa;">Ускорение свободного падения:</span>
+        <span class="val-badge" style="color:#fff;">g = 9.8 м/с²</span>
+      </div>
+      <div class="info-row">
+        <span style="color:#a0a0aa;">Горячая тяга силы:</span>
+        <span class="val-badge" style="color:#d25ad2;">[F] мышь</span>
+      </div>
+    `;
+  }
+
+  updateInspectorUI();
+}
+
+function updateInspectorUI() {
+  const ent = sim.selected_entity;
+  const multiCount = sim.selected_entities ? sim.selected_entities.size : (ent ? 1 : 0);
+
+  if (!ent && multiCount === 0) {
+    document.getElementById('inspTitle').textContent = 'Нет объекта';
+    document.getElementById('inspTitle').style.color = '#64b4f0';
+    document.getElementById('inspBodyFields').style.display = 'none';
+    document.getElementById('inspLinkFields').style.display = 'none';
+    document.getElementById('inspMultiFields').style.display = 'none';
+    return;
+  }
+
+  // Множественное выделение
+  if (multiCount > 1) {
+    document.getElementById('inspBodyFields').style.display = 'none';
+    document.getElementById('inspLinkFields').style.display = 'none';
+    document.getElementById('inspMultiFields').style.display = 'flex';
+    document.getElementById('inspTitle').textContent = `Выделено: ${multiCount} объектов`;
+    document.getElementById('inspTitle').style.color = '#64b4f0';
+    document.getElementById('inspMultiCount').textContent = multiCount;
+    return;
+  }
+
+  document.getElementById('inspMultiFields').style.display = 'none';
+
+  function setInputValue(id, val) {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el) {
+      el.value = val;
+    }
+  }
+
+  if (ent instanceof PhysicsBody) {
+    document.getElementById('inspBodyFields').style.display = 'block';
+    document.getElementById('inspLinkFields').style.display = 'none';
+    document.getElementById('inspTitle').textContent = `Тело #${ent.id} (${ent.shape === 'circle' ? 'шар' : 'квадрат'})`;
+    document.getElementById('inspTitle').style.color = ent.color;
+
+    setInputValue('inspMass', ent.m.toFixed(1));
+    setInputValue('inspSize', ent.size.toFixed(1));
+    setInputValue('inspX', ent.x.toFixed(1));
+    setInputValue('inspY', ent.y.toFixed(1));
+    setInputValue('inspVx', ent.vx.toFixed(1));
+    setInputValue('inspVy', ent.vy.toFixed(1));
+    setInputValue('inspMu', ent.mu.toFixed(2));
+    setInputValue('inspRest', ent.restitution.toFixed(2));
+    setInputValue('inspFx', ent.locked_F_ext.x.toFixed(1));
+    setInputValue('inspFy', ent.locked_F_ext.y.toFixed(1));
+  } else if (ent instanceof RopeConstraint) {
+    document.getElementById('inspBodyFields').style.display = 'none';
+    document.getElementById('inspLinkFields').style.display = 'block';
+    document.getElementById('inspTitle').textContent = `${ent.type_name} #${ent.id}`;
+    document.getElementById('inspTitle').style.color = ent.is_elastic ? COLORS.elastic : COLORS.rope;
+    setInputValue('inspLinkVal', ent.max_length.toFixed(1));
+    document.getElementById('inspLinkForce').textContent = `${ent.tension_force.toFixed(1)} Н`;
+  } else if (ent instanceof SpringConstraint) {
+    document.getElementById('inspBodyFields').style.display = 'none';
+    document.getElementById('inspLinkFields').style.display = 'block';
+    document.getElementById('inspTitle').textContent = `Пружина #${ent.id}`;
+    document.getElementById('inspTitle').style.color = COLORS.spring;
+    setInputValue('inspLinkVal', ent.k.toFixed(0));
+    document.getElementById('inspLinkForce').textContent = `${ent.tension_force.toFixed(1)} Н`;
+  }
+}
+
+// Прямой ввод параметров из текстовых полей
+function setPropDirect(prop, value) {
+  const b = sim.selected_entity;
+  if (!b || !(b instanceof PhysicsBody)) return;
+  const v = parseFloat(value);
+  if (isNaN(v)) return;
+
+  if (prop === 'm') b.m = Math.max(0.01, v);
+  if (prop === 'size') b.size = Math.max(0.1, Math.min(10.0, v));
+  if (prop === 'x') b.x = v;
+  if (prop === 'y') b.y = Math.max(0, v);
+  if (prop === 'vx') b.vx = v;
+  if (prop === 'vy') b.vy = v;
+  if (prop === 'mu') b.mu = Math.max(0, Math.min(1.0, v));
+  if (prop === 'restitution') {
+    b.restitution = Math.max(0, Math.min(1.0, v));
+    if (b.restitution >= 0.95) b.rest_idx = 2;
+    else if (b.restitution >= 0.3) b.rest_idx = 1;
+    else b.rest_idx = 0;
+  }
+  if (prop === 'fx') b.locked_F_ext.x = v;
+  if (prop === 'fy') b.locked_F_ext.y = v;
+}
+
+function setLinkPropDirect(value) {
+  const ent = sim.selected_entity;
+  if (!ent) return;
+  const v = parseFloat(value);
+  if (isNaN(v)) return;
+
+  if (ent instanceof RopeConstraint) {
+    ent.max_length = Math.max(0.1, v);
+  } else if (ent instanceof SpringConstraint) {
+    ent.k = Math.max(0.1, v);
+  }
+}
+
+// --- УПРАВЛЕНИЕ СИМУЛЯЦИЕЙ ---
+function togglePlay() {
+  sim.paused = !sim.paused;
+  const btn = document.getElementById('btnPlay');
+  btn.textContent = sim.paused ? '▶ СТАРТ' : '⏸ ПАУЗА';
+  btn.className = `control-btn btn-play ${sim.paused ? 'paused' : ''}`;
+}
+
+function stepFrame() {
+  sim.paused = true;
+  sim.step_frame = true;
+  document.getElementById('btnPlay').textContent = '▶ СТАРТ';
+  document.getElementById('btnPlay').className = 'control-btn btn-play paused';
+}
+
+function setSpeed(val) {
+  speedMultiplier = parseFloat(val);
+}
+
+function adjustAlpha(delta) {
+  sim.alpha = Math.max(-Math.PI * 0.45, Math.min(Math.PI * 0.45, sim.alpha + delta));
+}
+
+function cycleRestitution() {
+  if (sim.bodies.length === 0) return;
+  const nextIdx = (sim.bodies[0].rest_idx + 1) % sim.bodies[0].restitution_modes.length;
+  for (const b of sim.bodies) {
+    b.rest_idx = nextIdx;
+    b.restitution = b.restitution_modes[nextIdx];
+  }
+}
+
+function clearAllExternalForces() {
+  for (const b of sim.bodies) {
+    b.locked_F_ext = { x: 0, y: 0 };
+    b.preview_F_ext = { x: 0, y: 0 };
+  }
+}
+
+// --- НАСТРОЙКА СЦЕНАРИЕВ ДЛЯ ЗАНЯТИЙ ---
+function setScenario(name) {
+  sim.currentScenario = name;
+  sim.paused = true;
+  document.getElementById('btnPlay').textContent = '▶ СТАРТ';
+  document.getElementById('btnPlay').className = 'control-btn btn-play paused';
+
+  const scDrop = document.getElementById('scenarioDropdown');
+  if (scDrop) scDrop.classList.remove('visible');
+
+  const scenTitles = {
+    sandbox: 'Песочница',
+    elastic: 'Упругий удар',
+    inelastic: 'Неупругий удар',
+    incline: 'Наклонная плоскость',
+    spring_rope: 'Связанные тела'
+  };
+  const btnScen = document.getElementById('btnScenDropdown');
+  if (btnScen && scenTitles[name]) {
+    btnScen.textContent = `📋 ${scenTitles[name]} ▼`;
+  }
+
+  document.querySelectorAll('.scenario-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.scen === name);
+  });
+
+  sim.alpha = 0.0;
+  sim.bodies = [];
+  sim.ropes = [];
+  sim.springs = [];
+  sim.selected_entities.clear();
+  sim.entity_counter = 0;
+
+  if (name === 'sandbox') {
+    const b1 = new PhysicsBody(1, 10.0, 0.2, -2.0, 4.0, 1.0, 'circle', true);
+    const b2 = new PhysicsBody(2, 3.0, 0.2, -2.0, 1.0, 0.8, 'circle', false);
+    const b3 = new PhysicsBody(3, 10.0, 0.2, 3.0, 4.5, 1.0, 'rect', true);
+    const b4 = new PhysicsBody(4, 1.5, 0.2, 3.0, 1.5, 0.8, 'rect', false);
+    sim.bodies.push(b1, b2, b3, b4);
+    sim.ropes.push(new RopeConstraint(1, b1, b2, 3.0, false));
+    sim.springs.push(new SpringConstraint(2, b3, b4, 70.0, 2.5));
+    sim.selected_entity = b2;
+    sim.entity_counter = 4;
+  }
+  else if (name === 'elastic') {
+    // ЗСИ: Абсолютно упругий удар (e = 1.0, mu = 0)
+    const b1 = new PhysicsBody(1, 2.0, 0.0, -3.0, 0.0, 0.8, 'circle', false, 4.0);
+    const b2 = new PhysicsBody(2, 1.0, 0.0, 1.5, 0.0, 0.8, 'circle', false, 0.0);
+    b1.rest_idx = 2; b1.restitution = 1.0;
+    b2.rest_idx = 2; b2.restitution = 1.0;
+    b1.color = '#e06060';
+    b2.color = '#6090e0';
+    sim.bodies.push(b1, b2);
+    sim.selected_entity = b1;
+    sim.initial_p = 2.0 * 4.0;
+    sim.initial_Ek = 0.5 * 2.0 * 16.0;
+  }
+  else if (name === 'inelastic') {
+    // ЗСИ: Абсолютно неупругий удар (e = 0.0, mu = 0)
+    const b1 = new PhysicsBody(1, 2.0, 0.0, -3.0, 0.0, 0.8, 'circle', false, 4.0);
+    const b2 = new PhysicsBody(2, 1.0, 0.0, 1.5, 0.0, 0.8, 'circle', false, 0.0);
+    b1.rest_idx = 0; b1.restitution = 0.0;
+    b2.rest_idx = 0; b2.restitution = 0.0;
+    b1.color = '#e06060';
+    b2.color = '#6090e0';
+    sim.bodies.push(b1, b2);
+    sim.selected_entity = b1;
+    sim.initial_p = 2.0 * 4.0;
+    sim.initial_Ek = 0.5 * 2.0 * 16.0;
+  }
+  else if (name === 'incline') {
+    // НАКЛОННАЯ ПЛОСКОСТЬ: угол 25 градусов, брусок съезжает вниз
+    sim.alpha = 25 * Math.PI / 180;
+    const block = new PhysicsBody(1, 3.0, 0.35, 7.0, 0.0, 0.9, 'rect', false, 0.0);
+    block.color = '#d4a040';
+    sim.bodies.push(block);
+    sim.selected_entity = block;
+  }
+  else if (name === 'spring_rope') {
+    const anchor = new PhysicsBody(1, 10.0, 0.2, 0.0, 4.5, 1.0, 'circle', true);
+    const bob = new PhysicsBody(2, 2.0, 0.1, 2.5, 4.5, 0.8, 'circle', false);
+    sim.bodies.push(anchor, bob);
+    sim.springs.push(new SpringConstraint(1, anchor, bob, 60.0, 2.0));
+    sim.selected_entity = bob;
+  }
+
+  if (sim.selected_entity) {
+    sim.selected_entities.add(sim.selected_entity);
+  }
+}
+
+function resetScenario() {
+  setScenario(sim.currentScenario);
+}
+
+// --- УПРАВЛЕНИЕ ИНСПЕКТОРОМ И СВОЙСТВАМИ ---
+function selectAdjacent(dir) {
+  const all = sim.getAllEntities();
+  if (all.length === 0) return;
+  const idx = all.indexOf(sim.selected_entity);
+  const next = (idx + dir + all.length) % all.length;
+  sim.select(all[next]);
+}
+
+function modProp(prop, delta) {
+  const b = sim.selected_entity;
+  if (!b || !(b instanceof PhysicsBody)) return;
+  if (prop === 'm') b.m = Math.max(0.1, b.m + delta);
+  if (prop === 'size') b.size = Math.max(0.2, Math.min(5.0, b.size + delta));
+  if (prop === 'x') b.x += delta;
+  if (prop === 'y') b.y = Math.max(0, b.y + delta);
+  if (prop === 'vx') b.vx += delta;
+  if (prop === 'vy') b.vy += delta;
+  if (prop === 'mu') b.mu = Math.max(0, Math.min(1.0, b.mu + delta));
+  if (prop === 'restitution') {
+    b.restitution = Math.max(0, Math.min(1.0, b.restitution + delta));
+    if (b.restitution >= 0.95) b.rest_idx = 2;
+    else if (b.restitution >= 0.3) b.rest_idx = 1;
+    else b.rest_idx = 0;
+  }
+  if (prop === 'fx') b.locked_F_ext.x += delta;
+  if (prop === 'fy') b.locked_F_ext.y += delta;
+}
+
+function modLinkProp(delta) {
+  const ent = sim.selected_entity;
+  if (ent instanceof RopeConstraint) {
+    ent.max_length = Math.max(0.5, ent.max_length + delta);
+  } else if (ent instanceof SpringConstraint) {
+    ent.k = Math.max(5.0, ent.k + delta * 10);
+  }
+}
+
+function deleteCurrentEntity() {
+  deleteSelectedEntities();
+}
+
+function toggleLeftHud() {
+  const content = document.getElementById('leftHudContent');
+  const btn = document.getElementById('btnCollapseHud');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    btn.textContent = '▼';
+  } else {
+    content.style.display = 'none';
+    btn.textContent = '▶';
+  }
+}
+
+function toggleInspector() {
+  const insp = document.getElementById('inspector');
+  insp.style.display = (insp.style.display === 'none') ? 'flex' : 'none';
+  if (insp.style.display === 'flex') {
+    document.getElementById('addDropdown').classList.remove('visible');
+    const scDrop = document.getElementById('scenarioDropdown');
+    if (scDrop) scDrop.classList.remove('visible');
+  }
+}
+
+function toggleHotkeyModal() {
+  const modal = document.getElementById('hotkeyModal');
+  modal.classList.toggle('visible');
+}
+
+function toggleScenarioDropdown() {
+  const menu = document.getElementById('scenarioDropdown');
+  menu.classList.toggle('visible');
+  document.getElementById('addDropdown').classList.remove('visible');
+}
+
+function toggleAddMenu() {
+  const menu = document.getElementById('addDropdown');
+  menu.classList.toggle('visible');
+  const scDrop = document.getElementById('scenarioDropdown');
+  if (scDrop) scDrop.classList.remove('visible');
+}
+
+function createBody(shape, is_static) {
+  toggleAddMenu();
+  sim.entity_counter++;
+  const cam_x = sim.camera.cam_wx;
+  const cam_y = Math.max(1.5, sim.camera.cam_wy);
+  const new_b = new PhysicsBody(
+    sim.entity_counter,
+    is_static ? 10.0 : 2.0,
+    0.2,
+    cam_x,
+    cam_y,
+    0.9,
+    shape,
+    is_static
+  );
+  sim.bodies.push(new_b);
+  sim.select(new_b);
+}
+
+function startLinking(type) {
+  toggleAddMenu();
+  sim.linking_mode = type;
+  sim.linking_first = null;
+  const typeName = type === 'rope' ? 'Нить' : (type === 'elastic' ? 'Резинка' : 'Пружина');
+  document.getElementById('linkBannerText').textContent = `РЕЖИМ СВЯЗИ (${typeName}): Кликните по ПЕРВОМУ телу`;
+  document.getElementById('linkBanner').style.display = 'flex';
+}
+
+function cancelLinking() {
+  sim.linking_mode = null;
+  sim.linking_first = null;
+  document.getElementById('linkBanner').style.display = 'none';
+}
+
+function toggleForceModeButton() {
+  if (!sim.selected_entity || !(sim.selected_entity instanceof PhysicsBody)) {
+    showToast("Сначала выберите тело для приложения силы");
+    return;
+  }
+  sim.setting_force = !sim.setting_force;
+  const pill = document.getElementById('pillForce');
+  pill.classList.toggle('force-active', sim.setting_force);
+  document.getElementById('forcePullBanner').style.display = sim.setting_force ? 'flex' : 'none';
+
+  if (!sim.setting_force) {
+    sim.selected_entity.locked_F_ext = { ...sim.selected_entity.preview_F_ext };
+  }
+}
+
+// --- МНОЖЕСТВЕННОЕ ВЫДЕЛЕНИЕ, КОПИРОВАНИЕ И УДАЛЕНИЕ ---
+function duplicateSelected() {
+  const bodiesToClone = Array.from(sim.selected_entities).filter(e => e instanceof PhysicsBody);
+  if (bodiesToClone.length === 0 && sim.selected_entity instanceof PhysicsBody) {
+    bodiesToClone.push(sim.selected_entity);
+  }
+  if (bodiesToClone.length === 0) {
+    showToast("Нет выбранных тел для копирования");
+    return;
+  }
+
+  const oldToNew = new Map();
+  const newSelected = new Set();
+  const offsetX = 1.2;
+  const offsetY = 0.0;
+
+  for (const b of bodiesToClone) {
+    sim.entity_counter++;
+    const clone = new PhysicsBody(
+      sim.entity_counter,
+      b.m,
+      b.mu,
+      b.x + offsetX,
+      b.y + offsetY,
+      b.size,
+      b.shape,
+      b.is_static,
+      b.vx
+    );
+    clone.vy = b.vy;
+    clone.restitution = b.restitution;
+    clone.rest_idx = b.rest_idx;
+    clone.color = b.color;
+    clone.locked_F_ext = { x: b.locked_F_ext.x, y: b.locked_F_ext.y };
+    clone.preview_F_ext = { x: b.preview_F_ext.x, y: b.preview_F_ext.y };
+
+    sim.bodies.push(clone);
+    oldToNew.set(b, clone);
+    newSelected.add(clone);
+  }
+
+  // Дублируем нити между клонированными телами
+  for (const r of sim.ropes) {
+    if (oldToNew.has(r.body_a) && oldToNew.has(r.body_b)) {
+      sim.entity_counter++;
+      const newRope = new RopeConstraint(
+        sim.entity_counter,
+        oldToNew.get(r.body_a),
+        oldToNew.get(r.body_b),
+        r.max_length,
+        r.is_elastic
+      );
+      sim.ropes.push(newRope);
+      newSelected.add(newRope);
+    }
+  }
+
+  // Дублируем пружины между клонированными телами
+  for (const s of sim.springs) {
+    if (oldToNew.has(s.body_a) && oldToNew.has(s.body_b)) {
+      sim.entity_counter++;
+      const newSpring = new SpringConstraint(
+        sim.entity_counter,
+        oldToNew.get(s.body_a),
+        oldToNew.get(s.body_b),
+        s.k,
+        s.rest_length
+      );
+      sim.springs.push(newSpring);
+      newSelected.add(newSpring);
+    }
+  }
+
+  sim.selected_entities = newSelected;
+  sim.selected_entity = Array.from(oldToNew.values())[0];
+  showToast(`Скопировано объектов: ${oldToNew.size}`);
+}
+
+function copySelected() {
+  const bodies = Array.from(sim.selected_entities).filter(e => e instanceof PhysicsBody);
+  if (bodies.length === 0 && sim.selected_entity instanceof PhysicsBody) {
+    bodies.push(sim.selected_entity);
+  }
+  if (bodies.length === 0) {
+    showToast("Нет выбранных тел");
+    return;
+  }
+
+  const bodyMap = new Map();
+  bodies.forEach((b, idx) => bodyMap.set(b, idx));
+
+  const data = {
+    bodies: bodies.map(b => ({
+      m: b.m, mu: b.mu, x: b.x, y: b.y, size: b.size,
+      shape: b.shape, is_static: b.is_static, vx: b.vx, vy: b.vy,
+      restitution: b.restitution, rest_idx: b.rest_idx, color: b.color,
+      locked_F_ext: { ...b.locked_F_ext }
+    })),
+    ropes: [],
+    springs: []
+  };
+
+  for (const r of sim.ropes) {
+    if (bodyMap.has(r.body_a) && bodyMap.has(r.body_b)) {
+      data.ropes.push({
+        idx_a: bodyMap.get(r.body_a),
+        idx_b: bodyMap.get(r.body_b),
+        max_length: r.max_length,
+        is_elastic: r.is_elastic
+      });
+    }
+  }
+  for (const s of sim.springs) {
+    if (bodyMap.has(s.body_a) && bodyMap.has(s.body_b)) {
+      data.springs.push({
+        idx_a: bodyMap.get(s.body_a),
+        idx_b: bodyMap.get(s.body_b),
+        k: s.k,
+        rest_length: s.rest_length
+      });
+    }
+  }
+  simClipboard = data;
+  showToast(`Скопировано в буфер: ${bodies.length} тел`);
+}
+
+function pasteClipboard() {
+  if (!simClipboard || !simClipboard.bodies || simClipboard.bodies.length === 0) {
+    showToast("Буфер пуст");
+    return;
+  }
+  const newBodies = [];
+  const newSelected = new Set();
+  const offsetX = 1.5;
+
+  for (const bd of simClipboard.bodies) {
+    sim.entity_counter++;
+    const b = new PhysicsBody(
+      sim.entity_counter, bd.m, bd.mu, bd.x + offsetX, bd.y,
+      bd.size, bd.shape, bd.is_static, bd.vx
+    );
+    b.vy = bd.vy;
+    b.restitution = bd.restitution;
+    b.rest_idx = bd.rest_idx;
+    b.color = bd.color;
+    b.locked_F_ext = { ...bd.locked_F_ext };
+    sim.bodies.push(b);
+    newBodies.push(b);
+    newSelected.add(b);
+  }
+
+  for (const rd of simClipboard.ropes) {
+    sim.entity_counter++;
+    const r = new RopeConstraint(
+      sim.entity_counter,
+      newBodies[rd.idx_a],
+      newBodies[rd.idx_b],
+      rd.max_length,
+      rd.is_elastic
+    );
+    sim.ropes.push(r);
+    newSelected.add(r);
+  }
+
+  for (const sd of simClipboard.springs) {
+    sim.entity_counter++;
+    const s = new SpringConstraint(
+      sim.entity_counter,
+      newBodies[sd.idx_a],
+      newBodies[sd.idx_b],
+      sd.k,
+      sd.rest_length
+    );
+    sim.springs.push(s);
+    newSelected.add(s);
+  }
+
+  sim.selected_entities = newSelected;
+  sim.selected_entity = newBodies[0];
+  showToast(`Вставлено объектов: ${newBodies.length}`);
+}
+
+function deleteSelectedEntities() {
+  const toDelete = new Set(sim.selected_entities);
+  if (sim.selected_entity) toDelete.add(sim.selected_entity);
+  if (toDelete.size === 0) return;
+
+  const bodiesToDelete = new Set(Array.from(toDelete).filter(e => e instanceof PhysicsBody));
+  const count = toDelete.size;
+
+  sim.bodies = sim.bodies.filter(b => !toDelete.has(b));
+  sim.ropes = sim.ropes.filter(r => !toDelete.has(r) && !bodiesToDelete.has(r.body_a) && !bodiesToDelete.has(r.body_b));
+  sim.springs = sim.springs.filter(s => !toDelete.has(s) && !bodiesToDelete.has(s.body_a) && !bodiesToDelete.has(s.body_b));
+
+  sim.selected_entities.clear();
+  sim.selected_entity = sim.bodies.length > 0 ? sim.bodies[0] : null;
+  if (sim.selected_entity) sim.selected_entities.add(sim.selected_entity);
+
+  showToast(`Удалено элементов: ${count}`);
+}
+
+function toggleMultiStatic() {
+  const bodies = Array.from(sim.selected_entities).filter(e => e instanceof PhysicsBody);
+  if (bodies.length === 0) return;
+  const anyDynamic = bodies.some(b => !b.is_static);
+  for (const b of bodies) {
+    b.is_static = anyDynamic;
+    if (b.is_static) { b.vx = 0; b.vy = 0; }
+  }
+  showToast(anyDynamic ? "Тела зафиксированы (статика)" : "Тела сделаны подвижными");
+}
+
+function zeroMultiVelocity() {
+  const bodies = Array.from(sim.selected_entities).filter(e => e instanceof PhysicsBody);
+  for (const b of bodies) {
+    b.vx = 0; b.vy = 0;
+  }
+  showToast("Скорости выделенных тел обнулены");
+}
+
+// --- СИСТЕМА СОХРАНЕНИЯ СЦЕНАРИЕВ ---
+const SCENARIOS_STORAGE_KEY = 'physics_sandbox_saved_scenarios';
+
+function getDefaultPresetScenarios() {
+  return [
+    {
+      version: 1,
+      name: "Колыбель Ньютона (3 шара)",
+      date: "Предустановка",
+      alpha: 0.0,
+      camera: { wx: 0.0, wy: 2.5 },
+      bodies: [
+        { id: 1, shape: "circle", is_static: true, m: 10, size: 0.5, x: -1.6, y: 4.5, vx: 0, vy: 0, mu: 0, restitution: 1.0, color: "#888899" },
+        { id: 2, shape: "circle", is_static: true, m: 10, size: 0.5, x: 0.0, y: 4.5, vx: 0, vy: 0, mu: 0, restitution: 1.0, color: "#888899" },
+        { id: 3, shape: "circle", is_static: true, m: 10, size: 0.5, x: 1.6, y: 4.5, vx: 0, vy: 0, mu: 0, restitution: 1.0, color: "#888899" },
+        { id: 4, shape: "circle", is_static: false, m: 2, size: 0.8, x: -3.8, y: 3.5, vx: 0, vy: 0, mu: 0, restitution: 1.0, color: "#e06060" },
+        { id: 5, shape: "circle", is_static: false, m: 2, size: 0.8, x: 0.0, y: 1.5, vx: 0, vy: 0, mu: 0, restitution: 1.0, color: "#50a0f0" },
+        { id: 6, shape: "circle", is_static: false, m: 2, size: 0.8, x: 1.6, y: 1.5, vx: 0, vy: 0, mu: 0, restitution: 1.0, color: "#50a0f0" }
+      ],
+      ropes: [
+        { id: 7, idx_a: 0, idx_b: 3, max_length: 3.0, is_elastic: false },
+        { id: 8, idx_a: 1, idx_b: 4, max_length: 3.0, is_elastic: false },
+        { id: 9, idx_a: 2, idx_b: 5, max_length: 3.0, is_elastic: false }
+      ],
+      springs: []
+    },
+    {
+      version: 1,
+      name: "Двойной маятник",
+      date: "Предустановка",
+      alpha: 0.0,
+      camera: { wx: 1.0, wy: 2.5 },
+      bodies: [
+        { id: 1, shape: "circle", is_static: true, m: 10, size: 0.6, x: 0.0, y: 4.8, vx: 0, vy: 0, mu: 0, restitution: 1.0, color: "#777788" },
+        { id: 2, shape: "circle", is_static: false, m: 2.0, size: 0.8, x: 2.0, y: 4.2, vx: 0, vy: 0, mu: 0, restitution: 1.0, color: "#f09040" },
+        { id: 3, shape: "circle", is_static: false, m: 1.5, size: 0.7, x: 3.6, y: 3.0, vx: 0, vy: 0, mu: 0, restitution: 1.0, color: "#50e6d2" }
+      ],
+      ropes: [
+        { id: 4, idx_a: 0, idx_b: 1, max_length: 2.2, is_elastic: false },
+        { id: 5, idx_a: 1, idx_b: 2, max_length: 2.0, is_elastic: false }
+      ],
+      springs: []
+    },
+    {
+      version: 1,
+      name: "Колебания на пружине с трением",
+      date: "Предустановка",
+      alpha: 0.0,
+      camera: { wx: 0.0, wy: 1.0 },
+      bodies: [
+        { id: 1, shape: "rect", is_static: true, m: 10, size: 1.0, x: -3.5, y: 0.0, vx: 0, vy: 0, mu: 0.3, restitution: 0.5, color: "#555566" },
+        { id: 2, shape: "rect", is_static: false, m: 3.0, size: 0.9, x: 2.0, y: 0.0, vx: 0, vy: 0, mu: 0.25, restitution: 0.5, color: "#64b4f0" }
+      ],
+      ropes: [],
+      springs: [
+        { id: 3, idx_a: 0, idx_b: 1, k: 65.0, rest_length: 2.8 }
+      ]
+    }
+  ];
+}
+
+function getSavedScenarios() {
+  try {
+    const raw = localStorage.getItem(SCENARIOS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.warn("Не удалось прочесть localStorage:", e);
+  }
+  return getDefaultPresetScenarios();
+}
+
+function saveScenariosToStorage(list) {
+  try {
+    localStorage.setItem(SCENARIOS_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.error("Не удалось сохранить в localStorage:", e);
+  }
+}
+
+function serializeCurrentScene(name) {
+  const bodyMap = new Map();
+  sim.bodies.forEach((b, idx) => bodyMap.set(b, idx));
+
+  return {
+    version: 1,
+    name: name || "Без названия",
+    date: new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+    alpha: sim.alpha,
+    camera: { wx: sim.camera.cam_wx, wy: sim.camera.cam_wy },
+    bodies: sim.bodies.map(b => ({
+      id: b.id,
+      m: b.m,
+      mu: b.mu,
+      x: b.x,
+      y: b.y,
+      size: b.size,
+      shape: b.shape,
+      is_static: b.is_static,
+      vx: b.vx,
+      vy: b.vy,
+      restitution: b.restitution,
+      rest_idx: b.rest_idx,
+      color: b.color,
+      locked_F_ext: { ...b.locked_F_ext }
+    })),
+    ropes: sim.ropes.map(r => ({
+      id: r.id,
+      idx_a: bodyMap.get(r.body_a),
+      idx_b: bodyMap.get(r.body_b),
+      max_length: r.max_length,
+      is_elastic: r.is_elastic
+    })).filter(r => r.idx_a !== undefined && r.idx_b !== undefined),
+    springs: sim.springs.map(s => ({
+      id: s.id,
+      idx_a: bodyMap.get(s.body_a),
+      idx_b: bodyMap.get(s.body_b),
+      k: s.k,
+      rest_length: s.rest_length
+    })).filter(s => s.idx_a !== undefined && s.idx_b !== undefined)
+  };
+}
+
+function loadSceneData(scene) {
+  if (!scene || !Array.isArray(scene.bodies)) {
+    alert("Неверный формат данных сценария");
+    return false;
+  }
+  sim.paused = true;
+  document.getElementById('btnPlay').textContent = '▶ СТАРТ';
+  document.getElementById('btnPlay').className = 'control-btn btn-play paused';
+
+  sim.currentScenario = 'sandbox';
+  const btnScen = document.getElementById('btnScenDropdown');
+  if (btnScen) btnScen.textContent = '📋 Сценарии ▼';
+
+  sim.alpha = scene.alpha || 0.0;
+  if (scene.camera) {
+    sim.camera.cam_wx = scene.camera.wx || 0.0;
+    sim.camera.cam_wy = scene.camera.wy || 1.5;
+  }
+  sim.bodies = [];
+  sim.ropes = [];
+  sim.springs = [];
+  sim.selected_entities.clear();
+
+  let maxId = 0;
+  const createdBodies = [];
+  for (const bd of scene.bodies) {
+    const b = new PhysicsBody(
+      bd.id, bd.m, bd.mu, bd.x, bd.y, bd.size, bd.shape, bd.is_static, bd.vx
+    );
+    b.vy = bd.vy || 0;
+    b.restitution = (bd.restitution !== undefined) ? bd.restitution : 1.0;
+    b.rest_idx = (bd.rest_idx !== undefined) ? bd.rest_idx : 2;
+    if (bd.color) b.color = bd.color;
+    if (bd.locked_F_ext) b.locked_F_ext = { ...bd.locked_F_ext };
+    sim.bodies.push(b);
+    createdBodies.push(b);
+    if (bd.id > maxId) maxId = bd.id;
+  }
+
+  if (scene.ropes) {
+    for (const rd of scene.ropes) {
+      const bA = createdBodies[rd.idx_a];
+      const bB = createdBodies[rd.idx_b];
+      if (bA && bB) {
+        const r = new RopeConstraint(rd.id, bA, bB, rd.max_length, rd.is_elastic);
+        sim.ropes.push(r);
+        if (rd.id > maxId) maxId = rd.id;
+      }
+    }
+  }
+
+  if (scene.springs) {
+    for (const sd of scene.springs) {
+      const bA = createdBodies[sd.idx_a];
+      const bB = createdBodies[sd.idx_b];
+      if (bA && bB) {
+        const s = new SpringConstraint(sd.id, bA, bB, sd.k, sd.rest_length);
+        sim.springs.push(s);
+        if (sd.id > maxId) maxId = sd.id;
+      }
+    }
+  }
+
+  sim.entity_counter = maxId + 1;
+  sim.selected_entity = sim.bodies.length > 0 ? sim.bodies[0] : null;
+  if (sim.selected_entity) sim.selected_entities.add(sim.selected_entity);
+
+  document.querySelectorAll('.scenario-btn').forEach(btn => btn.classList.remove('active'));
+  showToast(`Загружен сценарий: "${scene.name || 'Сцена'}"`);
+  return true;
+}
+
+function saveCurrentScenarioPrompt() {
+  const defaultName = `Эксперимент #${sim.entity_counter}`;
+  const name = prompt("Введите название сценария для сохранения:", defaultName);
+  if (!name || !name.trim()) return;
+
+  const scene = serializeCurrentScene(name.trim());
+  const list = getSavedScenarios();
+  list.unshift(scene);
+  saveScenariosToStorage(list);
+  showToast(`Сценарий "${scene.name}" сохранен!`);
+  if (document.getElementById('scenariosModal').style.display === 'flex') {
+    renderScenariosList();
+  }
+}
+
+function openScenariosModal() {
+  renderScenariosList();
+  document.getElementById('scenariosModal').style.display = 'flex';
+}
+
+function closeScenariosModal() {
+  document.getElementById('scenariosModal').style.display = 'none';
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderScenariosList() {
+  const list = getSavedScenarios();
+  const container = document.getElementById('scenariosListContainer');
+  if (list.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:20px; color:#888894;">Нет сохраненных сценариев. Нажмите "Сохранить текущую сцену".</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map((sc, idx) => `
+    <div class="scenario-item">
+      <div class="scenario-info">
+        <div class="scenario-name">${escapeHtml(sc.name)}</div>
+        <div class="scenario-meta">${sc.date || ''} • Тел: ${sc.bodies ? sc.bodies.length : 0} • Связей: ${(sc.ropes ? sc.ropes.length : 0) + (sc.springs ? sc.springs.length : 0)} • Угол: ${(sc.alpha * 180 / Math.PI).toFixed(1)}°</div>
+      </div>
+      <div class="scenario-actions">
+        <button class="scenario-btn" onclick="loadSavedScenarioByIndex(${idx})" title="Загрузить в симулятор" style="background:#204470; color:#fff;">▶ Загрузить</button>
+        <button class="scenario-btn" onclick="exportScenarioJSON(${idx})" title="Скачать файл .json">💾 JSON</button>
+        <button class="btn-mini" onclick="deleteSavedScenarioByIndex(${idx})" title="Удалить сценарий" style="color:#ff6464;">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadSavedScenarioByIndex(idx) {
+  const list = getSavedScenarios();
+  if (list[idx]) {
+    loadSceneData(list[idx]);
+    closeScenariosModal();
+  }
+}
+
+function deleteSavedScenarioByIndex(idx) {
+  const list = getSavedScenarios();
+  if (list[idx]) {
+    if (confirm(`Удалить сценарий "${list[idx].name}"?`)) {
+      list.splice(idx, 1);
+      saveScenariosToStorage(list);
+      renderScenariosList();
+      showToast("Сценарий удален");
+    }
+  }
+}
+
+function exportScenarioJSON(idx) {
+  const list = getSavedScenarios();
+  const sc = (idx !== undefined) ? list[idx] : serializeCurrentScene("PhysicsScenario");
+  if (!sc) return;
+  const jsonStr = JSON.stringify(sc, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(sc.name || 'scenario').replace(/[\/\\?%*:|"<>]/g, '_')}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("Файл экспортирован в JSON");
+}
+
+function importScenarioFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (loadSceneData(data)) {
+        const list = getSavedScenarios();
+        list.unshift(data);
+        saveScenariosToStorage(list);
+        renderScenariosList();
+        closeScenariosModal();
+      }
+    } catch (err) {
+      alert("Ошибка чтения файла JSON: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    t.classList.remove('show');
+  }, 2200);
+}
+
+// --- МЫШЬ И КЛАВИАТУРА ---
+window.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+
+  if (isBoxSelecting) {
+    boxSelectCurrent = { x: mouseX, y: mouseY };
+  }
+
+  if (sim.setting_force && sim.selected_entity && sim.selected_entity instanceof PhysicsBody) {
+    sim.selected_entity.preview_F_ext = sim.camera.screenToLocalForce(sim.selected_entity, mouseX, mouseY);
+  }
+
+  if (isMouseDown && draggedBody && sim.paused && dragBodyOffsets.size > 0) {
+    const currentWorld = sim.camera.screenToWorld(mouseX, mouseY);
+    for (const [b, offset] of dragBodyOffsets.entries()) {
+      b.x = currentWorld.x + offset.dx;
+      b.y = Math.max(0, currentWorld.y + offset.dy);
+      b.vx = 0;
+      b.vy = 0;
+    }
+
+    for (const r of sim.ropes) {
+      if (dragBodyOffsets.has(r.body_a) || dragBodyOffsets.has(r.body_b)) {
+        const ax = r.body_a.x, ay = r.body_a.y + r.body_a.size / 2;
+        const bx = r.body_b.x, by = r.body_b.y + r.body_b.size / 2;
+        const dist = Math.hypot(bx - ax, by - ay) || 0.0001;
+        r.updateSegments(0, sim.alpha, ax, ay, bx, by, dist);
+      }
+    }
+  }
+});
+
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  isMouseDown = true;
+  document.getElementById('addDropdown').classList.remove('visible');
+  const scDrop = document.getElementById('scenarioDropdown');
+  if (scDrop) scDrop.classList.remove('visible');
+
+  let clickedBody = null;
+  for (const b of sim.bodies) {
+    const center_s = sim.camera.worldToScreen(b.x, b.y + b.size / 2);
+    const radius = Math.max(20, (b.size * PPM) * 0.7);
+    if (Math.hypot(mouseX - center_s.x, mouseY - center_s.y) < radius) {
+      clickedBody = b;
+      break;
+    }
+  }
+
+  // Режим связывания нитями / пружинами
+  if (sim.linking_mode) {
+    if (clickedBody) {
+      if (!sim.linking_first) {
+        sim.linking_first = clickedBody;
+        document.getElementById('linkBannerText').textContent = "Кликните по ВТОРОМУ телу для соединения";
+      } else if (clickedBody !== sim.linking_first) {
+        sim.entity_counter++;
+        let new_link = null;
+        if (sim.linking_mode === 'rope') {
+          new_link = new RopeConstraint(sim.entity_counter, sim.linking_first, clickedBody, null, false);
+          sim.ropes.push(new_link);
+        } else if (sim.linking_mode === 'elastic') {
+          new_link = new RopeConstraint(sim.entity_counter, sim.linking_first, clickedBody, null, true);
+          sim.ropes.push(new_link);
+        } else if (sim.linking_mode === 'spring') {
+          new_link = new SpringConstraint(sim.entity_counter, sim.linking_first, clickedBody, 70.0, 2.5);
+          sim.springs.push(new_link);
+        }
+        sim.select(new_link);
+        cancelLinking();
+      }
+    }
+    return;
+  }
+
+  if (clickedBody) {
+    if (e.shiftKey || e.ctrlKey) {
+      sim.toggleSelect(clickedBody);
+    } else {
+      if (!sim.selected_entities.has(clickedBody) || sim.selected_entities.size <= 1) {
+        sim.select(clickedBody);
+      } else {
+        sim.selected_entity = clickedBody;
+      }
+    }
+
+    if (sim.paused) {
+      draggedBody = clickedBody;
+      const clickWorld = sim.camera.screenToWorld(mouseX, mouseY);
+      dragBodyOffsets.clear();
+      for (const b of sim.selected_entities) {
+        if (b instanceof PhysicsBody) {
+          dragBodyOffsets.set(b, { dx: b.x - clickWorld.x, dy: b.y - clickWorld.y });
+        }
+      }
+      if (!dragBodyOffsets.has(clickedBody)) {
+        dragBodyOffsets.set(clickedBody, { dx: clickedBody.x - clickWorld.x, dy: clickedBody.y - clickWorld.y });
+      }
+    }
+  } else {
+    // Проверка клика по связям
+    let clickedLink = null;
+    for (const r of sim.ropes) {
+      const mid = sim.camera.worldToScreen(r.segments[15].x, r.segments[15].y);
+      if (Math.hypot(mouseX - mid.x, mouseY - mid.y) < 22) {
+        clickedLink = r;
+        break;
+      }
+    }
+    if (!clickedLink) {
+      for (const s of sim.springs) {
+        const p1 = sim.camera.worldToScreen(s.segments[0].x, s.segments[0].y);
+        const p2 = sim.camera.worldToScreen(s.segments[1].x, s.segments[1].y);
+        const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+        if (Math.hypot(mouseX - mid.x, mouseY - mid.y) < 22) {
+          clickedLink = s;
+          break;
+        }
+      }
+    }
+
+    if (clickedLink) {
+      sim.select(clickedLink);
+    } else {
+      // Клик по пустому месту — рамка выделения
+      if (!e.shiftKey && !e.ctrlKey) {
+        sim.clearSelection();
+      }
+      isBoxSelecting = true;
+      boxSelectStart = { x: mouseX, y: mouseY };
+      boxSelectCurrent = { x: mouseX, y: mouseY };
+    }
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (isBoxSelecting) {
+    const minX = Math.min(boxSelectStart.x, boxSelectCurrent.x);
+    const maxX = Math.max(boxSelectStart.x, boxSelectCurrent.x);
+    const minY = Math.min(boxSelectStart.y, boxSelectCurrent.y);
+    const maxY = Math.max(boxSelectStart.y, boxSelectCurrent.y);
+
+    if ((maxX - minX > 6) && (maxY - minY > 6)) {
+      for (const b of sim.bodies) {
+        const center_s = sim.camera.worldToScreen(b.x, b.y + b.size / 2);
+        if (center_s.x >= minX && center_s.x <= maxX && center_s.y >= minY && center_s.y <= maxY) {
+          sim.selected_entities.add(b);
+        }
+      }
+      if (sim.selected_entities.size > 0) {
+        if (!sim.selected_entity || !sim.selected_entities.has(sim.selected_entity)) {
+          sim.selected_entity = Array.from(sim.selected_entities)[0];
+        }
+      }
+    }
+    isBoxSelecting = false;
+  }
+
+  isMouseDown = false;
+  draggedBody = null;
+  dragBodyOffsets.clear();
+});
+
+const keysDown = {};
+
+window.addEventListener('keydown', (e) => {
+  keysDown[e.code] = true;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+  // Дублирование [Ctrl+D]
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyD') {
+    e.preventDefault();
+    duplicateSelected();
+    return;
+  }
+
+  // Копирование [Ctrl+C]
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC') {
+    e.preventDefault();
+    copySelected();
+    return;
+  }
+
+  // Вставка [Ctrl+V]
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') {
+    e.preventDefault();
+    pasteClipboard();
+    return;
+  }
+
+  // Удаление [Delete]
+  if (e.code === 'Delete') {
+    e.preventDefault();
+    deleteSelectedEntities();
+    return;
+  }
+
+  if (e.code === 'Space') {
+    e.preventDefault();
+    togglePlay();
+  }
+
+  if (e.code === 'KeyF' && !sim.setting_force) {
+    if (sim.selected_entity && sim.selected_entity instanceof PhysicsBody) {
+      sim.setting_force = true;
+      document.getElementById('forcePullBanner').style.display = 'flex';
+      document.getElementById('pillForce').classList.add('force-active');
+      sim.selected_entity.preview_F_ext = sim.camera.screenToLocalForce(sim.selected_entity, mouseX, mouseY);
+    }
+  }
+
+  if (e.code === 'KeyC') {
+    clearAllExternalForces();
+  }
+
+  if (e.code === 'KeyU') {
+    cycleRestitution();
+  }
+
+  if (e.code === 'KeyR') {
+    resetScenario();
+  }
+
+  if (e.code === 'Escape') {
+    cancelLinking();
+    closeScenariosModal();
+    const hotModal = document.getElementById('hotkeyModal');
+    if (hotModal) hotModal.classList.remove('visible');
+    const scDrop = document.getElementById('scenarioDropdown');
+    if (scDrop) scDrop.classList.remove('visible');
+    document.getElementById('addDropdown').classList.remove('visible');
+    isBoxSelecting = false;
+    if (sim.setting_force) {
+      sim.setting_force = false;
+      document.getElementById('forcePullBanner').style.display = 'none';
+      document.getElementById('pillForce').classList.remove('force-active');
+    }
+  }
+
+  if (e.code === 'ArrowLeft') selectAdjacent(-1);
+  if (e.code === 'ArrowRight') {
+    if (sim.paused && e.shiftKey) {
+      sim.step_frame = true;
+    } else {
+      selectAdjacent(1);
+    }
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  keysDown[e.code] = false;
+  if (e.code === 'KeyF' && sim.setting_force) {
+    sim.setting_force = false;
+    document.getElementById('forcePullBanner').style.display = 'none';
+    document.getElementById('pillForce').classList.remove('force-active');
+
+    if (sim.selected_entity && sim.selected_entity instanceof PhysicsBody) {
+      sim.selected_entity.locked_F_ext = { ...sim.selected_entity.preview_F_ext };
+    }
+  }
+});
+
+window.addEventListener('blur', () => {
+  for (const k in keysDown) keysDown[k] = false;
+});
+
+function checkContinuousKeys() {
+  if (keysDown['KeyW']) adjustAlpha(0.008);
+  if (keysDown['KeyS']) adjustAlpha(-0.008);
+}
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (e.deltaY < 0) {
+    PPM = Math.min(100, PPM * 1.08);
+  } else {
+    PPM = Math.max(15, PPM / 1.08);
+  }
+}, { passive: false });
+
+function animate() {
+  checkContinuousKeys();
+  const dt = FIXED_DT * speedMultiplier;
+  sim.step(dt);
+  render();
+  requestAnimationFrame(animate);
+}
+
+// Запуск сценария песочницы
+setScenario('sandbox');
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

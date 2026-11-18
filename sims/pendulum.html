@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Маятник</title>
+  <style>
+    :root { --accent: #4262ff; --ink: #202036; --muted: #8b8b9e; --line: rgba(5,0,56,.09); }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #fbfbfd;
+      color: var(--ink);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    canvas { display: block; width: 100%; flex: 1; min-height: 0; }
+    .panel {
+      display: grid;
+      flex-shrink: 0;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px 14px;
+      align-items: end;
+      border-top: 1px solid var(--line);
+      background: rgba(255,255,255,.94);
+      padding: 11px 14px 13px;
+      backdrop-filter: blur(8px);
+    }
+    .field { min-width: 0; }
+    .field span { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .field output { color: var(--ink); }
+    input[type=range] { width: 100%; margin: 7px 0 0; accent-color: var(--accent); }
+    .actions { display: flex; gap: 6px; grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+    button {
+      height: 34px;
+      border: 0;
+      border-radius: 9px;
+      background: var(--accent);
+      padding: 0 12px;
+      color: #fff;
+      font: 700 11px/1 Inter, system-ui, sans-serif;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(66,98,255,.28);
+      white-space: nowrap;
+    }
+    button.secondary { border: 1px solid var(--line); background: #fff; color: #55556b; box-shadow: none; }
+    button:active { transform: translateY(1px); }
+    .period { grid-column: 1 / span 2; color: var(--muted); font-size: 10px; }
+    .period b { color: var(--accent); }
+    @media (max-width: 480px) {
+      .panel { grid-template-columns: 1fr auto; }
+      .actions { grid-column: 2; grid-row: 1 / span 3; flex-direction: column; }
+      .period { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="Анимация математического маятника"></canvas>
+  <div class="panel">
+    <label class="field">
+      <span>Длина, м <output id="lengthOut">1.5</output></span>
+      <input id="length" type="range" min="0.5" max="2.8" step="0.1" value="1.5" />
+    </label>
+    <label class="field">
+      <span>Гравитация, м/с² <output id="gravityOut">9.8</output></span>
+      <input id="gravity" type="range" min="1.6" max="25" step="0.1" value="9.8" />
+    </label>
+    <div class="actions">
+      <button id="toggle" type="button">Пауза</button>
+      <button id="reset" type="button" class="secondary">Сброс</button>
+    </div>
+    <div class="period">Период <b id="period">2.46 с</b> · T = 2π√(L/g)</div>
+  </div>
+  <script>
+    (() => {
+      const canvas = document.getElementById('scene');
+      const ctx = canvas.getContext('2d');
+      const lengthInput = document.getElementById('length');
+      const gravityInput = document.getElementById('gravity');
+      const lengthOut = document.getElementById('lengthOut');
+      const gravityOut = document.getElementById('gravityOut');
+      const periodOut = document.getElementById('period');
+      const toggleBtn = document.getElementById('toggle');
+      const resetBtn = document.getElementById('reset');
+
+      let length = 1.5;
+      let gravity = 9.8;
+      let theta = 0.62;
+      let omega = 0;
+      let running = true;
+      let last = 0;
+      const trail = [];
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = Math.max(1, canvas.clientWidth);
+        height = Math.max(1, canvas.clientHeight);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function period() {
+        return 2 * Math.PI * Math.sqrt(length / gravity);
+      }
+
+      function updateReadout() {
+        lengthOut.textContent = length.toFixed(1);
+        gravityOut.textContent = gravity.toFixed(1);
+        periodOut.textContent = period().toFixed(2) + ' с';
+      }
+
+      function pivot() {
+        return { x: width / 2, y: Math.max(48, height * 0.2) };
+      }
+
+      function bobPosition() {
+        const p = pivot();
+        const radius = Math.min(width * 0.34, height * 0.55, 250) * (length / 2.8 + 0.28);
+        return {
+          x: p.x + Math.sin(theta) * radius,
+          y: p.y + Math.cos(theta) * radius,
+          r: radius
+        };
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, width, height);
+        const p = pivot();
+        const bob = bobPosition();
+
+        // Опора
+        ctx.fillStyle = '#eef1ff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 17, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#c9d2ff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = '#4262ff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // След
+        if (trail.length > 1) {
+          ctx.lineWidth = 1.4;
+          for (let i = 1; i < trail.length; i += 1) {
+            const alpha = (i / trail.length) * 0.32;
+            ctx.strokeStyle = 'rgba(66,98,255,' + alpha.toFixed(3) + ')';
+            ctx.beginPath();
+            ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
+            ctx.lineTo(trail[i].x, trail[i].y);
+            ctx.stroke();
+          }
+        }
+
+        // Вертикаль и дуга
+        ctx.setLineDash([4, 6]);
+        ctx.strokeStyle = 'rgba(139,142,159,.45)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x, p.y + bob.r + 30);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Нить
+        ctx.strokeStyle = '#6f7388';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(bob.x, bob.y);
+        ctx.stroke();
+
+        // Груз
+        const gradient = ctx.createRadialGradient(bob.x - 5, bob.y - 6, 2, bob.x, bob.y, 21);
+        gradient.addColorStop(0, '#8fa4ff');
+        gradient.addColorStop(1, '#4262ff');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(bob.x, bob.y, 17, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(45,70,200,.35)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Подпись
+        ctx.fillStyle = '#8b8b9e';
+        ctx.font = '600 11px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('α = ' + (theta * 180 / Math.PI).toFixed(1) + '°', 16, 24);
+      }
+
+      function frame(now) {
+        if (!last) last = now;
+        const dt = Math.min((now - last) / 1000, 0.04);
+        last = now;
+        if (running) {
+          const steps = 4;
+          for (let i = 0; i < steps; i += 1) {
+            const h = dt / steps;
+            const alpha = -(gravity / length) * Math.sin(theta);
+            omega += alpha * h;
+            theta += omega * h;
+          }
+          trail.push(bobPosition());
+          if (trail.length > 90) trail.shift();
+        }
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      lengthInput.addEventListener('input', () => {
+        length = Number(lengthInput.value);
+        trail.length = 0;
+        updateReadout();
+        draw();
+      });
+      gravityInput.addEventListener('input', () => {
+        gravity = Number(gravityInput.value);
+        trail.length = 0;
+        updateReadout();
+        draw();
+      });
+      toggleBtn.addEventListener('click', () => {
+        running = !running;
+        toggleBtn.textContent = running ? 'Пауза' : 'Запуск';
+        toggleBtn.classList.toggle('secondary', !running);
+      });
+      resetBtn.addEventListener('click', () => {
+        theta = 0.62;
+        omega = 0;
+        trail.length = 0;
+        running = true;
+        toggleBtn.textContent = 'Пауза';
+        toggleBtn.classList.remove('secondary');
+        draw();
+      });
+      window.addEventListener('resize', () => { resize(); draw(); });
+
+      resize();
+      updateReadout();
+      draw();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
