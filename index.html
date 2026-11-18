@@ -528,26 +528,35 @@
       right: 0;
       top: 50%;
       z-index: 55;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 10px 12px 10px 13px;
-      border: 1px solid rgba(5, 0, 56, .09);
+      display: grid;
+      width: 30px;
+      height: 104px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid rgba(5, 0, 56, .1);
       border-right: 0;
-      border-radius: 13px 0 0 13px;
+      border-radius: 12px 0 0 12px;
       background: #fff;
-      color: #3e3e52;
-      font-size: 11.5px;
-      font-weight: 700;
-      box-shadow: -6px 8px 28px rgba(5, 0, 56, .15);
+      color: #5f6075;
+      box-shadow: -5px 10px 26px rgba(5, 0, 56, .14);
       transform: translateY(-50%);
-      transition: transform .22s cubic-bezier(.2, .8, .2, 1), color .15s ease, background .15s ease, opacity .16s ease;
+      transition: right .28s cubic-bezier(.22, .8, .24, 1), color .15s ease, background .15s ease, box-shadow .15s ease;
     }
-    #cheatsheetTab:hover { color: var(--accent); background: #fbfbff; transform: translateY(-50%) translateX(-3px); }
+    #cheatsheetTab:hover {
+      color: var(--accent);
+      background: #fbfbff;
+      box-shadow: -7px 12px 30px rgba(5, 0, 56, .18);
+    }
+    #cheatsheetTab svg {
+      transition: transform .22s cubic-bezier(.22, .8, .24, 1);
+    }
     body.cheatsheet-open #cheatsheetTab {
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(-50%) translateX(110%);
+      right: 380px;
+      color: var(--accent);
+      background: #fff;
+    }
+    body.cheatsheet-open #cheatsheetTab svg {
+      transform: rotate(180deg);
     }
     #cheatsheetDrawer {
       position: fixed;
@@ -694,9 +703,121 @@
       border-bottom: 2px solid #b8b8c8;
       border-radius: 0 0 2px 0;
     }
+    /* Simulator widgets embedded into the board */
+    #simEmbedLayer {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .sim-embed {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      overflow: hidden;
+      border: 1px solid rgba(5, 0, 56, .14);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 18px 52px rgba(5, 0, 56, .2), 0 2px 8px rgba(5, 0, 56, .08);
+      pointer-events: auto;
+      transform-origin: 0 0;
+      will-change: transform;
+      contain: layout style;
+    }
+    .sim-embed-head {
+      display: flex;
+      height: 34px;
+      flex: 0 0 34px;
+      cursor: move;
+      align-items: center;
+      gap: 7px;
+      border-bottom: 1px solid rgba(5, 0, 56, .08);
+      background: #fbfbfd;
+      padding: 0 6px 0 9px;
+      touch-action: none;
+      user-select: none;
+    }
+    .sim-embed.is-collapsed .sim-embed-head { border-bottom: 0; }
+    .sim-embed-icon {
+      display: grid;
+      width: 21px;
+      height: 21px;
+      flex: 0 0 21px;
+      place-items: center;
+      border-radius: 6px;
+      background: #eef1ff;
+      color: var(--accent);
+    }
+    .sim-embed-icon svg { width: 12px; height: 12px; }
+    .sim-embed-title {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      color: #333348;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sim-embed-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 1px; }
+    .sim-embed-btn {
+      display: grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      border-radius: 6px;
+      color: #77778b;
+      transition: background .13s ease, color .13s ease;
+    }
+    .sim-embed-btn:hover { background: #ececf2; color: #25253a; }
+    .sim-embed-btn[data-sim-action="delete"]:hover { background: #ffeceb; color: #d9483b; }
+    .sim-embed-btn svg { width: 14px; height: 14px; }
+    .sim-embed-body {
+      position: relative;
+      min-height: 0;
+      flex: 1 1 auto;
+      background: #fff;
+    }
+    .sim-embed-body iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+      touch-action: auto;
+    }
+    .sim-embed.is-collapsed .sim-embed-body,
+    .sim-embed.is-collapsed .sim-embed-resize { display: none; }
+    .sim-embed-resize {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      z-index: 3;
+      width: 18px;
+      height: 18px;
+      cursor: nwse-resize;
+      touch-action: none;
+    }
+    .sim-embed-resize::before {
+      content: '';
+      position: absolute;
+      right: 3px;
+      bottom: 3px;
+      width: 9px;
+      height: 9px;
+      border-right: 2px solid #b8b8c8;
+      border-bottom: 2px solid #b8b8c8;
+      border-radius: 0 0 2px 0;
+    }
     @media (max-width: 639px) {
-      #cheatsheetTab { padding: 9px 10px; font-size: 10.5px; }
+      #cheatsheetTab { width: 28px; height: 96px; }
       #cheatsheetDrawer { width: 100vw; }
+      body.cheatsheet-open #cheatsheetTab { right: 100vw; }
     }
 
     /* Toast */
@@ -766,6 +887,7 @@
     <div id="canvasWrap">
       <canvas id="gridLayer" aria-hidden="true"></canvas>
       <canvas id="board" aria-label="Холст доски"></canvas>
+      <div id="simEmbedLayer" aria-label="Симуляторы на доске"></div>
       <div id="remoteCursors" aria-hidden="true"></div>
       <div id="eraserCursor" aria-hidden="true"></div>
     </div>
@@ -1086,11 +1208,8 @@
     </div>
 
     <!-- Выдвижная шторка шпаргалок -->
-    <button id="cheatsheetTab" type="button" aria-controls="cheatsheetDrawer" aria-expanded="false" title="Открыть шпоры и заметки">
-      <i data-lucide="book-open" class="h-4 w-4 text-accent"></i>
-      <span>Шпоры</span>
-      <kbd data-hotkey-kbd="cheatsheet" class="rounded border border-black/10 bg-[#f5f5f8] px-1.5 py-0.5 text-[9px] font-bold text-[#77778b]">K</kbd>
-      <i data-lucide="chevron-left" class="h-3.5 w-3.5 text-[#9a9aae]"></i>
+    <button id="cheatsheetTab" type="button" aria-controls="cheatsheetDrawer" aria-expanded="false" title="Шпоры и симуляторы (K)" aria-label="Шпоры и симуляторы">
+      <i data-lucide="chevron-left" class="h-4 w-4"></i>
     </button>
 
     <aside id="cheatsheetDrawer" aria-hidden="true" inert aria-label="Шпоры, графики и симуляторы">
@@ -1215,14 +1334,14 @@
       <div class="drawer-pane hidden px-4 pb-5" data-drawer-pane="sims">
         <div class="mt-1">
           <h3 class="text-[12px] font-semibold">HTML-симуляторы</h3>
-          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Запускайте локальные или внешние страницы в плавающем окне поверх доски.</p>
+          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Добавляйте демонстрации прямо на холст — их увидят все участники доски.</p>
         </div>
         <div id="simulatorList" class="mt-3 space-y-2"></div>
         <div class="mt-4 border-t border-black/[0.06] pt-3">
           <label for="simulatorUrlInput" class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Свой URL или путь</label>
           <div class="mt-1.5 flex gap-2">
             <input id="simulatorUrlInput" type="text" placeholder="sims/my-sim.html" spellcheck="false" autocomplete="off" class="h-9 min-w-0 flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] text-ink outline-none focus:border-accent" />
-            <button id="simulatorOpenBtn" type="button" class="h-9 shrink-0 rounded-lg bg-accent px-3 text-[10.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">Открыть</button>
+            <button id="simulatorOpenBtn" type="button" class="h-9 shrink-0 rounded-lg bg-accent px-3 text-[10.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">На доску</button>
           </div>
           <p class="mt-2 text-[9.5px] leading-relaxed text-[#9a9aae]">Пути задаются в массиве <code class="rounded bg-[#f2f2f6] px-1 py-0.5 text-[9px]">SIMULATORS_LIST</code> в коде страницы.</p>
         </div>
@@ -1438,6 +1557,16 @@
         'miroId',
         'miroBack',
         'miroSticker',
+        'customType',
+        'simTitle',
+        'simUrl',
+        'collapsed',
+        'linkUrl',
+        'linkTitle',
+        'linkDescription',
+        'linkImage',
+        'linkHost',
+        'linkFavicon',
         'perPixelTargetFind',
         'targetFindTolerance',
         'strokeUniform',
@@ -1452,6 +1581,15 @@
       const COLUMN_GUIDE_INSET = 40;
       const INTERNAL_PASTE_OFFSET = 25;
       const INTERNAL_PASTE_IMAGE_WINDOW_MS = 2500;
+      const SIM_EMBED_DEFAULT_W = 640;
+      const SIM_EMBED_DEFAULT_H = 440;
+      const SIM_EMBED_MIN_W = 260;
+      const SIM_EMBED_MIN_H = 180;
+      const SIM_EMBED_COLLAPSED_H = 34;
+      const LINK_CARD_W = 230;
+      const LINK_CARD_H = 290;
+      const LINK_CARD_COVER_H = 135;
+      const LINK_CARD_RADIUS = 14;
       const HOTKEY_STORAGE_KEY = 'miro-custom-hotkeys-v1';
       const AXES_SIZE = 360;
       const AXES_HALF = AXES_SIZE / 2;
@@ -1756,6 +1894,11 @@
 
       const fabric = window.fabric;
 
+      // Keep scale/crop precision when cards and images are serialized to
+      // Firebase. The Fabric default of 2 digits noticeably shrinks a scaled
+      // cover image after the next page load.
+      fabric.Object.NUM_FRACTION_DIGITS = 4;
+
       fabric.Object.prototype.set({
         borderColor: '#4262ff',
         cornerColor: '#ffffff',
@@ -1904,6 +2047,7 @@
       const graphPreviewCanvas = $('#graphPreviewCanvas');
       const graphStatus = $('#graphStatus');
       const graphInsertBtn = $('#graphInsertBtn');
+      const simEmbedLayer = $('#simEmbedLayer');
       const simulatorList = $('#simulatorList');
       const simulatorUrlInput = $('#simulatorUrlInput');
       const simulatorOpenBtn = $('#simulatorOpenBtn');
@@ -1928,6 +2072,14 @@
       let simulatorDragState = null;
       let simulatorResizeState = null;
       let simulatorRestoreHeight = 460;
+      const simOverlays = new Map();
+      let simOverlayRefreshQueued = false;
+      let simEmbedGesture = null;
+      const linkCardMetaById = new Map();
+      const linkImageCache = new Map();
+      const linkFaviconCache = new Map();
+      let lastLinkCardOpenAt = 0;
+      let lastLinkCardOpenUrl = '';
       const addColumnsBtn = $('#addColumnsBtn');
       const uploadBtn = $('#uploadBtn');
       const photoInput = $('#photoInput');
@@ -2500,6 +2652,7 @@
         }
         lastObjectState.clear();
         syncToolState();
+        refreshSimEmbedOverlays();
         canvas.requestRenderAll();
       }
 
@@ -2640,6 +2793,13 @@
 
       function applyToolToObject(obj) {
         if (!obj) return;
+        // The visible simulator widget is an HTML overlay. Its Fabric object is
+        // only an invisible, synchronized anchor and must never be selected.
+        if (obj.customType === 'sim-embed') {
+          obj.selectable = false;
+          obj.evented = false;
+          return;
+        }
         if (boardAccess !== 'ready') {
           obj.selectable = false;
           obj.evented = false;
@@ -3187,7 +3347,7 @@
       }
 
       function objectTouchedByEraser(obj, center, radius) {
-        if (!obj || obj.miroBack === true) return false;
+        if (!obj || obj.miroBack === true || obj.customType === 'sim-embed') return false;
         let bounds;
         try {
           bounds = obj.getBoundingRect(true, true);
@@ -3484,6 +3644,7 @@
         drawGridLayer();
         renderRemoteCursors();
         refreshEraserCursorSize();
+        positionSimEmbedOverlays();
       }
 
       function setZoomAt(newZoom, point) {
@@ -3720,6 +3881,7 @@
             if (cloudEnabled && currentObjectsRef) {
               currentObjectsRef.child(safeId).set(payload).catch(handleFirebaseError);
             }
+            queueSimEmbedRefresh();
             canvas.requestRenderAll();
             resolve();
           };
@@ -3730,6 +3892,7 @@
             if (cloudEnabled && currentObjectsRef) {
               currentObjectsRef.child(safeId).remove().catch(handleFirebaseError);
             }
+            queueSimEmbedRefresh();
             canvas.requestRenderAll();
             resolve();
             return;
@@ -3758,6 +3921,7 @@
               const obj = objects && objects[0];
               if (obj) {
                 obj.miroId = safeId;
+                hydrateCustomObjectData(obj, payload);
                 applyToolToObject(obj);
                 if (index >= 0) {
                   canvas.insertAt(obj, Math.min(index, canvas.getObjects().length));
@@ -3851,6 +4015,26 @@
       function ensureObjectId(obj) {
         if (!obj.miroId) obj.miroId = uuid();
         return obj.miroId;
+      }
+
+      const CUSTOM_OBJECT_DATA_PROPS = [
+        'customType',
+        'simTitle',
+        'simUrl',
+        'collapsed',
+        'linkUrl',
+        'linkTitle',
+        'linkDescription',
+        'linkImage',
+        'linkHost',
+        'linkFavicon'
+      ];
+
+      function hydrateCustomObjectData(obj, data) {
+        if (!obj || !data) return;
+        CUSTOM_OBJECT_DATA_PROPS.forEach((key) => {
+          if (data[key] !== undefined && obj[key] !== data[key]) obj.set(key, data[key]);
+        });
       }
 
       function stripNulls(value) {
@@ -4041,6 +4225,7 @@
             const obj = objects && objects[0];
             if (!obj || findObjectById(id)) return;
             obj.miroId = id;
+            hydrateCustomObjectData(obj, data);
             applyToolToObject(obj);
             isRemoteUpdate = true;
             canvas.add(obj);
@@ -4101,6 +4286,7 @@
         applyToolToObject(existing);
         normalizeObjectHitArea(existing);
         updateSelectedHitAreas();
+        queueSimEmbedRefresh();
         canvas.requestRenderAll();
         if (existing.miroId) lastObjectState.set(existing.miroId, serializeObject(existing));
       }
@@ -4121,7 +4307,10 @@
 
         // Firebase can echo a local write back to this tab. While the object
         // is selected/transformed, that echo must not fight the local state.
-        if (data.updatedBy === state.userId && activeObjectUses(existing)) return;
+        // Simulator anchors are never selected (their controls live in an
+        // HTML overlay), so their own echoes must be ignored explicitly.
+        if (data.updatedBy === state.userId &&
+            (activeObjectUses(existing) || existing.customType === 'sim-embed')) return;
 
         // Repair paths restored by an older version with a black fill.
         if (existing.type === 'path' && (!existing.fill || existing.fill === 'rgb(0,0,0)')) {
@@ -4158,6 +4347,7 @@
             const obj = objects && objects[0];
             if (!obj || findObjectById(id)) return;
             obj.miroId = id;
+            hydrateCustomObjectData(obj, data);
             applyToolToObject(obj);
             isRemoteUpdate = true;
             if (index >= 0) {
@@ -4229,6 +4419,7 @@
         canvas.discardActiveObject();
         isRemoteUpdate = false;
         lastObjectState.clear();
+        refreshSimEmbedOverlays();
 
         const objectsRef = currentObjectsRef;
 
@@ -4238,6 +4429,7 @@
           historyByBoard.set(id, { undoStack: [], redoStack: [] });
           rememberAllObjectStates();
           updateHistoryButtons();
+          refreshSimEmbedOverlays();
           attachCloudObjectListeners(objectsRef, session);
         };
 
@@ -4281,7 +4473,10 @@
               },
               null,
               (source, obj) => {
-                if (obj && idByData.has(source)) obj.miroId = idByData.get(source);
+                if (obj && idByData.has(source)) {
+                  obj.miroId = idByData.get(source);
+                  hydrateCustomObjectData(obj, source);
+                }
               }
             );
           } catch (err) {
@@ -4304,6 +4499,7 @@
           isRestoring = false;
           canvas.discardActiveObject();
           syncToolState();
+          refreshSimEmbedOverlays();
           canvas.requestRenderAll();
           rememberAllObjectStates();
           updateHistoryButtons();
@@ -5166,6 +5362,34 @@
         return true;
       }
 
+      function cloneObjectFromState(source, callback) {
+        if (!source) {
+          callback(null);
+          return;
+        }
+        let payload;
+        try {
+          payload = serializeObject(source);
+        } catch (_) {
+          callback(null);
+          return;
+        }
+        if (!payload) {
+          callback(null);
+          return;
+        }
+        fabric.util.enlivenObjects([payload], (objects) => {
+          const clone = objects && objects[0];
+          if (!clone) {
+            callback(null);
+            return;
+          }
+          clone.miroId = null;
+          hydrateCustomObjectData(clone, payload);
+          callback(clone);
+        });
+      }
+
       function duplicateSelection() {
         const active = canvas.getActiveObject();
         if (!active) {
@@ -5182,20 +5406,25 @@
           let pending = objects.length;
 
           objects.forEach((obj) => {
-            obj.clone((clone) => {
-              clone.miroId = null;
-              clone.set({
-                left: (clone.left || 0) + offset,
-                top: (clone.top || 0) + offset,
-                selectable: true,
-                evented: true
-              });
-              ensureObjectId(clone);
-              syncObjectToFirebase(clone);
-              canvas.add(clone);
-              clones.push(clone);
+            cloneObjectFromState(obj, (clone) => {
               pending -= 1;
+              if (clone) {
+                clone.set({
+                  left: (clone.left || 0) + offset,
+                  top: (clone.top || 0) + offset,
+                  selectable: true,
+                  evented: true
+                });
+                ensureObjectId(clone);
+                syncObjectToFirebase(clone);
+                canvas.add(clone);
+                clones.push(clone);
+              }
               if (pending === 0) {
+                if (!clones.length) {
+                  showToast('Не удалось скопировать объекты', 'error');
+                  return;
+                }
                 const selection = new fabric.ActiveSelection(clones, { canvas });
                 canvas.setActiveObject(selection);
                 recordCreation(clones);
@@ -5204,8 +5433,11 @@
             });
           });
         } else {
-          active.clone((clone) => {
-            clone.miroId = null;
+          cloneObjectFromState(active, (clone) => {
+            if (!clone) {
+              showToast('Не удалось скопировать объект', 'error');
+              return;
+            }
             clone.set({
               left: (active.left || 0) + offset,
               top: (active.top || 0) + offset,
@@ -5286,6 +5518,7 @@
             if (state.currentBoardId !== boardId) return;
             const pasted = objects && objects[0];
             if (!pasted) return;
+            hydrateCustomObjectData(pasted, json);
 
             let items = [pasted];
             if (pasted.type === 'activeSelection' && typeof pasted._restoreObjectsState === 'function') {
@@ -5502,6 +5735,13 @@
           return;
         }
 
+        const linkCard = asLinkCard(opt.target);
+        if (linkCard && isLinkCardOpenHit(linkCard, e)) {
+          e.preventDefault();
+          openLinkCard(linkCard);
+          return;
+        }
+
         if (state.tool === 'text') {
           addTextAt(canvas.getPointer(e));
           return;
@@ -5521,7 +5761,14 @@
       });
 
       canvas.on('mouse:dblclick', (opt) => {
-        if (state.tool !== 'cursor' || activeModal || isEditingText()) return;
+        if (activeModal || isEditingText()) return;
+        const linkCard = asLinkCard(opt.target);
+        if (linkCard) {
+          opt.e.preventDefault();
+          openLinkCard(linkCard);
+          return;
+        }
+        if (state.tool !== 'cursor') return;
         const target = opt.target;
         if (!target || objectTypeOf(target) !== 'group') return;
         if (beginStickerEditing(target)) {
@@ -7022,6 +7269,824 @@
         if (window.innerWidth < 640) closeCheatsheetDrawer();
       }
 
+      /* ---------- Simulator widgets on the board ---------- */
+
+      function safeSimulatorUrl(raw) {
+        try {
+          return resolveSimulatorUrl(raw);
+        } catch (_) {
+          return 'about:blank';
+        }
+      }
+
+      function insertSimulatorOnBoard(title, rawUrl) {
+        if (boardAccess !== 'ready' || !state.currentBoardId) {
+          showToast('Сначала выберите рабочую доску', 'error');
+          return;
+        }
+        let url;
+        try {
+          url = resolveSimulatorUrl(rawUrl);
+        } catch (err) {
+          showToast(err.message, 'error');
+          return;
+        }
+
+        const center = getViewportCenter();
+        const width = SIM_EMBED_DEFAULT_W;
+        const height = SIM_EMBED_DEFAULT_H;
+        const anchor = new fabric.Rect({
+          left: center.x - width / 2,
+          top: center.y - height / 2,
+          width,
+          height,
+          originX: 'left',
+          originY: 'top',
+          fill: 'transparent',
+          stroke: 'transparent',
+          strokeWidth: 0,
+          objectCaching: false,
+          selectable: false,
+          evented: false,
+          customType: 'sim-embed',
+          simTitle: title || 'Симулятор',
+          simUrl: url,
+          collapsed: false
+        });
+
+        canvas.discardActiveObject();
+        canvas.add(anchor);
+        ensureObjectId(anchor);
+        syncObjectToFirebase(anchor);
+        recordCreation(anchor);
+        refreshSimEmbedOverlays();
+        canvas.requestRenderAll();
+        showToast('Симулятор добавлен на доску');
+        if (window.innerWidth < 640) closeCheatsheetDrawer();
+      }
+
+      function createSimEmbedElement(anchor) {
+        const element = document.createElement('div');
+        element.className = 'sim-embed';
+        element.dataset.simId = anchor.miroId;
+        element.innerHTML =
+          '<div class="sim-embed-head">' +
+            '<span class="sim-embed-icon"><i data-lucide="flask-conical"></i></span>' +
+            '<span class="sim-embed-title"></span>' +
+            '<span class="sim-embed-actions">' +
+              '<button type="button" class="sim-embed-btn" data-sim-action="toggle" title="Свернуть" aria-label="Свернуть симулятор"><i data-lucide="chevron-up"></i></button>' +
+              '<button type="button" class="sim-embed-btn" data-sim-action="open" title="Открыть в новой вкладке" aria-label="Открыть симулятор в новой вкладке"><i data-lucide="external-link"></i></button>' +
+              '<button type="button" class="sim-embed-btn" data-sim-action="delete" title="Удалить с доски" aria-label="Удалить симулятор с доски"><i data-lucide="x"></i></button>' +
+            '</span>' +
+          '</div>' +
+          '<div class="sim-embed-body">' +
+            '<iframe title="Симулятор" allow="fullscreen; clipboard-read; clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>' +
+          '</div>' +
+          '<div class="sim-embed-resize" aria-hidden="true"></div>';
+        simEmbedLayer.appendChild(element);
+        refreshIcons();
+        return element;
+      }
+
+      function updateSimEmbedOverlay(anchor, element) {
+        if (!anchor || !element) return;
+        const title = String(anchor.simTitle || 'Симулятор');
+        const titleElement = element.querySelector('.sim-embed-title');
+        if (titleElement && titleElement.textContent !== title) titleElement.textContent = title;
+
+        const collapsed = anchor.collapsed === true || anchor.collapsed === 'true';
+        const toggle = element.querySelector('[data-sim-action="toggle"]');
+        if (toggle) {
+          const icon = collapsed ? 'chevron-down' : 'chevron-up';
+          if (toggle.dataset.icon !== icon) {
+            toggle.dataset.icon = icon;
+            toggle.innerHTML = '<i data-lucide="' + icon + '"></i>';
+            refreshIcons();
+          }
+          const label = collapsed ? 'Развернуть' : 'Свернуть';
+          toggle.title = label;
+          toggle.setAttribute('aria-label', label + ' симулятор');
+        }
+        element.classList.toggle('is-collapsed', collapsed);
+
+        const frame = element.querySelector('iframe');
+        const url = safeSimulatorUrl(anchor.simUrl);
+        if (frame && frame.dataset.simUrl !== url) {
+          frame.dataset.simUrl = url;
+          frame.src = url;
+          frame.title = title;
+        }
+
+        positionSimEmbedOverlay(anchor, element);
+      }
+
+      function positionSimEmbedOverlay(anchor, element) {
+        if (!anchor || !element) return;
+        const zoom = canvas.getZoom() || 1;
+        const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+        const scaleX = Number(anchor.scaleX) || 1;
+        const scaleY = Number(anchor.scaleY) || 1;
+        const fullWidth = Math.max(1, (Number(anchor.width) || SIM_EMBED_DEFAULT_W) * scaleX);
+        const collapsed = anchor.collapsed === true || anchor.collapsed === 'true';
+        const width = collapsed ? Math.min(fullWidth, 300) : fullWidth;
+        const height = collapsed
+          ? Math.max(1, SIM_EMBED_COLLAPSED_H * scaleY)
+          : Math.max(1, (Number(anchor.height) || SIM_EMBED_DEFAULT_H) * scaleY);
+        const x = (Number(anchor.left) || 0) * zoom + vpt[4];
+        const y = (Number(anchor.top) || 0) * zoom + vpt[5];
+        element.style.width = width + 'px';
+        element.style.height = height + 'px';
+        element.style.transform = 'translate3d(' + x + 'px, ' + y + 'px, 0) scale(' + zoom + ')';
+      }
+
+      function positionSimEmbedOverlays() {
+        if (!simOverlays.size) return;
+        simOverlays.forEach((element, id) => {
+          const anchor = findObjectById(id);
+          if (anchor && anchor.customType === 'sim-embed') {
+            updateSimEmbedOverlay(anchor, element);
+          }
+        });
+      }
+
+      function refreshSimEmbedOverlays() {
+        simOverlayRefreshQueued = false;
+        if (!simEmbedLayer) return;
+        const alive = new Set();
+        canvas.getObjects().forEach((obj, index) => {
+          if (!obj || obj.customType !== 'sim-embed' || !obj.miroId) return;
+          alive.add(obj.miroId);
+          let element = simOverlays.get(obj.miroId);
+          if (!element) {
+            element = createSimEmbedElement(obj);
+            simOverlays.set(obj.miroId, element);
+          }
+          element.style.zIndex = String(20 + index);
+          updateSimEmbedOverlay(obj, element);
+        });
+        simOverlays.forEach((element, id) => {
+          if (alive.has(id)) return;
+          element.remove();
+          simOverlays.delete(id);
+        });
+      }
+
+      function queueSimEmbedRefresh() {
+        if (simOverlayRefreshQueued) return;
+        simOverlayRefreshQueued = true;
+        setTimeout(refreshSimEmbedOverlays, 0);
+      }
+
+      function simAnchorFromElement(element) {
+        if (!element || !element.dataset || !element.dataset.simId) return null;
+        const anchor = findObjectById(element.dataset.simId);
+        return anchor && anchor.customType === 'sim-embed' ? anchor : null;
+      }
+
+      function onSimEmbedPointerDown(event) {
+        const element = event.target instanceof Element ? event.target.closest('.sim-embed') : null;
+        if (!element) return;
+        if (event.target.closest('button')) return;
+        const anchor = simAnchorFromElement(element);
+        if (!anchor || boardAccess !== 'ready') return;
+
+        const resizeHandle = event.target.closest('.sim-embed-resize');
+        const head = event.target.closest('.sim-embed-head');
+        if (!resizeHandle && !head) return;
+
+        simEmbedGesture = {
+          mode: resizeHandle ? 'resize' : 'move',
+          anchor,
+          element,
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          startLeft: Number(anchor.left) || 0,
+          startTop: Number(anchor.top) || 0,
+          startWidth: Number(anchor.width) || SIM_EMBED_DEFAULT_W,
+          startHeight: Number(anchor.height) || SIM_EMBED_DEFAULT_H,
+          beforeMap: captureBeforeState(anchor),
+          moved: false
+        };
+        try {
+          if (head && head.setPointerCapture) head.setPointerCapture(event.pointerId);
+          if (resizeHandle && resizeHandle.setPointerCapture) resizeHandle.setPointerCapture(event.pointerId);
+        } catch (_) {}
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      function onSimEmbedPointerMove(event) {
+        if (!simEmbedGesture) return;
+        const state = simEmbedGesture;
+        if (state.pointerId != null && event.pointerId != null && state.pointerId !== event.pointerId) return;
+        const zoom = canvas.getZoom() || 1;
+        const dx = (event.clientX - state.startX) / zoom;
+        const dy = (event.clientY - state.startY) / zoom;
+        if (!state.moved && (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)) state.moved = true;
+        if (state.mode === 'resize') {
+          state.anchor.set({
+            width: Math.max(SIM_EMBED_MIN_W, state.startWidth + dx),
+            height: Math.max(SIM_EMBED_MIN_H, state.startHeight + dy)
+          });
+        } else {
+          state.anchor.set({
+            left: state.startLeft + dx,
+            top: state.startTop + dy
+          });
+        }
+        state.anchor.setCoords();
+        updateSimEmbedOverlay(state.anchor, state.element);
+        scheduleTransformSync(state.anchor);
+        event.preventDefault();
+      }
+
+      function finishSimEmbedGesture(event) {
+        if (!simEmbedGesture) return;
+        const gesture = simEmbedGesture;
+        if (gesture.pointerId != null && event && event.pointerId != null && gesture.pointerId !== event.pointerId) return;
+        simEmbedGesture = null;
+        if (!gesture.moved) return;
+        const anchor = gesture.anchor;
+        if (!anchor || !canvas.contains(anchor)) return;
+        flushTransformSync();
+        syncObjectToFirebase(anchor);
+        recordModification(anchor, gesture.beforeMap);
+        canvas.requestRenderAll();
+      }
+
+      function onSimEmbedLayerClick(event) {
+        const button = event.target instanceof Element ? event.target.closest('[data-sim-action]') : null;
+        if (!button) return;
+        const element = button.closest('.sim-embed');
+        const anchor = simAnchorFromElement(element);
+        if (!anchor) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const action = button.dataset.simAction;
+
+        if (action === 'open') {
+          const url = safeSimulatorUrl(anchor.simUrl);
+          if (url === 'about:blank') {
+            showToast('Ссылка симулятора недоступна', 'error');
+            return;
+          }
+          window.open(url, '_blank', 'noopener,noreferrer');
+          return;
+        }
+
+        if (action === 'delete') {
+          const beforeMap = captureBeforeState(anchor);
+          removeObjectFromFirebase(anchor);
+          canvas.remove(anchor);
+          recordDeletion(anchor, beforeMap);
+          refreshSimEmbedOverlays();
+          canvas.requestRenderAll();
+          showToast('Симулятор удалён с доски');
+          return;
+        }
+
+        if (action === 'toggle') {
+          const beforeMap = captureBeforeState(anchor);
+          anchor.set('collapsed', !(anchor.collapsed === true || anchor.collapsed === 'true'));
+          anchor.setCoords();
+          syncObjectToFirebase(anchor);
+          recordModification(anchor, beforeMap);
+          refreshSimEmbedOverlays();
+          canvas.requestRenderAll();
+        }
+      }
+
+      canvas.on('object:added', queueSimEmbedRefresh);
+      canvas.on('object:removed', queueSimEmbedRefresh);
+      canvas.on('canvas:cleared', queueSimEmbedRefresh);
+      canvas.on('after:render', positionSimEmbedOverlays);
+      simEmbedLayer.addEventListener('pointerdown', onSimEmbedPointerDown);
+      simEmbedLayer.addEventListener('click', onSimEmbedLayerClick);
+      document.addEventListener('pointermove', onSimEmbedPointerMove);
+      document.addEventListener('pointerup', finishSimEmbedGesture);
+      document.addEventListener('pointercancel', finishSimEmbedGesture);
+
+      /* ---------- Link preview cards (Ctrl+V) ---------- */
+
+      function normalizeLinkUrl(raw) {
+        const value = String(raw || '').trim();
+        if (!/^https?:\/\/\S+$/i.test(value)) return null;
+        try {
+          const parsed = new URL(value);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+          return parsed.href;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function linkHostOf(url) {
+        try {
+          return new URL(url).hostname.replace(/^www\./i, '').toLowerCase();
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function linkFaviconUrl(host) {
+        return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host || '') + '&sz=128';
+      }
+
+      function cleanLinkText(value, maxChars) {
+        const text = String(value || '')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (!text) return '';
+        return text.length > maxChars ? text.slice(0, Math.max(1, maxChars - 1)).trimEnd() + '…' : text;
+      }
+
+      function linkInitials(host) {
+        const parts = String(host || '').split('.').filter(Boolean);
+        const first = (parts[0] || '?').charAt(0);
+        const second = (parts[1] || '').charAt(0);
+        return (first + second || '?').toUpperCase();
+      }
+
+      function linkCoverColors(host) {
+        const palettes = [
+          ['#4f74ff', '#8b5cf6'],
+          ['#0f9d76', '#4262ff'],
+          ['#f24726', '#ff9d48'],
+          ['#e83e8c', '#8b5cf6'],
+          ['#e5a000', '#f24726'],
+          ['#20a86b', '#0f9d76']
+        ];
+        let hash = 0;
+        const text = String(host || 'link');
+        for (let i = 0; i < text.length; i += 1) hash = ((hash * 31) + text.charCodeAt(i)) | 0;
+        return palettes[Math.abs(hash) % palettes.length];
+      }
+
+      function loadRemoteImage(url, cache) {
+        if (!url) return Promise.resolve(null);
+        if (cache.has(url)) return cache.get(url);
+        const promise = new Promise((resolve) => {
+          let settled = false;
+          const finish = (image) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(image);
+          };
+          const timer = setTimeout(() => finish(null), 8000);
+          const image = new Image();
+          image.crossOrigin = 'anonymous';
+          image.referrerPolicy = 'no-referrer';
+          image.onload = () => finish(image);
+          image.onerror = () => finish(null);
+          image.src = url;
+        });
+        cache.set(url, promise);
+        return promise;
+      }
+
+      function imageFromElement(element, options) {
+        if (!element) return null;
+        const image = new fabric.Image(element, Object.assign({
+          selectable: false,
+          evented: false,
+          objectCaching: false
+        }, options || {}));
+        return image;
+      }
+
+      function buildLinkCard(meta, position) {
+        const width = LINK_CARD_W;
+        const height = LINK_CARD_H;
+        const coverHeight = LINK_CARD_COVER_H;
+        const host = meta.host || linkHostOf(meta.url);
+        const [colorA, colorB] = linkCoverColors(host);
+        const children = [];
+
+        children.push(new fabric.Rect({
+          left: 0,
+          top: 0,
+          width,
+          height,
+          rx: LINK_CARD_RADIUS,
+          ry: LINK_CARD_RADIUS,
+          fill: '#ffffff',
+          stroke: '#e6e7ee',
+          strokeWidth: 1,
+          originX: 'left',
+          originY: 'top',
+          selectable: false,
+          evented: false,
+          shadow: new fabric.Shadow({ color: 'rgba(5,0,56,.16)', blur: 18, offsetX: 0, offsetY: 8 })
+        }));
+
+        children.push(new fabric.Rect({
+          left: 0,
+          top: 0,
+          width,
+          height: coverHeight,
+          rx: LINK_CARD_RADIUS,
+          ry: LINK_CARD_RADIUS,
+          originX: 'left',
+          originY: 'top',
+          selectable: false,
+          evented: false,
+          strokeWidth: 0,
+          fill: new fabric.Gradient({
+            type: 'linear',
+            gradientUnits: 'pixels',
+            coords: { x1: 0, y1: 0, x2: width, y2: coverHeight },
+            colorStops: [
+              { offset: 0, color: colorA },
+              { offset: 1, color: colorB }
+            ]
+          })
+        }));
+
+        if (meta.imageEl) {
+          const coverImage = imageFromElement(meta.imageEl, { left: 0, top: 0, originX: 'left', originY: 'top' });
+          if (coverImage) {
+            const sourceWidth = coverImage.width || 1;
+            const sourceHeight = coverImage.height || 1;
+            const scale = Math.max(width / sourceWidth, coverHeight / sourceHeight);
+            const cropWidth = width / scale;
+            const cropHeight = coverHeight / scale;
+            coverImage.set({
+              cropX: Math.max(0, (sourceWidth - cropWidth) / 2),
+              cropY: Math.max(0, (sourceHeight - cropHeight) / 2),
+              width: cropWidth,
+              height: cropHeight
+            });
+            coverImage.scale(scale);
+            coverImage.set({
+              left: (width - coverImage.getScaledWidth()) / 2,
+              top: (coverHeight - coverImage.getScaledHeight()) / 2,
+              clipPath: new fabric.Rect({
+                left: 0,
+                top: 0,
+                width: cropWidth,
+                height: cropHeight,
+                rx: LINK_CARD_RADIUS / scale,
+                ry: LINK_CARD_RADIUS / scale,
+                originX: 'center',
+                originY: 'center'
+              })
+            });
+            children.push(coverImage);
+          }
+        } else {
+          children.push(new fabric.Text(linkInitials(host), {
+            left: width - 20,
+            top: coverHeight - 64,
+            originX: 'right',
+            originY: 'top',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSize: 46,
+            fontWeight: 800,
+            fill: 'rgba(255,255,255,.9)',
+            selectable: false,
+            evented: false
+          }));
+        }
+
+        children.push(new fabric.Rect({
+          left: width - 34,
+          top: 12,
+          width: 24,
+          height: 24,
+          rx: 7,
+          ry: 7,
+          originX: 'left',
+          originY: 'top',
+          fill: 'rgba(255,255,255,.96)',
+          stroke: 'rgba(5,0,56,.07)',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false
+        }));
+        children.push(new fabric.Text('↗', {
+          left: width - 22,
+          top: 18,
+          originX: 'center',
+          originY: 'top',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: 15,
+          fontWeight: 700,
+          fill: '#4b4b60',
+          selectable: false,
+          evented: false
+        }));
+
+        children.push(new fabric.Circle({
+          left: 16,
+          top: 112,
+          radius: 21,
+          originX: 'left',
+          originY: 'top',
+          fill: '#ffffff',
+          selectable: false,
+          evented: false,
+          shadow: new fabric.Shadow({ color: 'rgba(5,0,56,.18)', blur: 8, offsetX: 0, offsetY: 3 })
+        }));
+
+        if (meta.faviconEl) {
+          const badgeImage = imageFromElement(meta.faviconEl, {
+            left: 37,
+            top: 133,
+            originX: 'center',
+            originY: 'center'
+          });
+          if (badgeImage) {
+            const scale = Math.min(22 / badgeImage.width, 22 / badgeImage.height);
+            badgeImage.scale(scale);
+            children.push(badgeImage);
+          }
+        } else {
+          children.push(new fabric.Circle({
+            left: 37,
+            top: 133,
+            radius: 13,
+            originX: 'center',
+            originY: 'center',
+            fill: colorA,
+            selectable: false,
+            evented: false
+          }));
+          children.push(new fabric.Text(linkInitials(host).charAt(0), {
+            left: 37,
+            top: 133,
+            originX: 'center',
+            originY: 'center',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSize: 12,
+            fontWeight: 800,
+            fill: '#ffffff',
+            selectable: false,
+            evented: false
+          }));
+        }
+
+        if (meta.faviconEl) {
+          const miniIcon = imageFromElement(meta.faviconEl, {
+            left: 72,
+            top: 154,
+            originX: 'center',
+            originY: 'center'
+          });
+          if (miniIcon) {
+            const scale = Math.min(12 / miniIcon.width, 12 / miniIcon.height);
+            miniIcon.scale(scale);
+            children.push(miniIcon);
+          }
+        } else {
+          children.push(new fabric.Circle({
+            left: 66,
+            top: 154,
+            radius: 5,
+            originX: 'center',
+            originY: 'center',
+            fill: colorA,
+            selectable: false,
+            evented: false
+          }));
+        }
+
+        children.push(new fabric.Text(cleanLinkText(host, 24), {
+          left: 82,
+          top: 148,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: 10,
+          fontWeight: 600,
+          fill: '#8b8b9e',
+          selectable: false,
+          evented: false
+        }));
+
+        children.push(new fabric.Textbox(cleanLinkText(meta.title || host, 56), {
+          left: 16,
+          top: 172,
+          width: width - 32,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: 14,
+          fontWeight: 700,
+          lineHeight: 1.22,
+          fill: '#202036',
+          splitByGrapheme: true,
+          selectable: false,
+          evented: false
+        }));
+
+        children.push(new fabric.Textbox(cleanLinkText(meta.description || 'Ссылка на сайт', 68), {
+          left: 16,
+          top: 218,
+          width: width - 32,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: 10.5,
+          lineHeight: 1.28,
+          fill: '#8b8b9e',
+          splitByGrapheme: true,
+          selectable: false,
+          evented: false
+        }));
+
+        const group = new fabric.Group(children, {
+          left: position && Number.isFinite(position.left) ? position.left : 0,
+          top: position && Number.isFinite(position.top) ? position.top : 0,
+          originX: 'center',
+          originY: 'center',
+          subTargetCheck: false,
+          objectCaching: false
+        });
+        group.set({
+          customType: 'link-card',
+          linkUrl: meta.url,
+          linkTitle: meta.title || host,
+          linkDescription: meta.description || 'Ссылка на сайт',
+          linkImage: meta.imageUrl || '',
+          linkHost: host,
+          linkFavicon: meta.faviconUrl || linkFaviconUrl(host)
+        });
+        return group;
+      }
+
+      function refreshLinkCardGroup(id) {
+        const meta = linkCardMetaById.get(id);
+        const existing = findObjectById(id);
+        if (!meta || !existing || existing.customType !== 'link-card') return;
+        const active = canvas.getActiveObject();
+        if (active && active.type === 'activeSelection' && active.getObjects().includes(existing)) return;
+        if (canvas._currentTransform && canvas._currentTransform.target === existing) {
+          setTimeout(() => refreshLinkCardGroup(id), 300);
+          return;
+        }
+
+        const index = canvas.getObjects().indexOf(existing);
+        const keepActive = active === existing;
+        const next = buildLinkCard(meta, { left: existing.left, top: existing.top });
+        next.miroId = id;
+        next.set({
+          originX: existing.originX,
+          originY: existing.originY,
+          scaleX: existing.scaleX,
+          scaleY: existing.scaleY,
+          angle: existing.angle,
+          skewX: existing.skewX,
+          skewY: existing.skewY,
+          flipX: existing.flipX,
+          flipY: existing.flipY
+        });
+        next.setCoords();
+        applyToolToObject(next);
+
+        const wasRemote = isRemoteUpdate;
+        isRemoteUpdate = true;
+        try {
+          if (keepActive) canvas.discardActiveObject();
+          canvas.remove(existing);
+          if (index >= 0) canvas.insertAt(next, Math.min(index, canvas.getObjects().length));
+          else canvas.add(next);
+        } finally {
+          isRemoteUpdate = wasRemote;
+        }
+
+        if (keepActive && state.tool === 'cursor') canvas.setActiveObject(next);
+        normalizeObjectHitArea(next);
+        syncObjectToFirebase(next);
+        lastObjectState.set(id, serializeObject(next));
+        canvas.requestRenderAll();
+      }
+
+      function enrichLinkCard(id) {
+        const meta = linkCardMetaById.get(id);
+        if (!meta) return;
+        loadRemoteImage(meta.faviconUrl, linkFaviconCache).then((image) => {
+          if (!image) return;
+          const current = linkCardMetaById.get(id);
+          if (!current) return;
+          current.faviconEl = image;
+          refreshLinkCardGroup(id);
+        });
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 9000);
+        fetch('https://api.microlink.io/?url=' + encodeURIComponent(meta.url), {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' }
+        }).then((response) => {
+          if (!response.ok) throw new Error('metadata request failed');
+          return response.json();
+        }).then(async (payload) => {
+          const data = payload && payload.data ? payload.data : null;
+          if (!data) return;
+          const current = linkCardMetaById.get(id);
+          if (!current) return;
+          let changed = false;
+
+          const title = cleanLinkText(data.title, 56);
+          if (title && title !== current.title) {
+            current.title = title;
+            changed = true;
+          }
+          const description = cleanLinkText(data.description, 68);
+          if (description && description !== current.description) {
+            current.description = description;
+            changed = true;
+          }
+          const rawImage = data.image && (typeof data.image === 'string' ? data.image : data.image.url);
+          if (typeof rawImage === 'string' && /^https?:\/\//i.test(rawImage)) {
+            current.imageUrl = rawImage;
+            const image = await loadRemoteImage(rawImage, linkImageCache);
+            if (image) {
+              current.imageEl = image;
+              changed = true;
+            }
+          }
+          if (changed) refreshLinkCardGroup(id);
+        }).catch(() => {
+          // Keep the instant fallback card when the site cannot be parsed.
+        }).finally(() => clearTimeout(timeout));
+      }
+
+      function insertLinkCardOnBoard(rawUrl) {
+        const url = normalizeLinkUrl(rawUrl);
+        if (!url) return false;
+        if (boardAccess !== 'ready' || !state.currentBoardId) {
+          showToast('Сначала выберите рабочую доску', 'error');
+          return false;
+        }
+        const host = linkHostOf(url);
+        const meta = {
+          url,
+          host,
+          title: host,
+          description: 'Ссылка на сайт',
+          imageUrl: '',
+          imageEl: null,
+          faviconUrl: linkFaviconUrl(host),
+          faviconEl: null
+        };
+        const center = getViewportCenter();
+        const group = buildLinkCard(meta, { left: center.x, top: center.y });
+        canvas.add(group);
+        ensureObjectId(group);
+        linkCardMetaById.set(group.miroId, meta);
+        syncObjectToFirebase(group);
+        recordCreation(group);
+        applyToolToObject(group);
+        if (state.tool === 'cursor') canvas.setActiveObject(group);
+        canvas.requestRenderAll();
+        showToast('Ссылка добавлена на доску');
+        enrichLinkCard(group.miroId);
+        return true;
+      }
+
+      function asLinkCard(target) {
+        if (!target) return null;
+        let current = target;
+        while (current && current.group) current = current.group;
+        if (current && current.customType === 'link-card') return current;
+        return target.customType === 'link-card' ? target : null;
+      }
+
+      function isLinkCardOpenHit(card, event) {
+        if (!card || !event) return false;
+        const pointer = canvas.getPointer(event);
+        if (!pointer) return false;
+        const local = fabric.util.transformPoint(
+          new fabric.Point(pointer.x, pointer.y),
+          fabric.util.invertTransform(card.calcTransformMatrix())
+        );
+        const x = local.x + LINK_CARD_W / 2;
+        const y = local.y + LINK_CARD_H / 2;
+        return x >= LINK_CARD_W - 38 && x <= LINK_CARD_W - 6 && y >= 8 && y <= 40;
+      }
+
+      function openExternalLink(rawUrl) {
+        let url;
+        try {
+          url = new URL(String(rawUrl || ''));
+        } catch (_) {
+          showToast('Некорректная ссылка', 'error');
+          return;
+        }
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+          showToast('Некорректная ссылка', 'error');
+          return;
+        }
+        window.open(url.href, '_blank', 'noopener,noreferrer');
+      }
+
+      function openLinkCard(card) {
+        if (!card || !card.linkUrl) return;
+        const now = Date.now();
+        if (lastLinkCardOpenUrl === card.linkUrl && now - lastLinkCardOpenAt < 600) return;
+        lastLinkCardOpenUrl = card.linkUrl;
+        lastLinkCardOpenAt = now;
+        openExternalLink(card.linkUrl);
+      }
+
       function renderSimulatorCards() {
         if (!simulatorList) return;
         simulatorList.innerHTML = SIMULATORS_LIST.map((sim, index) => `
@@ -7033,7 +8098,7 @@
               <span class="block truncate text-[11px] font-semibold">${escapeHtml(sim.title || 'Симулятор')}</span>
               <span class="mt-0.5 block truncate text-[9.5px] text-[#8b8b9e]">${escapeHtml(sim.description || sim.url || '')}</span>
             </span>
-            <button type="button" class="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 text-[9.5px] font-bold text-white shadow-[0_2px_8px_rgba(66,98,255,.25)] transition hover:bg-[#3451e0]" data-sim-index="${index}">Запустить</button>
+            <button type="button" class="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 text-[9.5px] font-bold text-white shadow-[0_2px_8px_rgba(66,98,255,.25)] transition hover:bg-[#3451e0]" data-sim-index="${index}">На доску</button>
           </div>
         `).join('');
       }
@@ -7284,15 +8349,15 @@
         const button = event.target.closest('[data-sim-index]');
         if (!button) return;
         const sim = SIMULATORS_LIST[Number(button.dataset.simIndex)];
-        if (sim) openSimulator(sim.title, sim.url);
+        if (sim) insertSimulatorOnBoard(sim.title, sim.url);
       });
       simulatorOpenBtn.addEventListener('click', () => {
-        openSimulator('Свой симулятор', simulatorUrlInput.value);
+        insertSimulatorOnBoard('Свой симулятор', simulatorUrlInput.value);
       });
       simulatorUrlInput.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter') return;
         event.preventDefault();
-        openSimulator('Свой симулятор', simulatorUrlInput.value);
+        insertSimulatorOnBoard('Свой симулятор', simulatorUrlInput.value);
       });
 
       Object.keys(NOTE_SNIPPETS).forEach((key) => {
@@ -7797,9 +8862,22 @@
           return;
         }
 
-        if (!hasImage) return;
+        if (hasImage) {
+          event.preventDefault();
+          addImageFiles(files);
+          return;
+        }
+
+        let clipboardText = '';
+        try {
+          clipboardText = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+        } catch (_) {
+          clipboardText = '';
+        }
+        const linkUrl = normalizeLinkUrl(clipboardText.trim());
+        if (!linkUrl) return;
         event.preventDefault();
-        addImageFiles(files);
+        insertLinkCardOnBoard(linkUrl);
       });
 
       /* ---------- Drag & drop image files ---------- */
