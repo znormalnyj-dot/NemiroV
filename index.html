@@ -64,45 +64,17 @@
     .float-card {
       box-shadow: 0 1px 2px rgba(5, 0, 56, 0.05), 0 8px 24px rgba(5, 0, 56, 0.07);
     }
-    .sync-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      margin-left: 2px;
-      padding-left: 8px;
-      border-left: 1px solid rgba(5, 0, 56, 0.08);
-    }
-    .sync-dot {
-      width: 7px;
-      height: 7px;
-      flex: none;
-      border-radius: 999px;
-      background: #10b981;
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.10);
-      transition: background .2s ease, box-shadow .2s ease;
-    }
-    .sync-status[data-state="offline"] .sync-dot {
-      background: #f59e0b;
-      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
-      animation: sync-pulse 1.2s ease-in-out infinite;
-    }
-    .sync-status[data-state="local"] .sync-dot {
-      background: #a0a0b2;
-      box-shadow: none;
-    }
-    .sync-label {
+    #syncStatus {
+      color: #92400e;
+      background: #fffbeb;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 12px;
       white-space: nowrap;
-      font-size: 10px;
-      font-weight: 500;
-      color: var(--muted);
     }
-    @keyframes sync-pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: .5; transform: scale(.82); }
-    }
-    @media (max-width: 1180px) {
-      .sync-label { display: none; }
-      .sync-status { padding-left: 6px; }
+    #syncStatus:empty { display: none; }
+    @media (max-width: 639px) {
+      #syncStatus { position: absolute; right: 8px; top: 100%; }
     }
     .menu-panel {
       box-shadow: 0 4px 10px rgba(5, 0, 56, 0.06), 0 18px 48px rgba(5, 0, 56, 0.16);
@@ -122,7 +94,6 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .menu-panel.is-open { animation: none; }
-      .sync-status[data-state="offline"] .sync-dot { animation: none; }
     }
 
     /* Toolbar */
@@ -1200,6 +1171,7 @@
 
     <!-- Верхний правый блок: участники, имя, Share -->
     <div id="topRightBar" class="pointer-events-none absolute right-0 top-0 z-40 flex items-center gap-2 p-3 sm:p-4">
+      <span id="syncStatus" role="status" aria-live="polite"></span>
       <div class="pointer-events-auto hidden h-14 items-center gap-2 rounded-2xl border border-black/[0.06] bg-white p-1.5 pl-2.5 float-card sm:flex">
         <div id="onlineAvatars" class="flex -space-x-2" aria-label="Участники онлайн"></div>
         <div class="hidden items-center gap-1.5 sm:flex">
@@ -1208,10 +1180,6 @@
             <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
           </span>
           <span class="whitespace-nowrap text-[11px] font-medium text-[#6b6b7e]"><span id="onlineCount">1</span> онлайн</span>
-          <span id="syncStatus" class="sync-status" data-state="local" title="Локальный режим" aria-live="polite">
-            <span class="sync-dot" aria-hidden="true"></span>
-            <span class="sync-label">Локальный режим</span>
-          </span>
         </div>
         <div class="mx-0.5 hidden h-6 w-px bg-black/[0.07] md:block"></div>
         <label class="hidden h-9 items-center gap-2 rounded-lg bg-[#f5f5f7] px-2 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20 md:flex">
@@ -2183,6 +2151,7 @@
       const onlineCount = $('#onlineCount');
       const onlineAvatars = $('#onlineAvatars');
       const syncStatus = $('#syncStatus');
+      let offlineNoticeTimer = null;
       const clearConfirmBtn = $('#clearConfirmBtn');
       const toast = $('#toast');
       const toastText = $('#toastText');
@@ -8429,18 +8398,18 @@
       }
 
       function setSyncStatus(status) {
-        if (!syncStatus) return;
-        const safeStatus = status === 'online' || status === 'offline' ? status : 'local';
-        const label = safeStatus === 'online'
-          ? 'Синхронизация активна'
-          : safeStatus === 'offline'
-            ? 'Переподключение к базе...'
-            : 'Локальный режим';
-        syncStatus.dataset.state = safeStatus;
-        syncStatus.title = label;
-        syncStatus.setAttribute('aria-label', label);
-        const labelEl = syncStatus.querySelector('.sync-label');
-        if (labelEl) labelEl.textContent = label;
+        if (status === 'offline') {
+          if (!offlineNoticeTimer && !syncStatus.textContent) {
+            offlineNoticeTimer = setTimeout(() => {
+              offlineNoticeTimer = null;
+              syncStatus.textContent = 'Нет связи';
+            }, 1200);
+          }
+          return;
+        }
+        clearTimeout(offlineNoticeTimer);
+        offlineNoticeTimer = null;
+        syncStatus.textContent = '';
       }
 
       function scheduleCloudResync(delay = 300) {
