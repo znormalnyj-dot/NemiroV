@@ -132,6 +132,10 @@
       color: #4b4b5e;
       transition: background .14s ease;
     }
+    #resetViewBtn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      width: auto; padding: 0 8px; font-size: 12px; font-weight: 550; white-space: nowrap;
+    }
     .zoom-btn:hover { background: #f4f4f7; }
 
     /* Tooltips */
@@ -1216,8 +1220,9 @@
           <i data-lucide="plus" class="h-4 w-4"></i>
         </button>
         <span class="mx-0.5 h-5 w-px bg-black/[0.06]"></span>
-        <button id="resetViewBtn" type="button" class="zoom-btn tip-top" data-tip="Сбросить вид" aria-label="Сбросить вид">
-          <i data-lucide="scan" class="h-4 w-4"></i>
+        <button id="resetViewBtn" type="button" class="zoom-btn tip-top" data-tip="Вернуться к стартовому виду (100%)" aria-label="Вернуться к началу доски">
+          <i data-lucide="house" class="h-4 w-4" aria-hidden="true"></i>
+          <span>К началу</span>
         </button>
       </div>
     </div>
@@ -3674,17 +3679,15 @@
 
         const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
         const zoom = vpt[0] || 1;
-        const step = 24 * zoom;
-        if (step < 4) return;
-
-        const showMinor = step >= 9;
+        const cellSize = 24 * zoom;
+        const majorOnly = cellSize < 9;
+        const step = majorOnly ? cellSize * 5 : cellSize;
         gridCtx.lineWidth = 1;
 
         const startX = Math.floor((0 - vpt[4]) / step);
         const endX = Math.ceil((w - vpt[4]) / step);
         for (let i = startX; i <= endX; i++) {
-          const major = i % 5 === 0;
-          if (!showMinor && !major) continue;
+          const major = majorOnly || i % 5 === 0;
           const x = vpt[4] + i * step;
           if (x < -1 || x > w + 1) continue;
           const px = Math.round(x) + 0.5;
@@ -3698,8 +3701,7 @@
         const startY = Math.floor((0 - vpt[5]) / step);
         const endY = Math.ceil((h - vpt[5]) / step);
         for (let i = startY; i <= endY; i++) {
-          const major = i % 5 === 0;
-          if (!showMinor && !major) continue;
+          const major = majorOnly || i % 5 === 0;
           const y = vpt[5] + i * step;
           if (y < -1 || y > h + 1) continue;
           const py = Math.round(y) + 0.5;
@@ -3743,7 +3745,7 @@
       zoomLabelBtn.addEventListener('click', resetView);
       resetViewBtn.addEventListener('click', () => {
         resetView();
-        showToast('Вид сброшен');
+        showToast('Вы в начале доски');
       });
 
       function getViewportCenter() {
