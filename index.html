@@ -8,18 +8,28 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link id="tailwindFallback" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+        media="print" onload="this.media='all'" onerror="this.onerror=null;this.href='https://unpkg.com/tailwindcss@2.2.19/dist/tailwind.min.css'" />
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
-          colors: { ink: '#050038', accent: '#4262ff' }
+    function configureTailwind() {
+      document.getElementById('tailwindFallback').disabled = true;
+      window.tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+            colors: { ink: '#050038', accent: '#4262ff' }
+          }
         }
-      }
-    };
+      };
+    }
   </script>
+  <script async src="https://cdn.tailwindcss.com" onload="configureTailwind()"></script>
   <style>
+    :where(.hidden) { display: none; }
+    .fixed { position: fixed; }
+    #app { position: relative; height: 100vh; height: 100dvh; }
+    #boardGate { inset: 0; z-index: 65; }
+
     :root {
       --ink: #050038;
       --muted: #6b6b7e;
@@ -378,7 +388,7 @@
     #remoteCursors {
       position: absolute;
       inset: 0;
-      z-index: 2;
+      z-index: 5;
       pointer-events: none;
       overflow: hidden;
     }
@@ -769,6 +779,7 @@
       will-change: transform;
       contain: layout style;
     }
+    .canvas-panning .sim-embed, .canvas-panning .sim-embed iframe { pointer-events: none; }
     .sim-embed-head {
       display: flex;
       height: 34px;
@@ -948,7 +959,7 @@
       <div id="boardMenuRoot" class="pointer-events-auto relative">
         <div class="flex h-14 items-center gap-1.5 rounded-2xl border border-black/[0.06] bg-white p-1.5 pr-2.5 float-card">
           <div class="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[13px] bg-gradient-to-br from-[#ffe25a] to-[#ffd02f] shadow-[inset_0_1px_0_rgba(255,255,255,.7),0_1px_2px_rgba(5,0,56,.12)]">
-            <svg viewBox="0 0 24 24" class="h-[21px] w-[21px]" fill="none" aria-hidden="true">
+            <svg width="21" height="21" viewBox="0 0 24 24" class="h-[21px] w-[21px]" fill="none" aria-hidden="true">
               <path d="M4 18V6.2l4 7.9 4-7.9 4 7.9 4-7.9V18" stroke="#050038" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
@@ -1517,14 +1528,49 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
   <script>
-    (() => {
+    async function loadLibrary(urls, available) {
+      for (const url of urls) {
+        if (available()) return;
+        await new Promise(resolve => {
+          const script = document.createElement('script');
+          script.onload = script.onerror = resolve;
+          script.src = url;
+          document.head.appendChild(script);
+        });
+      }
+    }
+
+    function loadFirebaseModule(name, available) {
+      const file = 'firebase-' + name + '-compat.js';
+      return loadLibrary([
+        'https://www.gstatic.com/firebasejs/10.12.2/' + file,
+        'https://cdn.jsdelivr.net/npm/firebase@10.12.2/' + file,
+        'https://unpkg.com/firebase@10.12.2/' + file
+      ], available);
+    }
+
+    const sdkReady = loadFirebaseModule('app', () => !!window.firebase).then(() =>
+      Promise.all([
+        loadFirebaseModule('database', () => !!window.firebase?.database)
+      ])
+    );
+    const iconsReady = loadLibrary([
+      'https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js',
+      'https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js'
+    ], () => !!window.lucide);
+    iconsReady.then(() => window.lucide?.createIcons());
+    const fabricReady = loadLibrary([
+      'https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js',
+      'https://unpkg.com/fabric@5.3.0/dist/fabric.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js'
+    ], () => !!window.fabric);
+  </script>
+  <script id="appMainScript">
+    (async () => {
       'use strict';
 
+      await Promise.all([sdkReady, fabricReady]);
       const $ = (sel, root = document) => root.querySelector(sel);
       const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -1544,21 +1590,7 @@
       appId: "1:576794413241:web:e904d581730175fbf7b368"
     };
 
-      /*
-        Рекомендуемые правила Realtime Database для учебного проекта
-        (Firebase Console → Realtime Database → Rules):
-
-        {
-          "rules": {
-            "boards_meta":    { ".read": true, ".write": true },
-            "boards_data":    { ".read": true, ".write": true },
-            "boards_cursors": { ".read": true, ".write": true }
-          }
-        }
-
-        Внимание: правила открыты всем. Для публичного проекта нужна
-        аутентификация и более строгие правила.
-      */
+      // Доступ к известному ID комнаты и права администратора проверяет RTDB.
 
       const firebaseConfigReady = Object.keys(firebaseConfig).every((key) => {
         const value = firebaseConfig[key];
@@ -1625,7 +1657,6 @@
       const COLUMN_GUIDE_HEIGHT = 2500;
       const COLUMN_GUIDE_INSET = 40;
       const INTERNAL_PASTE_OFFSET = 25;
-      const INTERNAL_PASTE_IMAGE_WINDOW_MS = 2500;
       const SIM_EMBED_DEFAULT_W = 640;
       const SIM_EMBED_DEFAULT_H = 440;
       const SIM_EMBED_MIN_W = 260;
@@ -1889,7 +1920,7 @@
           currentBoardId,
           visitedBoardIds,
           userName: data && typeof data.userName === 'string' ? data.userName.slice(0, 24) : '',
-          userId: data && typeof data.userId === 'string' && data.userId ? data.userId : uuid()
+          userId: uuid()
         };
       }
 
@@ -2027,24 +2058,27 @@
       let firebaseConnected = false;
       let connectionMonitorAttached = false;
       let cloudResyncTimer = null;
-      let cloudResyncInFlight = false;
-      let cloudResyncQueued = false;
       let boardDataSession = 0;
       let cursorsSession = 0;
       let lastCursorSent = 0;
+      let presenceRegistration = null;
+      let lastCursorPosition = null;
       let firebaseErrorShown = false;
       const remoteCursors = new Map();
       const remoteCursorEls = new Map();
-      const pendingRemoteIds = new Set();
-      const cancelledRemoteIds = new Set();
+      const pendingObjects = new Map();
+      const observedObjects = new Map();
+      const objectOrder = new Map();
+      let nextObjectOrder = 0;
+      const deferredEdits = new Map();
+      const finishedTextEdits = new WeakSet();
       const objectClipboard = { json: null, count: 0, pasteCount: 0 };
       let stickerEditing = null;
-      let lastObjectCopyAt = 0;
-      let lastInternalPasteAt = 0;
-      let lastPasteEventAt = 0;
+      const clipboardMarker = 'NeMiroV/' + state.userId;
       let pasteFallbackTimer = null;
-      let pasteShortcutToken = 0;
-      let pasteFallbackHandledAt = 0;
+      let fallbackPasted = false;
+      let systemCopyAvailable = false;
+      let copiedByKey = false;
       const TRANSFORM_SYNC_INTERVAL = 60;
       const pendingTransformTargets = new Set();
       let transformSyncTimer = null;
@@ -2114,8 +2148,6 @@
       let currentNotesRef = null;
       let currentNotesBoardId = '';
       let notesLoadToken = 0;
-      let notesSeededBoards = new Set();
-      let notesSeedingBoardId = '';
       let activeDrawerTab = 'notes';
       let graphPreviewFrame = 0;
       let graphCompiled = null;
@@ -2194,8 +2226,7 @@
             boards: state.boards,
             currentBoardId: state.currentBoardId,
             visitedBoardIds: state.visitedBoardIds,
-            userName: state.userName,
-            userId: state.userId
+            userName: state.userName
           }));
         } catch (_) {}
       }
@@ -2274,6 +2305,7 @@
         // В локальном режиме базы нет, поэтому доверяем только уже известным
         // в этом браузере доскам. В облачном режиме источник истины — boards_meta.
         if (!cloudEnabled || !db) {
+          if (firebaseConfigReady) throw new Error('Firebase недоступен');
           const known = (state.visitedBoardIds || []).includes(safeId);
           return { exists: known, meta: null };
         }
@@ -2404,7 +2436,9 @@
         try {
           const keepBoardQuery = new URLSearchParams(location.search).has('board');
           if (keepBoardQuery) {
-            const target = location.pathname + '?board=' + encodeURIComponent(safeId) + hash;
+            const url = new URL(location.href);
+            url.searchParams.set('board', safeId);
+            const target = url.pathname + url.search + hash;
             if (location.pathname + location.search + location.hash === target) return;
             if (replace) history.replaceState(null, '', target);
             else history.pushState(null, '', target);
@@ -2741,11 +2775,12 @@
         const safeId = sanitizeBoardId(id);
         if (!safeId) return;
 
-        const ref = db.ref('boards_meta/' + safeId + '/name');
+        const ref = db.ref('boards_meta/' + safeId);
         currentBoardNameRef = ref;
         ref.on('value', (snapshot) => {
-          if (state.currentBoardId !== safeId || boardAccess !== 'ready') return;
-          const value = snapshot.val();
+          if (ref !== currentBoardNameRef || state.currentBoardId !== safeId || boardAccess !== 'ready') return;
+          if (!snapshot.exists()) { showBoardMissing(safeId); return; }
+          const value = snapshot.val().name;
           const name = typeof value === 'string' ? value.trim().slice(0, 48) : '';
           if (!name) return;
 
@@ -2785,6 +2820,11 @@
           return;
         }
 
+        if (isErasing) endEraserGesture();
+        if (arrowDraft) cancelArrowGesture();
+        const active = canvas.getActiveObject();
+        if (active && active.isEditing) active.exitEditing();
+        flushTransformSync();
         saveCurrentContent();
         setBoardGate('checking');
 
@@ -2818,8 +2858,8 @@
         applyBoardToUI();
         renderBoardList();
         setBoardGate('ready');
-        subscribeBoardName(safeId);
         activateBoard(safeId);
+        subscribeBoardName(safeId);
         resetView();
         if (cloudEnabled) refreshBoardsMeta();
         if (!options.silent) showToast('Открыта доска «' + currentBoard().name + '»');
@@ -2879,6 +2919,7 @@
 
         const baseCursor = TOOL_CURSORS[tool] || 'default';
         const panning = isPanning || isRightPanning || isMiddlePanning;
+        canvasWrap.classList.toggle('canvas-panning', panning || spaceDown || tool === 'hand');
         const cursor = isRightPanning || isMiddlePanning || (spaceDown && isPanning)
           ? 'grabbing'
           : spaceDown
@@ -3546,6 +3587,7 @@
         }
 
         const board = currentBoard();
+        const session = boardDataSession;
         const newName = value.slice(0, 48);
         if (newName === board.name) {
           closeModal();
@@ -3557,11 +3599,14 @@
         if (cloudEnabled) {
           try {
             const result = await verifyBoardExists(board.id);
+            if (session !== boardDataSession || boardAccess !== 'ready') return;
             if (!result.exists) {
               closeModal();
               showBoardMissing(board.id);
               return;
             }
+            await db.ref('boards_meta/' + board.id).update({ name: newName });
+            if (session !== boardDataSession) return;
           } catch (err) {
             handleFirebaseError(err);
             return;
@@ -3570,12 +3615,6 @@
 
         board.name = newName;
         board.updatedAt = Date.now();
-
-        // Только точечное переименование уже существующей открытой доски.
-        // Никаких set() в boards_meta из клиентской доски не выполняется.
-        if (cloudEnabled) {
-          db.ref('boards_meta/' + board.id).update({ name: newName }).catch(handleFirebaseError);
-        }
 
         persist();
         applyBoardToUI();
@@ -3601,7 +3640,7 @@
       clearConfirmBtn.addEventListener('click', () => {
         closeModal();
         if (boardAccess !== 'ready') return;
-        if (!canvas.getObjects().length) {
+        if (!canvas.getObjects().length && !pendingObjects.size) {
           showToast('Холст уже пуст');
           return;
         }
@@ -3610,7 +3649,13 @@
           before: captureObjectState(obj),
           after: null
         }));
+        for (const [id, data] of pendingObjects) {
+          if (!deletedChanges.some(change => change.id === id)) deletedChanges.push({ id, before: data, after: null });
+        }
         clearCloudObjects();
+        pendingObjects.clear();
+        deferredEdits.clear();
+        observedObjects.clear();
         canvas.discardActiveObject();
         canvas.clear();
         canvas.backgroundColor = null;
@@ -3874,10 +3919,6 @@
         recordStep(changes);
       }
 
-      function requireHistoryId(id) {
-        return id == null ? null : String(id);
-      }
-
       function loadCanvasJSON(json, done) {
         if (!json) {
           if (done) done();
@@ -3885,7 +3926,12 @@
         }
         isRestoring = true;
         try {
-          canvas.loadFromJSON(json, () => {
+          const session = boardDataSession;
+          const data = JSON.parse(json);
+          fabric.util.enlivenObjects(data.objects || [], objects => {
+            if (session !== boardDataSession) return;
+            canvas.clear();
+            objects.forEach(obj => canvas.add(obj));
             isRestoring = false;
             canvas.backgroundColor = null;
             canvas.discardActiveObject();
@@ -3905,155 +3951,31 @@
 
       // Применяет к одному объекту сохранённое состояние (или удаление).
       // Остальные объекты доски не трогаются.
-      function applyObjectState(id, state) {
-        return new Promise((resolve) => {
-          const safeId = requireHistoryId(id);
-          if (!safeId) {
-            resolve();
-            return;
-          }
-          const payload = cloneJSON(state);
-          const existing = findObjectById(safeId);
-
-          const removeExisting = () => {
-            if (!existing) return -1;
-            if (activeObjectUses(existing)) canvas.discardActiveObject();
-            const index = canvas.getObjects().indexOf(existing);
-            isRemoteUpdate = true;
-            try {
-              canvas.remove(existing);
-            } finally {
-              isRemoteUpdate = false;
-            }
-            return index;
-          };
-
-          const finish = () => {
-            lastObjectState.set(safeId, cloneJSON(payload));
-            if (cloudEnabled && currentObjectsRef) {
-              currentObjectsRef.child(safeId).set(payload).catch(handleFirebaseError);
-            }
-            queueSimEmbedRefresh();
-            canvas.requestRenderAll();
-            resolve();
-          };
-
-          if (payload == null) {
-            removeExisting();
-            lastObjectState.delete(safeId);
-            if (cloudEnabled && currentObjectsRef) {
-              currentObjectsRef.child(safeId).remove().catch(handleFirebaseError);
-            }
-            queueSimEmbedRefresh();
-            canvas.requestRenderAll();
-            resolve();
-            return;
-          }
-
-          if (existing && canUpdateObjectInPlace(existing, payload)) {
-            // Дети activeSelection живут в групповых координатах — снимаем
-            // выделение, чтобы применить абсолютные координаты из снимка.
-            const active = canvas.getActiveObject();
-            if (active && active.type === 'activeSelection' && active.getObjects().indexOf(existing) !== -1) {
-              canvas.discardActiveObject();
-            }
-            try {
-              updateObjectInPlace(existing, payload);
-              existing.miroId = safeId;
-            } catch (err) {
-              console.warn('Не удалось восстановить объект:', err);
-            }
-            finish();
-            return;
-          }
-
-          const index = removeExisting();
-          try {
-            fabric.util.enlivenObjects([payload], (objects) => {
-              const obj = objects && objects[0];
-              if (obj) {
-                obj.miroId = safeId;
-                hydrateCustomObjectData(obj, payload);
-                applyToolToObject(obj);
-                if (index >= 0) {
-                  canvas.insertAt(obj, Math.min(index, canvas.getObjects().length));
-                } else {
-                  canvas.add(obj);
-                }
-                if (obj.miroBack) canvas.sendToBack(obj);
-                normalizeObjectHitArea(obj);
-                updateSelectedHitAreas();
-              }
-              finish();
-            });
-          } catch (err) {
-            console.warn('Не удалось восстановить объект:', err);
-            finish();
-          }
-        });
-      }
-
-      function applyHistoryStep(step, key) {
-        if (!step || !Array.isArray(step.changes) || !step.changes.length) {
-          return Promise.resolve();
-        }
-        // Отмену применяем в обратном порядке, повтор — в исходном.
-        const changes = key === 'before' ? step.changes.slice().reverse() : step.changes.slice();
-        let chain = Promise.resolve();
-        changes.forEach((change) => {
-          chain = chain.then(() => applyObjectState(change.id, change[key]));
-        });
-        return chain;
-      }
-
-      function undo() {
-        if (isRestoring) return;
-        const h = getHistory();
-        if (!h.undoStack.length) {
-          showToast('История действий пуста');
+      function applyHistoryStep(from, to, key) {
+        if (boardAccess !== 'ready' || isRestoring) return;
+        const history = getHistory();
+        const step = history[from].pop();
+        if (!step) {
+          showToast(key === 'before' ? 'История действий пуста' : 'Нечего повторять');
           return;
         }
-        const step = h.undoStack.pop();
-        h.redoStack.push(step);
+        history[to].push(step);
+        const changes = key === 'before' ? step.changes.slice().reverse() : step.changes;
+        for (const change of changes) {
+          const data = cloneJSON(change[key]);
+          if (data) {
+            data.updatedBy = state.userId;
+            data.updatedAt = Date.now();
+          }
+          receiveObject(change.id, data);
+          if (currentObjectsRef) writeCloudObject(change.id, data);
+        }
         updateHistoryButtons();
-        isRestoring = true;
-        applyHistoryStep(step, 'before').then(() => {
-          isRestoring = false;
-          updateSelectedHitAreas();
-          canvas.requestRenderAll();
-          updateHistoryButtons();
-        }).catch((err) => {
-          isRestoring = false;
-          console.error(err);
-          updateHistoryButtons();
-        });
-        showToast('Действие отменено');
+        showToast(key === 'before' ? 'Действие отменено' : 'Действие повторено');
       }
 
-      function redo() {
-        if (isRestoring) return;
-        const h = getHistory();
-        if (!h.redoStack.length) {
-          showToast('Нечего повторять');
-          return;
-        }
-        const step = h.redoStack.pop();
-        h.undoStack.push(step);
-        if (h.undoStack.length > HISTORY_LIMIT) h.undoStack.shift();
-        updateHistoryButtons();
-        isRestoring = true;
-        applyHistoryStep(step, 'after').then(() => {
-          isRestoring = false;
-          updateSelectedHitAreas();
-          canvas.requestRenderAll();
-          updateHistoryButtons();
-        }).catch((err) => {
-          isRestoring = false;
-          console.error(err);
-          updateHistoryButtons();
-        });
-        showToast('Действие повторено');
-      }
+      function undo() { applyHistoryStep('undoStack', 'redoStack', 'before'); }
+      function redo() { applyHistoryStep('redoStack', 'undoStack', 'after'); }
 
       undoBtn.addEventListener('click', undo);
       redoBtn.addEventListener('click', redo);
@@ -4103,7 +4025,9 @@
           Object.keys(value).forEach((key) => {
             const item = value[key];
             if (item === null || item === undefined) return;
-            result[key] = stripNulls(item);
+            const child = stripNulls(item);
+            if (child && typeof child === 'object' && !Object.keys(child).length) return;
+            result[key] = child;
           });
           return result;
         }
@@ -4120,7 +4044,13 @@
       function normalizeTextStyles(data) {
         if (!data) return data;
         const isTextObject = data.type === 'text' || data.type === 'i-text' || data.type === 'textbox';
-        if (isTextObject && data.styles == null) data.styles = [];
+        if (isTextObject) {
+          const styles = data.styles || {};
+          const entries = Object.values(styles).filter(Boolean);
+          data.styles = entries.every(run => Number.isInteger(run.start) && Number.isInteger(run.end) && run.style)
+            ? entries
+            : fabric.util.stylesToArray(styles, data.text || '');
+        }
         return data;
       }
 
@@ -4136,13 +4066,7 @@
         const serialized = typeof canvas._toObject === 'function'
           ? canvas._toObject(obj, 'toObject', OBJECT_SERIALIZE_PROPS)
           : obj.toObject(OBJECT_SERIALIZE_PROPS);
-        const cleaned = stripNulls(JSON.parse(JSON.stringify(serialized)));
-        if (cleaned.type === 'path' && cleaned.fill === 'rgb(0,0,0)') {
-          cleaned.fill = 'transparent';
-        }
-        if (!cleaned.fill && ['path', 'rect', 'circle', 'ellipse', 'triangle', 'polygon', 'polyline', 'line'].includes(cleaned.type)) {
-          cleaned.fill = 'transparent';
-        }
+        const cleaned = normalizeObjectData(stripNulls(serialized));
         cleaned.updatedBy = state.userId;
         cleaned.updatedAt = Date.now();
         return cleaned;
@@ -4177,13 +4101,18 @@
       }
 
       function syncObjectToFirebase(obj) {
-        if (!cloudEnabled || !currentObjectsRef || isRemoteUpdate || !obj) return;
+        if (isRemoteUpdate || !obj) return;
         if (obj.type === 'activeSelection') {
           obj.getObjects().forEach(syncObjectToFirebase);
           return;
         }
         const id = ensureObjectId(obj);
-        currentObjectsRef.child(id).set(serializeObject(obj)).catch(handleFirebaseError);
+        const data = serializeObject(obj);
+        if (!objectOrder.has(id)) objectOrder.set(id, nextObjectOrder++);
+        observedObjects.set(id, data);
+        pendingObjects.delete(id);
+        deferredEdits.delete(id);
+        if (currentObjectsRef) writeCloudObject(id, data);
       }
 
       function flushTransformSync() {
@@ -4231,16 +4160,31 @@
           return;
         }
         if (!obj.miroId) return;
-        currentObjectsRef.child(obj.miroId).remove().catch(handleFirebaseError);
+        writeCloudObject(obj.miroId, null);
       }
 
       function clearCloudObjects() {
         if (!cloudEnabled || !currentObjectsRef) return;
-        currentObjectsRef.remove().catch(handleFirebaseError);
+        const session = boardDataSession;
+        const ids = new Set([...observedObjects.keys(), ...pendingObjects.keys()]);
+        currentObjectsRef.remove().catch(err => recoverObjectWrite(session, ids, err));
       }
 
       function detachCloudBoardData() {
         boardDataSession += 1;
+        loadToken += 1;
+        objectOrder.clear();
+        nextObjectOrder = 0;
+        isRestoring = false;
+        pendingObjects.clear();
+        observedObjects.clear();
+        deferredEdits.clear();
+        gestureBeforeState = null;
+        textEditingBeforeState = null;
+        stickerEditing = null;
+        simEmbedGesture = null;
+        linkCardMetaById.clear();
+        clearTimeout(pasteFallbackTimer);
         cancelTransformSync();
         if (cloudResyncTimer) {
           clearTimeout(cloudResyncTimer);
@@ -4253,382 +4197,213 @@
         detachNotesListener();
       }
 
-      function onRemoteObjectAdded(snapshot) {
-        const data = snapshot.val();
-        if (!data || typeof data !== 'object') return;
+      function writeCloudObject(id, data) {
+        const session = boardDataSession;
+        const ref = currentObjectsRef.child(id);
+        (data ? ref.set(data) : ref.remove()).catch(err => recoverObjectWrite(session, [id], err));
+      }
+
+      function recoverObjectWrite(session, ids, err) {
+        if (session !== boardDataSession) return;
+        const failed = new Set(ids);
+        failed.forEach(id => observedObjects.delete(id));
+        // Intermediate before/after states for these IDs can now describe a
+        // rejected write. Keep other objects, including in multi-object steps.
+        const history = getHistory();
+        for (const key of ['undoStack', 'redoStack']) {
+          for (const step of history[key]) step.changes = step.changes.filter(change => !failed.has(change.id));
+          history[key] = history[key].filter(step => step.changes.length);
+        }
+        updateHistoryButtons();
+        handleFirebaseError(err);
+        scheduleCloudResync(0);
+      }
+
+      function normalizeObjectData(data) {
         normalizePathFill(data);
+        if (!data.fill && OUTLINE_OBJECT_TYPES.includes(data.type)) data.fill = 'transparent';
         normalizeTextStyles(data);
-        const id = snapshot.key;
-        if (pendingRemoteIds.has(id)) return;
-        if (findObjectById(id)) {
-          // Если объект с таким miroId уже есть на холсте, передаём в onRemoteObjectChanged
-          onRemoteObjectChanged(snapshot);
+        if (Array.isArray(data.objects)) data.objects.forEach(normalizeObjectData);
+        if (data.type === 'image' && !data.filters) data.filters = [];
+        // Hit testing depends on the local selection. Persist a stable default.
+        if (data.type === 'circle' || data.type === 'rect') data.perPixelTargetFind = true;
+        return data;
+      }
+
+      function canUpdateObjectInPlace(existing, previous, data) {
+        if (!previous || existing.type !== data.type) return false;
+        // Geometry, paints, nested children and image sources need Fabric's
+        // fromObject constructors. Only simple changes can go through set().
+        const simple = ['left', 'top', 'width', 'height', 'scaleX', 'scaleY', 'angle',
+          'originX', 'originY', 'skewX', 'skewY', 'flipX', 'flipY', 'opacity',
+          'fill', 'stroke', 'strokeWidth', 'text', 'styles', 'fontSize', 'fontFamily',
+          'fontWeight', 'radius', 'collapsed', ...CUSTOM_OBJECT_DATA_PROPS];
+        return [...new Set([...Object.keys(previous), ...Object.keys(data)])].every(key => {
+          if (key === 'updatedBy' || key === 'updatedAt' || deepEqual(previous[key], data[key])) return true;
+          if (!simple.includes(key) || data[key] === undefined) return false;
+          return key === 'styles' || data[key] === null || typeof data[key] !== 'object';
+        });
+      }
+
+      function changeSelectedObject(existing, mutate) {
+        const active = canvas.getActiveObject();
+        const selected = existing && activeObjectUses(existing);
+        const multiple = selected && active.type === 'activeSelection';
+        const members = multiple ? active.getObjects().slice() : [];
+        const wasRemote = isRemoteUpdate;
+        isRemoteUpdate = true;
+        try {
+          if (multiple) canvas.discardActiveObject(); // restore world coordinates first
+          const next = mutate();
+          if (multiple) {
+            const remaining = members.map(obj => obj === existing ? next : obj).filter(Boolean);
+            if (remaining.length === 1) canvas.setActiveObject(remaining[0]);
+            if (remaining.length > 1) canvas.setActiveObject(new fabric.ActiveSelection(remaining, { canvas }));
+          } else if (selected && next && next !== existing) {
+            canvas.setActiveObject(next);
+          }
+        } finally {
+          isRemoteUpdate = wasRemote;
+        }
+      }
+
+      function isManipulating(obj) {
+        return obj && (obj.isEditing ||
+          (canvas._currentTransform && flattenTargets(canvas._currentTransform.target).includes(obj)) ||
+          simEmbedGesture?.anchor === obj);
+      }
+
+      function receiveObject(id, raw) {
+        const existing = findObjectById(id);
+        const sticker = stickerEditing && stickerEditing.meta.miroId === id ? stickerEditing : null;
+        if (!raw) {
+          objectOrder.delete(id);
+          pendingObjects.delete(id);
+          observedObjects.delete(id);
+          deferredEdits.delete(id);
+          if (sticker) {
+            stickerEditing = null;
+            isRemoteUpdate = true;
+            try {
+              if (sticker.label.isEditing) sticker.label.exitEditing();
+              canvas.discardActiveObject();
+              sticker.children.forEach(child => canvas.remove(child));
+            } finally { isRemoteUpdate = false; }
+          }
+          if (existing) {
+            pendingTransformTargets.delete(existing);
+            const transform = canvas._currentTransform;
+            if (transform && flattenTargets(transform.target).includes(existing)) canvas._currentTransform = null;
+            changeSelectedObject(existing, () => {
+              if (existing.isEditing) existing.exitEditing();
+              canvas.remove(existing);
+              return null;
+            });
+          }
+          lastObjectState.delete(id);
+          canvas.requestRenderAll();
+          return;
+        }
+        if (typeof raw.type !== 'string' || !fabric.util.getKlass(raw.type)) return;
+        const data = normalizeObjectData(raw);
+        if (!objectOrder.has(id)) objectOrder.set(id, nextObjectOrder++);
+        data.miroId = id;
+        const pending = pendingObjects.get(id);
+        if (pending && deepEqual(pending, data)) return;
+        pendingObjects.delete(id);
+        const previous = observedObjects.get(id);
+        if ((existing || sticker) && deepEqual(previous, data)) {
+          deferredEdits.delete(id);
+          return;
+        }
+        if (sticker || isManipulating(existing)) {
+          deferredEdits.set(id, data);
           return;
         }
 
-        const session = boardDataSession;
-        pendingRemoteIds.add(id);
-        cancelledRemoteIds.delete(id);
+        if (existing && canUpdateObjectInPlace(existing, previous, data)) {
+          const update = {};
+          for (const key of Object.keys(data)) {
+            if (key === 'updatedBy' || key === 'updatedAt' || deepEqual(data[key], previous[key])) continue;
+            update[key] = key === 'styles' ? fabric.util.stylesFromArray(data.styles, data.text || '') : data[key];
+          }
+          if ('text' in update && Array.isArray(data.styles)) {
+            update.styles = fabric.util.stylesFromArray(data.styles, data.text);
+          }
+          changeSelectedObject(existing, () => {
+            existing.set(update);
+            existing.dirty = true;
+            existing.setCoords();
+            return existing;
+          });
+          observedObjects.set(id, data);
+          lastObjectState.set(id, serializeObject(existing));
+          queueSimEmbedRefresh();
+          canvas.requestRenderAll();
+          return;
+        }
+
+        // A newer add/change/remove invalidates this callback, even after A → B → A.
+        pendingObjects.set(id, data);
         try {
-          fabric.util.enlivenObjects([data], (objects) => {
-            if (session !== boardDataSession) return;
-            pendingRemoteIds.delete(id);
-            if (cancelledRemoteIds.delete(id)) return;
-            const obj = objects && objects[0];
-            if (!obj || findObjectById(id)) return;
+          fabric.util.enlivenObjects([cloneJSON(data)], objects => {
+            if (pendingObjects.get(id) !== data) return;
+            pendingObjects.delete(id);
+            const obj = objects[0];
+            if (!obj) return;
+            const current = findObjectById(id);
+            if (isManipulating(current) || stickerEditing?.meta.miroId === id) {
+              deferredEdits.set(id, data);
+              return;
+            }
             obj.miroId = id;
             hydrateCustomObjectData(obj, data);
             applyToolToObject(obj);
-            obj.dirty = true;
-            obj.setCoords();
-            try {
-              isRemoteUpdate = true;
-              canvas.add(obj);
+            changeSelectedObject(current, () => {
+              let index = -1;
+              if (current) index = canvas.getObjects().indexOf(current);
+              else if (objectOrder.get(id) < nextObjectOrder - 1) {
+                // Images may finish decoding after objects above them.
+                index = canvas.getObjects().findIndex(other =>
+                  !other.miroBack && objectOrder.get(other.miroId) > objectOrder.get(id));
+              }
+              if (current) canvas.remove(current);
+              if (index < 0) canvas.add(obj);
+              else canvas.insertAt(obj, index);
               if (obj.miroBack) canvas.sendToBack(obj);
               normalizeObjectHitArea(obj);
-              updateSelectedHitAreas();
-              canvas.requestRenderAll();
-            } finally {
-              isRemoteUpdate = false;
-            }
+              return obj;
+            });
+            observedObjects.set(id, data);
             lastObjectState.set(id, serializeObject(obj));
+            canvas.requestRenderAll();
           });
         } catch (err) {
-          if (session !== boardDataSession) return;
-          pendingRemoteIds.delete(id);
+          pendingObjects.delete(id);
           console.warn('Не удалось восстановить объект:', err);
         }
       }
 
-      function canUpdateObjectInPlace(existing, data) {
-        if (!existing || !data) return false;
-        if (existing.type !== data.type) return false;
-        if (existing.miroSticker && data.miroSticker && Array.isArray(data.objects)) return true;
-        if (existing.type === 'group' || existing.type === 'activeSelection') return false;
-        if (Array.isArray(data.objects)) return false;
-        if (existing.type === 'image' && data.src && existing.getSrc && existing.getSrc() !== data.src) return false;
-        return true;
-      }
-
-      function updateObjectInPlace(existing, data) {
-        try {
-          isRemoteUpdate = true;
-          if (existing.type === 'path' && Array.isArray(data.path) &&
-              typeof existing._setPath === 'function' && !deepEqual(existing.path, data.path)) {
-            existing._setPath(data.path, data);
-            existing.dirty = true;
-            existing.setCoords();
-          }
-
-          const isTextObject = existing.type === 'text' || existing.type === 'i-text' || existing.type === 'textbox';
-          // Serialized text styles use a range array, while a live Fabric text
-          // object expects the per-character object form.
-          const dataStyles = isTextObject && Array.isArray(data.styles)
-            ? fabric.util.stylesFromArray(data.styles, data.text != null ? data.text : existing.text)
-            : data.styles;
-          // Serialized line endpoints are relative to the line center, while
-          // the live object stores absolute endpoints. Width/height/left/top
-          // carry the same geometry without corrupting the line.
-          const isLine = existing.type === 'line';
-
-          const update = {};
-          Object.keys(data).forEach((key) => {
-            if (key === 'type' || key === 'version' || key === 'miroId' ||
-                key === 'updatedBy' || key === 'updatedAt' || key === 'objects') return;
-            if (existing.type === 'path' && key === 'path') return;
-            if (isLine && (key === 'x1' || key === 'y1' || key === 'x2' || key === 'y2')) return;
-            const value = key === 'styles' && isTextObject ? dataStyles : data[key];
-            if (!deepEqual(existing[key], value)) update[key] = value;
-          });
-
-          // Text update
-          if (isTextObject && data.text !== undefined && existing.text !== data.text) {
-            existing.set('text', data.text);
-            existing.dirty = true;
-            existing.setCoords();
-          }
-
-          // Sticker / group child update
-          if (existing.miroSticker && Array.isArray(data.objects) && typeof existing.getObjects === 'function') {
-            const children = existing.getObjects();
-            data.objects.forEach((childData, idx) => {
-              const child = children[idx];
-              if (!child || !childData) return;
-              const childUpdate = {};
-              ['fill', 'stroke', 'strokeWidth', 'text', 'fontSize', 'fontFamily', 'fontWeight'].forEach((prop) => {
-                if (childData[prop] !== undefined && !deepEqual(child[prop], childData[prop])) {
-                  childUpdate[prop] = childData[prop];
-                }
-              });
-              if (Object.keys(childUpdate).length) {
-                child.set(childUpdate);
-                child.dirty = true;
-                if (typeof child.setCoords === 'function') child.setCoords();
-              }
-            });
-          }
-
-          if (Object.keys(update).length) existing.set(update);
-          existing.dirty = true;
-          existing.setCoords();
-          if (data.miroBack) canvas.sendToBack(existing);
-          applyToolToObject(existing);
-          normalizeObjectHitArea(existing);
-          updateSelectedHitAreas();
-          queueSimEmbedRefresh();
-          canvas.requestRenderAll();
-          if (existing.miroId) lastObjectState.set(existing.miroId, serializeObject(existing));
-        } finally {
-          isRemoteUpdate = false;
-        }
-      }
-
-      function onRemoteObjectChanged(snapshot) {
-        const data = snapshot.val();
-        if (!data || typeof data !== 'object') return;
-        normalizePathFill(data);
-        normalizeTextStyles(data);
-        const id = snapshot.key;
-        if (pendingRemoteIds.has(id)) return;
-        const existing = findObjectById(id);
-        if (!existing) {
-          onRemoteObjectAdded(snapshot);
-          return;
-        }
-        if (existing.isEditing) return;
-
-        // Firebase can echo a local write back to this tab. While the object
-        // is selected/transformed, that echo must not fight the local state.
-        // Simulator anchors are never selected (their controls live in an
-        // HTML overlay), so their own echoes must be ignored explicitly.
-        if (data.updatedBy === state.userId &&
-            (activeObjectUses(existing) || existing.customType === 'sim-embed')) return;
-
-        // Repair paths restored by an older version with a black fill.
-        if (existing.type === 'path' && (!existing.fill || existing.fill === 'rgb(0,0,0)')) {
-          existing.set('fill', 'transparent');
-          existing.dirty = true;
-          existing.setCoords();
-          canvas.requestRenderAll();
-        }
-
-        if (deepEqual(serializeObject(existing), data)) return;
-
-        if (canUpdateObjectInPlace(existing, data)) {
-          try {
-            updateObjectInPlace(existing, data);
-            return;
-          } catch (err) {
-            console.warn('Не удалось обновить объект на месте:', err);
-          }
-        }
-
-        const index = canvas.getObjects().indexOf(existing);
-        const session = boardDataSession;
-        pendingRemoteIds.add(id);
-        cancelledRemoteIds.delete(id);
-        try {
-          isRemoteUpdate = true;
-          if (activeObjectUses(existing)) canvas.discardActiveObject();
-          canvas.remove(existing);
-        } finally {
-          isRemoteUpdate = false;
-        }
-        try {
-          fabric.util.enlivenObjects([data], (objects) => {
-            if (session !== boardDataSession) return;
-            pendingRemoteIds.delete(id);
-            if (cancelledRemoteIds.delete(id)) return;
-            const obj = objects && objects[0];
-            if (!obj || findObjectById(id)) return;
-            obj.miroId = id;
-            hydrateCustomObjectData(obj, data);
-            applyToolToObject(obj);
-            obj.dirty = true;
-            obj.setCoords();
-            try {
-              isRemoteUpdate = true;
-              if (index >= 0) {
-                canvas.insertAt(obj, Math.min(index, canvas.getObjects().length));
-              } else {
-                canvas.add(obj);
-              }
-              if (obj.miroBack) canvas.sendToBack(obj);
-              normalizeObjectHitArea(obj);
-              updateSelectedHitAreas();
-              canvas.requestRenderAll();
-            } finally {
-              isRemoteUpdate = false;
-            }
-            lastObjectState.set(id, serializeObject(obj));
-          });
-        } catch (err) {
-          if (session !== boardDataSession) return;
-          pendingRemoteIds.delete(id);
-          console.warn('Не удалось обновить объект:', err);
-        }
-      }
-
-      function onRemoteObjectRemoved(snapshot) {
-        const id = snapshot.key;
-        if (pendingRemoteIds.has(id)) {
-          cancelledRemoteIds.add(id);
-          lastObjectState.delete(id);
-          return;
-        }
-        const existing = findObjectById(id);
-        if (!existing) {
-          lastObjectState.delete(id);
-          return;
-        }
-        try {
-          isRemoteUpdate = true;
-          if (activeObjectUses(existing)) canvas.discardActiveObject();
-          canvas.remove(existing);
-          canvas.requestRenderAll();
-        } finally {
-          isRemoteUpdate = false;
-        }
-        lastObjectState.delete(id);
-      }
-
-      function attachCloudObjectListeners(objectsRef, session) {
-        objectsRef.on('child_added', (snap) => {
-          if (session !== boardDataSession) return;
-          const id = snap.key;
-          if (findObjectById(id)) {
-            onRemoteObjectChanged(snap);
-          } else {
-            onRemoteObjectAdded(snap);
-          }
-        });
-        objectsRef.on('child_changed', (snap) => {
-          if (session !== boardDataSession) return;
-          onRemoteObjectChanged(snap);
-        });
-        objectsRef.on('child_removed', (snap) => {
-          if (session !== boardDataSession) return;
-          onRemoteObjectRemoved(snap);
-        });
+      function flushDeferredEdits() {
+        const edits = Array.from(deferredEdits);
+        deferredEdits.clear();
+        for (const [id, data] of edits) receiveObject(id, data);
       }
 
       function loadCloudBoardContent(id) {
-        if (currentObjectsRef) {
-          currentObjectsRef.off();
-          currentObjectsRef = null;
+        const session = boardDataSession;
+        const ref = db.ref('boards_data/' + id + '/objects');
+        currentObjectsRef = ref;
+        clearCanvasForBlockedBoard();
+        historyByBoard.set(id, { undoStack: [], redoStack: [] });
+        updateHistoryButtons();
+        // child_added replays every existing child, then streams new ones.
+        // Install removals and changes first. No separate hydration snapshot.
+        for (const event of ['child_removed', 'child_changed', 'child_added']) {
+          ref.on(event, snap => {
+            if (session === boardDataSession) receiveObject(snap.key, event === 'child_removed' ? null : snap.val());
+          }, err => { if (session === boardDataSession) handleFirebaseError(err); });
         }
-        cancelTransformSync();
-        if (cloudResyncTimer) {
-          clearTimeout(cloudResyncTimer);
-          cloudResyncTimer = null;
-        }
-        clearRemoteCursors();
-        const session = ++boardDataSession;
-        pendingRemoteIds.clear();
-        cancelledRemoteIds.clear();
-
-        currentObjectsRef = db.ref('boards_data/' + id + '/objects');
-
-        try {
-          isRemoteUpdate = true;
-          canvas.clear();
-          canvas.backgroundColor = null;
-          canvas.discardActiveObject();
-        } finally {
-          isRemoteUpdate = false;
-        }
-        lastObjectState.clear();
-        refreshSimEmbedOverlays();
-
-        const objectsRef = currentObjectsRef;
-        let liveListenersAttached = false;
-
-        const attachLiveListeners = () => {
-          if (liveListenersAttached) return;
-          if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
-          liveListenersAttached = true;
-          attachCloudObjectListeners(objectsRef, session);
-        };
-
-        const finishLoad = () => {
-          if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
-          syncToolState();
-          historyByBoard.set(id, { undoStack: [], redoStack: [] });
-          rememberAllObjectStates();
-          updateHistoryButtons();
-          refreshSimEmbedOverlays();
-          canvas.requestRenderAll();
-          // Attach on every path: successful snapshot, empty board and
-          // once('value') failure. Without this a user who loads the board
-          // while offline would never receive subsequent live updates.
-          attachLiveListeners();
-        };
-
-        objectsRef.once('value').then((snapshot) => {
-          if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
-          if (!snapshot || !snapshot.exists()) {
-            finishLoad();
-            return;
-          }
-
-          const value = snapshot.val() || {};
-          const entries = [];
-          Object.keys(value).forEach((key) => {
-            const data = value[key];
-            if (!data || typeof data !== 'object') return;
-            if (typeof data.type !== 'string' || !fabric.util.getKlass(data.type)) return;
-            normalizePathFill(data);
-            normalizeTextStyles(data);
-            entries.push({ id: key, data });
-          });
-
-          if (!entries.length) {
-            finishLoad();
-            return;
-          }
-
-          const idByData = new Map(entries.map(entry => [entry.data, entry.id]));
-          try {
-            fabric.util.enlivenObjects(
-              entries.map(entry => entry.data),
-              (objects) => {
-                if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
-                try {
-                  isRemoteUpdate = true;
-                  (objects || []).forEach((obj) => {
-                    if (!obj) return;
-                    obj.dirty = true;
-                    obj.setCoords();
-                    canvas.add(obj);
-                  });
-                  canvas.getObjects().forEach((obj) => {
-                    if (obj.miroBack) canvas.sendToBack(obj);
-                  });
-                  canvas.requestRenderAll();
-                } finally {
-                  isRemoteUpdate = false;
-                }
-                finishLoad();
-              },
-              null,
-              (source, obj) => {
-                if (obj && idByData.has(source)) {
-                  obj.miroId = idByData.get(source);
-                  hydrateCustomObjectData(obj, source);
-                }
-              }
-            );
-          } catch (err) {
-            console.warn('Не удалось загрузить объекты доски:', err);
-            finishLoad();
-          }
-        }).catch((err) => {
-          if (session !== boardDataSession || objectsRef !== currentObjectsRef) return;
-          handleFirebaseError(err);
-          // Keep live listeners attached even when the initial read failed
-          // (offline, permission hiccup, temporary network error).
-          finishLoad();
-        });
       }
 
       function loadLocalBoardContent(id) {
@@ -4794,7 +4569,12 @@
         // Состояние группы до редактирования — «before» для истории.
         const before = captureObjectState(group);
 
-        stickerEditing = { label, children, meta, before };
+        const localTransforms = children.map(child => ({
+          left: child.left, top: child.top, scaleX: child.scaleX, scaleY: child.scaleY,
+          angle: child.angle, skewX: child.skewX, skewY: child.skewY,
+          flipX: child.flipX, flipY: child.flipY, selectable: child.selectable, evented: child.evented
+        }));
+        stickerEditing = { group, label, children, meta, before, localTransforms, text: label.text };
         canvas.discardActiveObject();
         if (typeof group._restoreObjectsState === 'function') group._restoreObjectsState();
         canvas.remove(group);
@@ -4821,22 +4601,25 @@
         const children = session.children.filter(child => canvas.contains(child));
         children.forEach(child => canvas.remove(child));
 
-        const group = new fabric.Group(children, {
-          miroSticker: true,
-          miroId: session.meta.miroId
+        const group = session.group;
+        children.forEach((child, index) => {
+          child.set(session.localTransforms[index]);
+          child.group = group;
+          child.dirty = true;
+          child.setCoords();
         });
-
-        ensureObjectId(group);
+        group.dirty = true;
         applyToolToObject(group);
         canvas.add(group);
         group.setCoords();
         canvas.setActiveObject(group);
-        syncObjectToFirebase(group);
-        recordStep([{
-          id: group.miroId,
-          before: session.before == null ? null : cloneJSON(session.before),
-          after: serializeObject(group)
-        }]);
+        if (session.text === session.label.text) {
+          flushDeferredEdits();
+        } else {
+          const before = deferredEdits.get(group.miroId) || session.before;
+          syncObjectToFirebase(group);
+          recordStep([{ id: group.miroId, before, after: serializeObject(group) }]);
+        }
         canvas.requestRenderAll();
         return group;
       }
@@ -4894,9 +4677,10 @@
         });
       }
 
-      function addImageFile(file, offset = 0) {
+      function addImageFile(file, offset, session) {
         return compressImageFile(file).then(({ dataUrl }) => new Promise((resolve) => {
           fabric.Image.fromURL(dataUrl, (img) => {
+            if (session !== boardDataSession || boardAccess !== 'ready' || !img) { resolve(null); return; }
             const scale = Math.min(
               1,
               IMAGE_DISPLAY_MAX_W / img.width,
@@ -4932,9 +4716,10 @@
           return;
         }
 
-        for (let i = 0; i < images.length; i++) {
+        const session = boardDataSession;
+        for (let i = 0; i < images.length && session === boardDataSession; i++) {
           try {
-            await addImageFile(images[i], i * 24);
+            await addImageFile(images[i], i * 24, session);
           } catch (err) {
             console.error(err);
             showToast('Не удалось обработать изображение', 'error');
@@ -5522,7 +5307,9 @@
           callback(null);
           return;
         }
+        const session = boardDataSession;
         fabric.util.enlivenObjects([payload], (objects) => {
+          if (session !== boardDataSession || boardAccess !== 'ready') return;
           const clone = objects && objects[0];
           if (!clone) {
             callback(null);
@@ -5560,8 +5347,8 @@
                   evented: true
                 });
                 ensureObjectId(clone);
-                syncObjectToFirebase(clone);
                 canvas.add(clone);
+                syncObjectToFirebase(clone);
                 clones.push(clone);
               }
               if (pending === 0) {
@@ -5589,8 +5376,8 @@
               evented: true
             });
             ensureObjectId(clone);
-            syncObjectToFirebase(clone);
             canvas.add(clone);
+            syncObjectToFirebase(clone);
             canvas.setActiveObject(clone);
             recordCreation(clone);
             canvas.requestRenderAll();
@@ -5613,8 +5400,7 @@
         objectClipboard.json = JSON.parse(JSON.stringify(active.toObject(OBJECT_SERIALIZE_PROPS)));
         objectClipboard.count = count;
         objectClipboard.pasteCount = 0;
-        lastObjectCopyAt = Date.now();
-        lastInternalPasteAt = 0;
+        systemCopyAvailable = false;
         showToast('Скопировано: ' + count + ' ' + plural(count, 'объект', 'объекта', 'объектов'));
         return true;
       }
@@ -5625,25 +5411,33 @@
 
         if (clipboard.items) {
           Array.from(clipboard.items).forEach((item) => {
-            if (item.kind === 'file' && item.type.startsWith('image/')) {
+            if (item.kind === 'file') {
               const file = item.getAsFile();
-              if (file) files.push(file);
+              if (file && file.type.startsWith('image/')) files.push(file);
             }
           });
         }
-        if (!files.length && clipboard.files) {
+        if (clipboard.files) {
           Array.from(clipboard.files).forEach((file) => {
-            if (file.type.startsWith('image/')) files.push(file);
+            if (file.type.startsWith('image/') && !files.some(item => item === file ||
+                (item.name === file.name && item.size === file.size && item.type === file.type &&
+                 item.lastModified === file.lastModified))) files.push(file);
           });
         }
         return files;
       }
 
-      function shouldPreferInternalClipboard(hasImage) {
-        if (!objectClipboard.json) return false;
-        if (!hasImage) return true;
-        return Date.now() - Math.max(lastObjectCopyAt, lastInternalPasteAt) < INTERNAL_PASTE_IMAGE_WINDOW_MS;
-      }
+      document.addEventListener('copy', event => {
+        if (boardAccess !== 'ready' || activeModal || isEditable(event.target) || isEditingText()) return;
+        if (!copiedByKey && !copySelectionToInternalClipboard()) return;
+        copiedByKey = false;
+        // Setting text during the native copy event needs no async clipboard permission.
+        try {
+          event.clipboardData.setData('text/plain', clipboardMarker);
+          event.preventDefault();
+          systemCopyAvailable = true;
+        } catch (_) { /* The in-memory copy is already available. */ }
+      });
 
       function pasteInternalClipboard() {
         if (!objectClipboard.json) return false;
@@ -5652,14 +5446,13 @@
         // Fabric's enlivenObjects mutates the passed JSON (removes `objects` for
         // active selections), so keep the clipboard itself untouched.
         const json = JSON.parse(JSON.stringify(objectClipboard.json));
-        const boardId = state.currentBoardId;
+        const session = boardDataSession;
         objectClipboard.pasteCount += 1;
         const offset = INTERNAL_PASTE_OFFSET * objectClipboard.pasteCount;
-        lastInternalPasteAt = Date.now();
 
         try {
           fabric.util.enlivenObjects([json], (objects) => {
-            if (state.currentBoardId !== boardId) return;
+            if (session !== boardDataSession || boardAccess !== 'ready') return;
             const pasted = objects && objects[0];
             if (!pasted) return;
             hydrateCustomObjectData(pasted, json);
@@ -5709,19 +5502,15 @@
       }
 
       function schedulePasteFallback() {
-        if (!objectClipboard.json) return;
+        if (!objectClipboard.json || systemCopyAvailable) return;
         if (activeModal || isEditingText() || isEditable(document.activeElement)) return;
 
-        const token = ++pasteShortcutToken;
-        lastPasteEventAt = 0;
         clearTimeout(pasteFallbackTimer);
+        fallbackPasted = false;
         pasteFallbackTimer = setTimeout(() => {
-          if (token !== pasteShortcutToken) return;
-          if (Date.now() - lastPasteEventAt < 180) return;
-          if (activeModal || isEditingText() || isEditable(document.activeElement)) return;
-          if (Date.now() - pasteFallbackHandledAt < 500) return;
-          if (pasteInternalClipboard()) pasteFallbackHandledAt = Date.now();
-        }, 140);
+          if (boardAccess !== 'ready' || isEditable(document.activeElement)) return;
+          fallbackPasted = pasteInternalClipboard();
+        }, 350);
       }
 
       /* ---------- Canvas events ---------- */
@@ -5760,7 +5549,7 @@
       canvas.on('object:rotating', handleObjectTransform);
 
       canvas.on('object:modified', (opt) => {
-        if (isRemoteUpdate) return;
+        if (isRemoteUpdate || finishedTextEdits.has(opt.target)) return;
         cancelTransformSync();
         const target = opt.target;
         // Во время выхода из редактирования текста объект может быть уже
@@ -5793,13 +5582,22 @@
 
       canvas.on('text:editing:exited', (opt) => {
         const target = opt.target;
+        if (!target) return;
+        finishedTextEdits.add(target);
+        queueMicrotask(() => finishedTextEdits.delete(target));
+        if (isRemoteUpdate) return;
         if (stickerEditing && target === stickerEditing.label) {
           finishStickerEditing();
           textEditingBeforeState = null;
           return;
         }
-        const before = textEditingBeforeState;
+        const initial = textEditingBeforeState;
+        const before = deferredEdits.get(target.miroId) || initial;
         textEditingBeforeState = null;
+        if (initial && deepEqual(initial, serializeObject(target))) {
+          flushDeferredEdits();
+          return;
+        }
         // Объект мог быть убран с холста вместе с группой стикера.
         if (!target || !canvas.contains(target)) {
           canvas.requestRenderAll();
@@ -5825,34 +5623,23 @@
         e.preventDefault();
         e.stopPropagation();
 
-        // Normalize line/page scrolling to pixel-like units for zoom.
-        let deltaY = e.deltaY;
-        if (e.deltaMode === 1) {
-          deltaY *= 20;
-        } else if (e.deltaMode === 2) {
-          deltaY *= 100;
-        }
-
+        // Gecko may choose compatibility units on the first delta access.
+        const mode = e.deltaMode;
+        const dx = e.deltaX * (mode === 1 ? 16 : mode === 2 ? canvas.getWidth() : 1);
+        const dy = e.deltaY * (mode === 1 ? 16 : mode === 2 ? canvas.getHeight() : 1);
         if (e.ctrlKey || e.metaKey) {
-          // Trackpad pinch gestures arrive as smooth, small wheel deltas.
-          // Mouse wheels produce larger discrete steps.
-          const sensitivity = Math.abs(deltaY) < 40 ? 0.014 : 0.0022;
-          const newZoom = clamp(
-            canvas.getZoom() * Math.exp(-deltaY * sensitivity),
-            MIN_ZOOM,
-            MAX_ZOOM
-          );
-          canvas.zoomToPoint(new fabric.Point(e.offsetX, e.offsetY), newZoom);
+          const sensitivity = mode === 0 && Math.abs(dy) < 40 ? 0.014 : 0.0022;
+          const step = clamp(dy * sensitivity, -0.4, 0.4);
+          const zoom = clamp(canvas.getZoom() * Math.exp(-step), MIN_ZOOM, MAX_ZOOM);
+          const rect = canvas.upperCanvasEl.getBoundingClientRect();
+          if (!rect.width || !rect.height) return;
+          canvas.zoomToPoint(new fabric.Point(
+            (e.clientX - rect.left) * canvas.getWidth() / rect.width,
+            (e.clientY - rect.top) * canvas.getHeight() / rect.height
+          ), zoom);
         } else {
-          // Two-finger trackpad movement should drag the board in the same
-          // direction as Space + left-button panning, not scroll it away.
-          // Keep the original pan units and sign untouched.
-          const unitX = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.getWidth() : 1;
-          const unitY = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.getHeight() : 1;
-          const vpt = canvas.viewportTransform;
-          vpt[4] -= e.deltaX * unitX;
-          vpt[5] -= e.deltaY * unitY;
-          canvas.setViewportTransform(vpt);
+          panViewportBy(-dx, -dy);
+          return;
         }
 
         syncView();
@@ -5902,6 +5689,7 @@
 
       canvas.on('mouse:up', () => {
         endEraserGesture();
+        queueMicrotask(flushDeferredEdits);
       });
 
       canvas.on('mouse:dblclick', (opt) => {
@@ -5925,6 +5713,7 @@
 
       function startPan(x, y) {
         isPanning = true;
+        canvasWrap.classList.add('canvas-panning');
         lastPanX = x;
         lastPanY = y;
         canvas.defaultCursor = 'grabbing';
@@ -5940,6 +5729,7 @@
 
       function startRightPan(x, y) {
         isRightPanning = true;
+        canvasWrap.classList.add('canvas-panning');
         lastRightPanX = x;
         lastRightPanY = y;
         hideEraserCursor();
@@ -6303,32 +6093,22 @@
         e.preventDefault();
       }, { passive: false, capture: true });
 
-      canvas.upperCanvasEl.addEventListener('pointerdown', (e) => {
-        if (e.button !== 2 || activeModal) return;
-        if (isPanning) endPan();
-        if (isMiddlePanning) endMiddlePan();
-        startRightPan(e.clientX, e.clientY);
-        e.preventDefault();
-      });
-
-      // Перемещение по холсту зажатым колёсиком мыши (средняя кнопка).
-      // preventDefault на mousedown обязателен: иначе Windows/Chrome
-      // включает системную автопрокрутку страницы.
-      function handleMiddleButtonDown(e) {
-        if (e.button !== 1) return;
+      function handlePanButton(e) {
+        if (e.button !== 1 && e.button !== 2) return;
         e.preventDefault();
         if (activeModal || boardAccess !== 'ready') return;
-        if (isMiddlePanning) return;
-        if (isErasing) endEraserGesture();
-        if (isPanning) endPan();
-        if (isRightPanning) endRightPan();
-        startMiddlePan(e.clientX, e.clientY);
+        if (e.type === 'pointerdown') {
+          try { canvasWrap.setPointerCapture(e.pointerId); } catch (_) {}
+        }
+        if (isMiddlePanning || isRightPanning) return;
+        endEraserGesture();
+        endPan();
+        if (e.button === 1) startMiddlePan(e.clientX, e.clientY);
+        else startRightPan(e.clientX, e.clientY);
       }
 
-      canvasWrap.addEventListener('mousedown', handleMiddleButtonDown, { capture: true });
-      canvasWrap.addEventListener('pointerdown', handleMiddleButtonDown, { capture: true });
-      canvas.upperCanvasEl.addEventListener('mousedown', handleMiddleButtonDown, { capture: true });
-      canvas.upperCanvasEl.addEventListener('pointerdown', handleMiddleButtonDown, { capture: true });
+      canvasWrap.addEventListener('pointerdown', handlePanButton, true);
+      canvasWrap.addEventListener('mousedown', handlePanButton, true);
 
       function preventMiddleAuxClick(e) {
         if (e.button === 1) e.preventDefault();
@@ -6345,6 +6125,11 @@
       canvas.upperCanvasEl.addEventListener('contextmenu', preventCanvasContextMenu);
 
       document.addEventListener('pointermove', (e) => {
+        if (e.pointerType === 'mouse') {
+          if (!(e.buttons & 4)) endMiddlePan();
+          if (!(e.buttons & 2)) endRightPan();
+          if (!(e.buttons & 1)) endPan();
+        }
         if (isMiddlePanning) {
           const dx = e.clientX - lastMiddlePanX;
           const dy = e.clientY - lastMiddlePanY;
@@ -6374,22 +6159,16 @@
         e.preventDefault();
       });
 
-      document.addEventListener('pointerup', () => {
+      function finishCanvasPan() {
         endEraserGesture();
         endPan();
         endRightPan();
         endMiddlePan();
-      });
-      document.addEventListener('pointercancel', () => {
-        endEraserGesture();
-        endPan();
-        endRightPan();
-        endMiddlePan();
-      });
-      // Страховка для браузеров, где средняя кнопка приходит только как mouseup.
-      document.addEventListener('mouseup', (e) => {
-        if (e.button === 1) endMiddlePan();
-      });
+      }
+      window.addEventListener('pointerup', finishCanvasPan, true);
+      window.addEventListener('pointercancel', finishCanvasPan, true);
+      window.addEventListener('mouseup', finishCanvasPan, true);
+      canvasWrap.addEventListener('lostpointercapture', finishCanvasPan);
 
       function nudgeSelection(dx, dy) {
         const active = canvas.getActiveObject();
@@ -6775,7 +6554,8 @@
               text: note.text,
               createdAt: note.createdAt || Date.now(),
               updatedAt: note.updatedAt || note.createdAt || Date.now(),
-              author: note.author || ''
+              author: note.author || '',
+              ...(note.localOnly ? { localOnly: true } : {})
             };
           });
           if (Object.keys(packed).length) all[safeId] = packed;
@@ -6810,7 +6590,8 @@
             text,
             createdAt,
             updatedAt,
-            author: String(value.author || '').slice(0, 40)
+            author: String(value.author || '').slice(0, 40),
+            localOnly: value.localOnly === true
           });
         });
         return notes.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -6869,42 +6650,28 @@
         detachNotesListener();
         const token = ++notesLoadToken;
         currentNotesBoardId = safeId;
-        notesSeedingBoardId = '';
         currentNotes = safeId ? readNotesCache(safeId) : [];
         renderNotes();
         if (!safeId || !cloudEnabled || !db) return;
 
+        const localDrafts = currentNotes.filter(note => note.localOnly);
         const ref = db.ref('boards_data/' + safeId + '/notes');
         currentNotesRef = ref;
         renderNotes();
         ref.on('value', (snapshot) => {
           if (token !== notesLoadToken || currentNotesBoardId !== safeId || state.currentBoardId !== safeId) return;
-          if (notesSeedingBoardId === safeId) return;
           const remote = normalizeBoardNotes(snapshot.val());
-          if (!remote.length && currentNotes.length && !notesSeededBoards.has(safeId)) {
-            // Один раз за сессию переносим локальный кэш в пустую облачную ветку.
-            notesSeededBoards.add(safeId);
-            notesSeedingBoardId = safeId;
-            const seedNotes = currentNotes.slice();
-            let remaining = seedNotes.length;
-            let failed = false;
-            seedNotes.forEach((note) => {
-              ref.child(note.id).set(notePayload(note)).catch((err) => {
-                failed = true;
-                handleFirebaseError(err);
-              }).then(() => {
-                remaining -= 1;
-                if (remaining > 0) return;
-                notesSeedingBoardId = '';
-                if (failed) showToast('Не все заметки удалось синхронизировать', 'error');
-              });
-            });
-            return;
-          }
-          currentNotes = remote;
-          writeNotesCache(safeId, remote);
+          const known = new Set(remote.map(note => note.id));
+          currentNotes = remote.concat(localDrafts.filter(note => !known.has(note.id)));
+          writeNotesCache(safeId, currentNotes);
           renderNotes();
         }, handleFirebaseError);
+        if (localDrafts.length) {
+          const updates = Object.fromEntries(localDrafts.map(note => [note.id, notePayload(note)]));
+          ref.update(updates).then(() => {
+            localDrafts.length = 0;
+          }).catch(handleFirebaseError);
+        }
       }
 
       function detachNotesListener() {
@@ -6931,7 +6698,8 @@
           text,
           createdAt: now,
           updatedAt: now,
-          author: displayName()
+          author: displayName(),
+          localOnly: !currentNotesRef
         };
         currentNotes = [note].concat(currentNotes).sort((a, b) => b.updatedAt - a.updatedAt);
         writeNotesCache(currentNotesBoardId, currentNotes);
@@ -7515,10 +7283,10 @@
 
         const frame = element.querySelector('iframe');
         const url = safeSimulatorUrl(anchor.simUrl);
+        if (frame && frame.title !== title) frame.title = title;
         if (frame && frame.dataset.simUrl !== url) {
           frame.dataset.simUrl = url;
           frame.src = url;
-          frame.title = title;
         }
 
         positionSimEmbedOverlay(anchor, element);
@@ -7588,6 +7356,7 @@
       }
 
       function onSimEmbedPointerDown(event) {
+        if (event.button !== 0 || spaceDown || state.tool === 'hand') return;
         const element = event.target instanceof Element ? event.target.closest('.sim-embed') : null;
         if (!element) return;
         if (event.target.closest('button')) return;
@@ -7650,7 +7419,7 @@
         const gesture = simEmbedGesture;
         if (gesture.pointerId != null && event && event.pointerId != null && gesture.pointerId !== event.pointerId) return;
         simEmbedGesture = null;
-        if (!gesture.moved) return;
+        if (!gesture.moved) { flushDeferredEdits(); return; }
         const anchor = gesture.anchor;
         if (!anchor || !canvas.contains(anchor)) return;
         flushTransformSync();
@@ -8059,43 +7828,24 @@
         const meta = linkCardMetaById.get(id);
         const existing = findObjectById(id);
         if (!meta || !existing || existing.customType !== 'link-card') return;
-        const active = canvas.getActiveObject();
-        if (active && active.type === 'activeSelection' && active.getObjects().includes(existing)) return;
-        if (canvas._currentTransform && canvas._currentTransform.target === existing) {
-          setTimeout(() => refreshLinkCardGroup(id), 300);
+        if (isManipulating(existing)) {
+          setTimeout(() => { if (linkCardMetaById.get(id) === meta) refreshLinkCardGroup(id); }, 300);
           return;
         }
-
-        const index = canvas.getObjects().indexOf(existing);
-        const keepActive = active === existing;
-        const next = buildLinkCard(meta, { left: existing.left, top: existing.top });
-        next.miroId = id;
-        next.set({
-          originX: existing.originX,
-          originY: existing.originY,
-          scaleX: existing.scaleX,
-          scaleY: existing.scaleY,
-          angle: existing.angle,
-          skewX: existing.skewX,
-          skewY: existing.skewY,
-          flipX: existing.flipX,
-          flipY: existing.flipY
-        });
-        next.setCoords();
-        applyToolToObject(next);
-
-        const wasRemote = isRemoteUpdate;
-        isRemoteUpdate = true;
-        try {
-          if (keepActive) canvas.discardActiveObject();
+        let next;
+        changeSelectedObject(existing, () => {
+          next = buildLinkCard(meta, { left: existing.left, top: existing.top });
+          next.miroId = id;
+          for (const key of ['originX', 'originY', 'scaleX', 'scaleY', 'angle', 'skewX', 'skewY', 'flipX', 'flipY']) {
+            next.set(key, existing[key]);
+          }
+          const index = canvas.getObjects().indexOf(existing);
+          applyToolToObject(next);
           canvas.remove(existing);
-          if (index >= 0) canvas.insertAt(next, Math.min(index, canvas.getObjects().length));
-          else canvas.add(next);
-        } finally {
-          isRemoteUpdate = wasRemote;
-        }
-
-        if (keepActive && state.tool === 'cursor') canvas.setActiveObject(next);
+          canvas.insertAt(next, index);
+          next.setCoords();
+          return next;
+        });
         normalizeObjectHitArea(next);
         syncObjectToFirebase(next);
         lastObjectState.set(id, serializeObject(next));
@@ -8108,7 +7858,7 @@
         loadRemoteImage(meta.faviconUrl, linkFaviconCache).then((image) => {
           if (!image) return;
           const current = linkCardMetaById.get(id);
-          if (!current) return;
+          if (current !== meta) return;
           current.faviconEl = image;
           refreshLinkCardGroup(id);
         });
@@ -8125,7 +7875,7 @@
           const data = payload && payload.data ? payload.data : null;
           if (!data) return;
           const current = linkCardMetaById.get(id);
-          if (!current) return;
+          if (current !== meta) return;
           let changed = false;
 
           const title = cleanLinkText(data.title, 56);
@@ -8147,7 +7897,7 @@
               changed = true;
             }
           }
-          if (changed) refreshLinkCardGroup(id);
+          if (changed && linkCardMetaById.get(id) === current) refreshLinkCardGroup(id);
         }).catch(() => {
           // Keep the instant fallback card when the site cannot be parsed.
         }).finally(() => clearTimeout(timeout));
@@ -8578,8 +8328,10 @@
           } else if (event.code === 'KeyD') {
             event.preventDefault();
             duplicateSelection();
+
           } else if (event.code === 'KeyC') {
-            if (copySelectionToInternalClipboard()) event.preventDefault();
+            copiedByKey = copySelectionToInternalClipboard();
+            setTimeout(() => { copiedByKey = false; }, 0);
           } else if (event.code === 'KeyV') {
             schedulePasteFallback();
           }
@@ -8681,9 +8433,8 @@
           area.style.opacity = '0';
           document.body.appendChild(area);
           area.select();
-          const ok = document.execCommand('copy');
-          document.body.removeChild(area);
-          return ok;
+          try { return document.execCommand('copy'); }
+          finally { area.remove(); }
         } catch (_) {
           return false;
         }
@@ -8912,61 +8663,22 @@
         }, Math.max(0, delay));
       }
 
-      async function resyncCloudBoard() {
-        if (!cloudEnabled || !db || !currentObjectsRef || boardAccess !== 'ready') return;
-        if (cloudResyncInFlight) {
-          cloudResyncQueued = true;
-          return;
-        }
-
-        const objectsRef = currentObjectsRef;
+      function resyncCloudBoard() {
+        if (!currentObjectsRef || boardAccess !== 'ready') return;
         const session = boardDataSession;
-        const boardId = state.currentBoardId;
-        const localIdsAtStart = new Set();
-        canvas.getObjects().forEach((obj) => {
-          if (obj && obj.miroId) localIdsAtStart.add(obj.miroId);
-        });
-
-        cloudResyncInFlight = true;
-        try {
-          const snapshot = await objectsRef.once('value');
-          if (session !== boardDataSession || objectsRef !== currentObjectsRef ||
-              boardId !== state.currentBoardId) return;
-
-          const value = snapshot.val() || {};
-          const remoteIds = new Set();
-          Object.keys(value).forEach((id) => {
-            const data = value[id];
-            if (!data || typeof data !== 'object') return;
-            if (typeof data.type !== 'string' || !fabric.util.getKlass(data.type)) return;
-            remoteIds.add(id);
-            const remoteSnapshot = { key: id, val: () => data };
-            if (findObjectById(id)) onRemoteObjectChanged(remoteSnapshot);
-            else onRemoteObjectAdded(remoteSnapshot);
+        // Consume the snapshot inside Firebase's ordered event callback.
+        // A Promise continuation could run after a newer child event.
+        currentObjectsRef.once('value', snapshot => {
+          if (session !== boardDataSession) return;
+          const remaining = new Set([...observedObjects.keys(), ...pendingObjects.keys(),
+            ...canvas.getObjects().map(obj => obj.miroId).filter(Boolean)]);
+          if (stickerEditing) remaining.add(stickerEditing.meta.miroId);
+          snapshot.forEach(child => {
+            remaining.delete(child.key);
+            receiveObject(child.key, child.val());
           });
-
-          // Firebase's local cache keeps pending writes, so a locally created
-          // object is present in this snapshot until the server acknowledges
-          // it. Only remove objects that were already on the canvas when
-          // reconciliation started and are truly absent from the snapshot.
-          canvas.getObjects().slice().forEach((obj) => {
-            if (!obj || !obj.miroId) return;
-            if (remoteIds.has(obj.miroId)) return;
-            if (!localIdsAtStart.has(obj.miroId)) return;
-            onRemoteObjectRemoved({ key: obj.miroId });
-          });
-          canvas.requestRenderAll();
-        } catch (err) {
-          if (session === boardDataSession && objectsRef === currentObjectsRef) {
-            console.warn('Не удалось досинхронизировать доску:', err);
-          }
-        } finally {
-          cloudResyncInFlight = false;
-          if (cloudResyncQueued) {
-            cloudResyncQueued = false;
-            scheduleCloudResync(180);
-          }
-        }
+          remaining.forEach(id => receiveObject(id, null));
+        }).catch(err => { if (session === boardDataSession) handleFirebaseError(err); });
       }
 
       function handleCloudReconnect() {
@@ -8995,7 +8707,9 @@
           const restored = connected && !firebaseConnected;
           firebaseConnected = connected;
           setSyncStatus(connected ? 'online' : 'offline');
+          if (!connected) presenceRegistration = null;
           if (restored) {
+            registerCursorPresence();
             try {
               if (typeof db.goOnline === 'function') db.goOnline();
             } catch (_) {}
@@ -9019,15 +8733,29 @@
         });
       }
 
+      function registerCursorPresence() {
+        if (!cursorRef || !firebaseConnected) return;
+        const ref = cursorRef;
+        const registration = { ready: false };
+        presenceRegistration = registration;
+        ref.onDisconnect().remove().then(() => {
+          if (presenceRegistration !== registration) return;
+          registration.ready = true;
+          if (lastCursorPosition) publishCursor();
+        }).catch(handleFirebaseError);
+      }
+
       function detachCursors() {
+        presenceRegistration = null;
+        lastCursorPosition = null;
         cursorsSession += 1;
         if (currentCursorsRef) {
           currentCursorsRef.off();
           currentCursorsRef = null;
         }
         if (cursorRef) {
-          cursorRef.onDisconnect().cancel().catch(() => {});
           cursorRef.remove().catch(() => {});
+          cursorRef.onDisconnect().cancel().catch(() => {});
           cursorRef = null;
         }
         clearRemoteCursors();
@@ -9056,7 +8784,7 @@
         });
 
         cursorRef = currentCursorsRef.child(state.userId);
-        cursorRef.onDisconnect().remove().catch(handleFirebaseError);
+        registerCursorPresence();
         lastCursorSent = 0;
         updateOnlineCount();
       }
@@ -9070,9 +8798,14 @@
         const pointer = canvas.getPointer(event);
         if (!pointer || !Number.isFinite(pointer.x) || !Number.isFinite(pointer.y)) return;
 
+        lastCursorPosition = { x: pointer.x, y: pointer.y };
+        publishCursor();
+      }
+
+      function publishCursor() {
+        if (!presenceRegistration?.ready || !lastCursorPosition) return;
         cursorRef.set({
-          x: pointer.x,
-          y: pointer.y,
+          ...lastCursorPosition,
           name: displayName(),
           color: state.cursorColor,
           updatedAt: window.firebase.database.ServerValue.TIMESTAMP
@@ -9095,12 +8828,7 @@
         updateUserAvatar();
         renderParticipants();
         persist();
-        if (cursorRef) {
-          cursorRef.update({
-            name: displayName(),
-            color: state.cursorColor
-          }).catch(() => {});
-        }
+        publishCursor();
       });
 
       /* ---------- Photo upload ---------- */
@@ -9119,23 +8847,14 @@
       /* ---------- Paste: internal objects or image (Ctrl+V) ---------- */
 
       document.addEventListener('paste', (event) => {
-        lastPasteEventAt = Date.now();
+        clearTimeout(pasteFallbackTimer);
 
         if (activeModal || boardAccess !== 'ready') return;
         if (isEditable(event.target) || isEditingText()) return;
-        if (Date.now() - pasteFallbackHandledAt < 500) {
-          event.preventDefault();
-          return;
-        }
-
+        const alreadyPasted = fallbackPasted;
+        fallbackPasted = false;
         const files = getImageFilesFromClipboard(event.clipboardData);
         const hasImage = files.length > 0;
-
-        if (objectClipboard.json && shouldPreferInternalClipboard(hasImage)) {
-          event.preventDefault();
-          pasteInternalClipboard();
-          return;
-        }
 
         if (hasImage) {
           event.preventDefault();
@@ -9148,6 +8867,11 @@
           clipboardText = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
         } catch (_) {
           clipboardText = '';
+        }
+        if (objectClipboard.json && (!clipboardText || clipboardText === clipboardMarker)) {
+          event.preventDefault();
+          if (!alreadyPasted) pasteInternalClipboard();
+          return;
         }
         const linkUrl = normalizeLinkUrl(clipboardText.trim());
         if (!linkUrl) return;
@@ -9320,6 +9044,41 @@
       // найденного в ссылке или localStorage. Слушатели данных и курсоров
       // подключаются внутри switchBoard() после подтверждения boards_meta.
       switchBoard(state.currentBoardId, { replaceHistory: true, silent: true });
+    })();
+  </script>
+  <script>
+    (async () => {
+      if (!/^https?:$/.test(location.protocol) || !window.crypto?.subtle) return;
+      const initialUrl = location.href;
+      const controller = new AbortController();
+      const cancel = () => controller.abort();
+      const timeout = setTimeout(cancel, 5000);
+      window.addEventListener('pointerdown', cancel, true);
+      window.addEventListener('keydown', cancel, true);
+      async function hash(source) {
+        const bytes = new TextEncoder().encode(source);
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+      }
+      try {
+        const LOCAL_BUILD_HASH = await hash(document.getElementById('appMainScript').textContent);
+        const url = new URL(initialUrl);
+        const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+        if (!response.ok) return;
+        const html = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const script = html.getElementById('appMainScript');
+        if (!script) return;
+        const latest = await hash(script.textContent);
+        if (LOCAL_BUILD_HASH === latest || url.searchParams.get('_build') === latest || controller.signal.aborted) return;
+        const current = new URL(location.href);
+        current.searchParams.set('_build', latest);
+        location.replace(current);
+      } catch (_) { /* Offline startup can use the already loaded build. */ }
+      finally {
+        clearTimeout(timeout);
+        window.removeEventListener('pointerdown', cancel, true);
+        window.removeEventListener('keydown', cancel, true);
+      }
     })();
   </script>
 </body>

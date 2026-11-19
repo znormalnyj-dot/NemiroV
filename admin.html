@@ -8,18 +8,25 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link id="tailwindFallback" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+        media="print" onload="this.media='all'" onerror="this.onerror=null;this.href='https://unpkg.com/tailwindcss@2.2.19/dist/tailwind.min.css'" />
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
-          colors: { ink: '#050038', accent: '#4262ff' }
+    function configureTailwind() {
+      document.getElementById('tailwindFallback').disabled = true;
+      window.tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+            colors: { ink: '#050038', accent: '#4262ff' }
+          }
         }
-      }
-    };
+      };
+    }
   </script>
+  <script async src="https://cdn.tailwindcss.com" onload="configureTailwind()"></script>
   <style>
+    :where(.hidden) { display: none; }
+    .fixed { position: fixed; }
     :root {
       --ink: #050038;
       --muted: #6b6b7e;
@@ -503,10 +510,40 @@
     <span id="toastText" class="truncate"></span>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    async function loadLibrary(urls, available) {
+      for (const url of urls) {
+        if (available()) return;
+        await new Promise(resolve => {
+          const script = document.createElement('script');
+          script.onload = script.onerror = resolve;
+          script.src = url;
+          document.head.appendChild(script);
+        });
+      }
+    }
+
+    function loadFirebaseModule(name, available) {
+      const file = 'firebase-' + name + '-compat.js';
+      return loadLibrary([
+        'https://www.gstatic.com/firebasejs/10.12.2/' + file,
+        'https://cdn.jsdelivr.net/npm/firebase@10.12.2/' + file,
+        'https://unpkg.com/firebase@10.12.2/' + file
+      ], available);
+    }
+
+    const sdkReady = loadFirebaseModule('app', () => !!window.firebase).then(() =>
+      Promise.all([
+        loadFirebaseModule('database', () => !!window.firebase?.database),
+        loadFirebaseModule('auth', () => !!window.firebase?.auth)
+      ])
+    );
+    const iconsReady = loadLibrary([
+      'https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js',
+      'https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js'
+    ], () => !!window.lucide);
+    iconsReady.then(() => window.lucide?.createIcons());
+  </script>
   <script>
     'use strict';
 
@@ -849,9 +886,9 @@
 
     function ensureCursorsListener() {
       if (cursorsListener || !db || !currentUser) return;
-      cursorsListener = db.ref('boards_cursors');
-      cursorsListener.on('value', (snapshot) => {
-        if (!currentUser) return;
+      const ref = cursorsListener = db.ref('boards_cursors');
+      ref.on('value', (snapshot) => {
+        if (!currentUser || ref !== cursorsListener) return;
         const previous = new Map(
           state.boards.map((board) => [board.id, onlineSignature(board)])
         );
@@ -874,7 +911,7 @@
     }
 
     async function loadDashboard(options) {
-      if (!currentUser || isLoading) return false;
+      if (!currentUser || (isLoading && !options)) return false;
       const settings = options || {};
       const token = ++loadToken;
       isLoading = true;
@@ -893,7 +930,7 @@
 
         state.meta = normalizeObject(metaSnapshot.val());
         state.data = normalizeObject(dataSnapshot.val());
-        state.cursors = normalizeObject(cursorsSnapshot.val());
+        if (!cursorsListener) state.cursors = normalizeObject(cursorsSnapshot.val());
         buildBoards();
         dashboardReady = true;
         renderStats();
@@ -1214,10 +1251,12 @@
     }
 
     async function copyText(text) {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        return;
-      }
+      try {
+        if (window.isSecureContext && navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+      } catch (_) { /* Try the synchronous clipboard operation below. */ }
       const area = document.createElement('textarea');
       area.value = text;
       area.setAttribute('readonly', '');
@@ -1226,9 +1265,9 @@
       area.style.top = '0';
       document.body.appendChild(area);
       area.select();
-      const copied = document.execCommand('copy');
-      area.remove();
-      if (!copied) throw new Error('copy-failed');
+      try {
+        if (!document.execCommand('copy')) throw new Error('copy-failed');
+      } finally { area.remove(); }
     }
 
     async function copyBoardLink(boardId) {
@@ -1287,21 +1326,17 @@
         throw error;
       }
 
-      const payload = {
-        name: cleanName,
-        updatedAt: firebase.database.ServerValue.TIMESTAMP
-      };
-      if (!board.createdAt) {
-        payload.createdAt = firebase.database.ServerValue.TIMESTAMP;
-      }
-
-      await db.ref('boards_meta/' + boardId).update(payload);
+      const result = await db.ref('boards_meta/' + boardId).transaction(meta => {
+        if (!meta) return null;
+        return { ...meta, name: cleanName, updatedAt: firebase.database.ServerValue.TIMESTAMP };
+      }, undefined, false);
+      if (!result.snapshot.exists()) throw Object.assign(new Error(), { userMessage: 'Доска уже удалена.' });
       const refreshed = await reloadAfterMutation('Обновляем данные…');
       showToast(refreshed ? 'Название доски обновлено' : 'Название сохранено, но список не обновился', refreshed ? 'success' : 'error');
     }
 
     async function clearBoardCanvas(boardId) {
-      await db.ref('boards_data/' + boardId).remove();
+      await db.ref('boards_data/' + boardId + '/objects').remove();
       const refreshed = await reloadAfterMutation('Очищаем холст…');
       showToast(refreshed ? 'Холст очищен. Доска и ссылка сохранены' : 'Холст очищен, но список не обновился', refreshed ? 'success' : 'error');
     }
@@ -1309,26 +1344,13 @@
     async function deleteBoardsByIds(boardIds) {
       const ids = Array.from(new Set(boardIds));
       if (!ids.length) return;
-      const paths = [];
-      ids.forEach((id) => {
-        ['boards_meta', 'boards_data', 'boards_cursors'].forEach((root) => {
-          paths.push(db.ref(root + '/' + id));
-        });
+      const updates = {};
+      ids.forEach(id => {
+        for (const root of ['boards_meta', 'boards_data', 'boards_cursors']) updates[root + '/' + id] = null;
       });
-
-      const results = await Promise.allSettled(paths.map((ref) => ref.remove()));
-      const failed = results.filter((result) => result.status === 'rejected');
-      if (!failed.length) {
-        ids.forEach((id) => state.selected.delete(id));
-      }
-
+      await db.ref().update(updates);
+      ids.forEach(id => state.selected.delete(id));
       const refreshed = await reloadAfterMutation('Удаляем доски…');
-
-      if (failed.length) {
-        const error = new Error('Не удалось удалить часть данных (' + failed.length + ' операций). Обновите список и проверьте правила Firebase.');
-        error.userMessage = error.message;
-        throw error;
-      }
 
       showToast(
         refreshed
@@ -1662,11 +1684,7 @@
       });
     }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init);
-    } else {
-      init();
-    }
+    sdkReady.then(init);
   </script>
 </body>
 </html>
