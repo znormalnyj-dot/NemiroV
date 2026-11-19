@@ -4880,8 +4880,8 @@
         const uy = dy / length;
         const px = -uy;
         const py = ux;
-        const head = Math.max(8, Math.min(28, length * 0.3, length * 0.85));
-        const half = head * 0.42;
+        const head = Math.min(12, length * 0.32);
+        const half = head * 0.55;
         const baseX = x2 - ux * head;
         const baseY = y2 - uy * head;
         const leftX = baseX + px * half;
@@ -4896,7 +4896,7 @@
         const cx = (minX + maxX) / 2;
         const cy = (minY + maxY) / 2;
         const f = (x, y) => `${(x - cx).toFixed(2)} ${(y - cy).toFixed(2)}`;
-        const d = `M ${f(x1, y1)} L ${f(x2, y2)} M ${f(leftX, leftY)} L ${f(x2, y2)} L ${f(rightX, rightY)} Z`;
+        const d = `M ${f(x1, y1)} L ${f(x2, y2)} M ${f(leftX, leftY)} L ${f(x2, y2)} L ${f(rightX, rightY)}`;
 
         return { d, left: cx, top: cy, length };
       }
@@ -4907,7 +4907,7 @@
           top: geometry.top,
           originX: 'center',
           originY: 'center',
-          fill: 'transparent',
+          fill: null,
           stroke: state.penColor,
           strokeWidth: state.penWidth,
           strokeUniform: true,
@@ -5013,7 +5013,7 @@
           mode,
           pointerId: typeof pointerId === 'number' ? pointerId : null,
           stroke: state.penColor,
-          strokeWidth: state.penWidth,
+          strokeWidth: Math.min(2, state.penWidth),
           preview: null
         };
         window.addEventListener('pointermove', handleArrowPointerMove, true);
