@@ -27,6 +27,11 @@
   <style>
     :where(.hidden) { display: none; }
     .fixed { position: fixed; }
+    #axisEditor { position:absolute; z-index:54; background:white; padding:8px; border:1px solid #ddd; border-radius:9px; box-shadow:0 3px 12px #0002; font-size:12px; max-height:40vh; overflow:auto; }
+    #axisEditor input { width:170px; padding:4px; font-family:monospace; border-bottom:1px solid #ddd; }
+    #axisEditor button { padding:4px; }
+    #axisError { color:#b52525; }
+    #axisHandles button { position:absolute; z-index:6; width:14px; height:14px; border:2px solid #4262ff; border-radius:50%; background:white; transform:translate(-50%,-50%); touch-action:none; }
     #app { position: relative; height: 100vh; height: 100dvh; }
     #boardGate { inset: 0; z-index: 65; }
 
@@ -944,6 +949,12 @@
       <div id="eraserCursor" aria-hidden="true"></div>
     </div>
 
+    <div id="axisHandles"></div>
+    <section id="axisEditor" hidden aria-label="Функции графика">
+      <div id="axisRows"></div>
+      <button id="axisAdd">+ Функция</button> <button id="axisSettings">Деления и подписи</button> <button id="axisDone" aria-label="Закрыть">✕</button>
+      <div id="axisError" role="status"></div>
+    </section>
     <div id="dropOverlay" class="pointer-events-none fixed inset-0 z-[65] hidden items-center justify-center bg-[#4262ff]/10 p-6 backdrop-blur-[1px]">
       <div class="rounded-2xl border-2 border-dashed border-accent bg-white/95 px-8 py-6 text-center shadow-[0_18px_48px_rgba(5,0,56,.18)]">
         <span class="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-[#eef1ff] text-accent">
@@ -1348,19 +1359,7 @@
       <div class="drawer-pane hidden px-4 pb-5" data-drawer-pane="graph">
         <div class="mt-1">
           <h3 class="text-[12px] font-semibold">Построение графика</h3>
-          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Введите функции через точку с запятой. Оставьте поле пустым для рисования от руки.</p>
-        </div>
-
-        <label for="graphFormula" class="mt-3 block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">y = f(x)</label>
-        <input id="graphFormula" type="text" value="x^2 - 4*x + 3" spellcheck="false" autocomplete="off" class="mt-1.5 h-10 w-full rounded-xl border border-black/[0.1] bg-white px-3 font-mono text-[12px] text-ink outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10" />
-
-        <div id="graphTemplates" class="mt-2 grid grid-cols-3 gap-1.5">
-          <button type="button" data-graph-template="x^2" class="graph-template">x²</button>
-          <button type="button" data-graph-template="sin(x)" class="graph-template">sin(x)</button>
-          <button type="button" data-graph-template="cos(x)" class="graph-template">cos(x)</button>
-          <button type="button" data-graph-template="sqrt(x)" class="graph-template">√x</button>
-          <button type="button" data-graph-template="1/x" class="graph-template">1/x</button>
-          <button type="button" data-graph-template="0.5*x + 1" class="graph-template">kx + b</button>
+          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Нажмите G, чтобы добавить оси. Щёлкните по ним дважды, чтобы ввести функции.</p>
         </div>
 
         <div class="mt-3 grid grid-cols-2 gap-2">
@@ -1382,12 +1381,10 @@
           <label>Подпись X<input id="graphXLabel" value="x" maxlength="18" class="block w-full rounded-lg border p-2" /></label>
           <label>Подпись Y<input id="graphYLabel" value="y" maxlength="18" class="block w-full rounded-lg border p-2" /></label>
         </div>
-        <canvas id="graphPreviewCanvas" class="mt-3 block w-full rounded-xl border border-black/[0.07] bg-[#fbfbfd]" style="height:220px" aria-label="Превью графика"></canvas>
-        <p id="graphStatus" class="mt-1.5 min-h-[15px] text-[9.5px] leading-relaxed text-[#8b8b9e]">Введите функцию.</p>
-
+        <label class="block mt-3">Шаг делений<input id="graphTick" type="number" value="1" min="0.1" max="100" step="any" class="block w-full rounded-lg border p-2" /></label>
         <button id="graphInsertBtn" type="button" class="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[11.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0] disabled:cursor-not-allowed disabled:opacity-50">
           <i data-lucide="line-chart" class="h-4 w-4"></i>
-          <span>Вставить график на доску</span>
+          <span>Добавить оси</span>
         </button>
       </div>
 
@@ -2124,13 +2121,10 @@
       const addNoteBtn = $('#addNoteBtn');
       const notesList = $('#notesList');
       const notesSyncBadge = $('#notesSyncBadge');
-      const graphFormula = $('#graphFormula');
       const graphXMin = $('#graphXMin');
       const graphXMax = $('#graphXMax');
       const graphScale = $('#graphScale');
       const graphColor = $('#graphColor');
-      const graphPreviewCanvas = $('#graphPreviewCanvas');
-      const graphStatus = $('#graphStatus');
       const graphInsertBtn = $('#graphInsertBtn');
       const simEmbedLayer = $('#simEmbedLayer');
       const simulatorList = $('#simulatorList');
@@ -2150,7 +2144,7 @@
       let notesLoadToken = 0;
       let activeDrawerTab = 'notes';
       let editingGraphId = null;
-      let graphPreviewFrame = 0;
+
       let graphCompiled = null;
       let graphCompiledKey = '';
       let simulatorDragState = null;
@@ -2886,6 +2880,7 @@
 
       function applyToolToObject(obj) {
         if (!obj) return;
+        if (obj.graphConfig?.axisVersion) obj.hasControls = false;
         // The visible simulator widget is an HTML overlay. Its Fabric object is
         // only an invisible, synchronized anchor and must never be selected.
         if (obj.customType === 'sim-embed') {
@@ -4861,9 +4856,9 @@
         }
 
         const center = getAxesInsertionCenter();
-        const settings = { xMin: -7.5, xMax: 7.5, span: 15, scale: 24, color: state.penColor, xLabel: 'x', yLabel: 'y' };
-        const axes = buildGraphCard([], settings);
-        axes.set({ left: center.x, top: center.y });
+        const settings = { xMin:-7, xMax:7, yMin:-5, yMax:5, scale:24, tick:1, color:state.penColor, xLabel:'x', yLabel:'y', formulas:[] };
+        const axes = makeAxes(settings);
+        placeAxes(axes, {x:snapToAxesGrid(center.x), y:snapToAxesGrid(center.y)});
         selectTool('cursor');
         canvas.add(axes);
         ensureObjectId(axes);
@@ -5447,6 +5442,7 @@
           strokeLineCap: 'round',
           strokeLineJoin: 'round'
         });
+        if (attachGraphInk(opt.path)) return;
         ensureObjectId(opt.path);
         syncObjectToFirebase(opt.path);
         recordCreation(opt.path);
@@ -6687,7 +6683,7 @@
         $$('.drawer-pane', cheatsheetDrawer).forEach((pane) => {
           pane.classList.toggle('hidden', pane.dataset.drawerPane !== next);
         });
-        if (next === 'graph') requestAnimationFrame(drawGraphPreview);
+
       }
 
       const GRAPH_FUNCTION_NAMES = [
@@ -6758,60 +6754,6 @@
         return graphCompiled;
       }
 
-      function readFunctions() {
-        return graphFormula.value.split(';').map(part => part.trim()).filter(Boolean).map(compileGraphExpression);
-      }
-
-      function finishGraphEditor() {
-        editingGraphId = null;
-        graphInsertBtn.querySelector('span').textContent = 'Вставить график на доску';
-      }
-
-      function editGraph(obj) {
-        const cfg = obj.graphConfig;
-        editingGraphId = obj.miroId;
-        graphFormula.value = cfg.formula;
-        graphXMin.value = cfg.xMin;
-        graphXMax.value = cfg.xMax;
-        graphScale.value = cfg.scale;
-        graphColor.value = cfg.color;
-        $('#graphXLabel').value = cfg.xLabel;
-        $('#graphYLabel').value = cfg.yLabel;
-        graphInsertBtn.querySelector('span').textContent = 'Применить к этим осям';
-        openCheatsheetDrawer();
-        setDrawerTab('graph');
-        graphFormula.focus();
-      }
-
-      function readGraphSettings() {
-        let xMin = Number(graphXMin.value);
-        let xMax = Number(graphXMax.value);
-        if (!Number.isFinite(xMin) || !Number.isFinite(xMax)) throw new Error('Проверьте диапазон по X');
-        if (xMin === xMax) throw new Error('X от и X до не должны совпадать');
-        if (xMin > xMax) { const temp = xMin; xMin = xMax; xMax = temp; }
-        const span = xMax - xMin;
-        if (span < 0.1) throw new Error('Слишком узкий диапазон по X');
-        if (span > 200) throw new Error('Слишком широкий диапазон по X (макс. 200)');
-        const scale = clamp(Number(graphScale.value) || 24, 8, 80);
-        const colorValue = String(graphColor.value || '').trim();
-        const color = /^#[0-9a-f]{6}$/i.test(colorValue) ? colorValue : '#4262ff';
-        return { xMin, xMax, span, scale, color, xLabel: $('#graphXLabel').value.trim(), yLabel: $('#graphYLabel').value.trim() };
-      }
-
-      function graphGridStep(span, scale) {
-        const targetUnits = Math.max(0.0001, 26 / Math.max(1, scale));
-        const raw = Math.max(targetUnits, span / 24);
-        const power = Math.pow(10, Math.floor(Math.log10(raw)));
-        const ratio = raw / power;
-        const nice = ratio <= 1 ? 1 : ratio <= 2 ? 2 : ratio <= 5 ? 5 : 10;
-        return nice * power;
-      }
-
-      function formatGraphNumber(value) {
-        const rounded = Math.round(value * 1000) / 1000;
-        return String(rounded).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
-      }
-
       function graphPointSegments(fn, xMin, xMax, mapPoint, maxJump) {
         const segments = [];
         let segment = [];
@@ -6844,295 +6786,190 @@
         return segments;
       }
 
-      function drawGraphPreview() {
-        if (!graphPreviewCanvas) return;
-        const cssW = Math.max(220, Math.round(graphPreviewCanvas.clientWidth || 320));
-        const cssH = 220;
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        graphPreviewCanvas.width = Math.round(cssW * dpr);
-        graphPreviewCanvas.height = Math.round(cssH * dpr);
-        const ctx = graphPreviewCanvas.getContext('2d');
-        if (!ctx) return;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, cssW, cssH);
-        ctx.fillStyle = '#fbfbfd';
-        ctx.fillRect(0, 0, cssW, cssH);
-
-        let compiled;
-        let settings;
-        try {
-          compiled = readFunctions();
-          settings = readGraphSettings();
-        } catch (err) {
-          graphStatus.textContent = err.message;
-          graphStatus.style.color = '#d9483b';
-          graphInsertBtn.disabled = true;
-          return;
-        }
-
-        const { xMin, xMax, span, color } = settings;
-        const plotL = 9;
-        const plotT = 9;
-        const plotW = Math.max(40, cssW - 18);
-        const plotH = Math.max(40, cssH - 18);
-        const xScale = plotW / span;
-        const yCenter = plotT + plotH / 2;
-        const step = graphGridStep(span, xScale);
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(plotL, plotT, plotW, plotH);
-        ctx.clip();
-
-        ctx.strokeStyle = '#e9ebf3';
-        ctx.lineWidth = 1;
-        const firstX = Math.ceil(xMin / step) * step;
-        for (let gx = firstX; gx <= xMax + step * 0.001; gx += step) {
-          const sx = plotL + (gx - xMin) * xScale;
-          ctx.beginPath();
-          ctx.moveTo(sx, plotT);
-          ctx.lineTo(sx, plotT + plotH);
-          ctx.stroke();
-        }
-        const yHalf = plotH / (2 * xScale);
-        const firstY = Math.ceil(-yHalf / step) * step;
-        for (let gy = firstY; gy <= yHalf + step * 0.001; gy += step) {
-          const sy = yCenter - gy * xScale;
-          ctx.beginPath();
-          ctx.moveTo(plotL, sy);
-          ctx.lineTo(plotL + plotW, sy);
-          ctx.stroke();
-        }
-
-        ctx.strokeStyle = '#8b8e9f';
-        ctx.lineWidth = 1.4;
-        if (0 >= xMin && 0 <= xMax) {
-          const sx = plotL + (0 - xMin) * xScale;
-          ctx.beginPath();
-          ctx.moveTo(sx, plotT);
-          ctx.lineTo(sx, plotT + plotH);
-          ctx.stroke();
-        }
-        if (0 >= -yHalf && 0 <= yHalf) {
-          ctx.beginPath();
-          ctx.moveTo(plotL, yCenter);
-          ctx.lineTo(plotL + plotW, yCenter);
-          ctx.stroke();
-        }
-
-        const segments = compiled.flatMap(curve => graphPointSegments(
-          curve.fn,
-          xMin,
-          xMax,
-          (x, y) => {
-            const sy = yCenter - y * xScale;
-            if (sy < plotT - 2 || sy > plotT + plotH + 2) return null;
-            return [plotL + (x - xMin) * xScale, sy];
-          },
-          (plotH / xScale) * 0.65
-        ));
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        segments.forEach((segment) => {
-          if (segment.length < 2) return;
-          ctx.beginPath();
-          ctx.moveTo(segment[0][0], segment[0][1]);
-          for (let i = 1; i < segment.length; i += 1) ctx.lineTo(segment[i][0], segment[i][1]);
-          ctx.stroke();
-        });
-        ctx.restore();
-
-        const totalPoints = segments.reduce((sum, segment) => sum + segment.length, 0);
-        if (compiled.length && !totalPoints) {
-          graphStatus.textContent = 'На этом диапазоне нет видимых точек';
-          graphStatus.style.color = '#d9483b';
-          graphInsertBtn.disabled = true;
-        } else {
-          graphStatus.textContent = 'X: ' + formatGraphNumber(xMin) + '…' + formatGraphNumber(xMax);
-          graphStatus.style.color = '#8b8b9e';
-          graphInsertBtn.disabled = false;
-        }
+      function graphOptions(obj) {
+        const cfg = obj.graphConfig;
+        if (cfg.axisVersion) return cfg;
+        const span = cfg.xMax - cfg.xMin;
+        return { ...cfg, xMin:Math.min(-1,cfg.xMin), xMax:Math.max(1,cfg.xMax),
+          yMin:-span*.35, yMax:span*.35, tick:1, formulas:(cfg.formula || '').split(';').filter(Boolean) };
       }
 
-      function requestGraphPreview() {
-        if (graphPreviewFrame) return;
-        graphPreviewFrame = requestAnimationFrame(() => {
-          graphPreviewFrame = 0;
-          if (cheatsheetDrawer.classList.contains('is-open') && activeDrawerTab === 'graph') drawGraphPreview();
-        });
+      function makeAxes(options) {
+        const cfg = { ...options, axisVersion:1 };
+        const {scale,xMin,xMax,yMin,yMax,color} = cfg;
+        const l=xMin*scale, r=xMax*scale, t=-yMax*scale, b=-yMin*scale;
+        const objects=[];
+        function line(points) {
+          objects.push(new fabric.Line(points,{stroke:'#45465b',strokeWidth:1.4,strokeUniform:true}));
+        }
+        line([l,0,r,0]); line([0,t,0,b]);
+        for (const sign of [-1,1]) { line([r-8,sign*4,r,0]); line([sign*4,t+8,0,t]); }
+        const step=cfg.tick;
+        for(let n=Math.ceil(xMin/step);n<=Math.floor(xMax/step);n++) line([n*step*scale,-3,n*step*scale,3]);
+        for(let n=Math.ceil(yMin/step);n<=Math.floor(yMax/step);n++) line([-3,-n*step*scale,3,-n*step*scale]);
+        for(const [label,x,y] of [['0',-12,3],[cfg.xLabel,r-12,-23],[cfg.yLabel,8,t]]) {
+          objects.push(new fabric.Text(label,{left:x,top:y,fontSize:14,fontFamily:'Inter, sans-serif',fill:'#45465b'}));
+        }
+        for(const formula of cfg.formulas) {
+          if (!formula.trim()) continue;
+          const {fn}=compileGraphExpression(formula);
+          const segments=graphPointSegments(fn,xMin,xMax,(x,y)=>y<yMin||y>yMax?null:[x*scale,-y*scale],(yMax-yMin)*.65);
+          const commands=segments.flatMap(segment=>segment.length<2?[]:segment.map(([x,y],i)=>[i?'L':'M',+x.toFixed(2),+y.toFixed(2)]));
+          if(commands.length) objects.push(new fabric.Path(commands,{stroke:color,strokeWidth:2.5,fill:'transparent',strokeUniform:true}));
+        }
+        for(const ink of cfg.ink || []) objects.push(new fabric.Path(ink.path,ink));
+        const group=new fabric.Group(objects,{originX:'center',originY:'center',customType:'graph-axes',hasControls:false});
+        cfg.originX=-group.left; cfg.originY=-group.top;
+        group.graphConfig=cfg;
+        return group;
       }
 
-      function buildGraphCard(compiled, settings) {
-        const { xMin, xMax, span, scale, color } = settings;
-        const plotW = clamp(span * scale, 260, 1000);
-        const plotH = Math.round(plotW * 0.7);
-        const padL = 16;
-        const padT = 16;
-        const cardW = Math.round(plotW + padL * 2);
-        const cardH = Math.round(plotH + padT + 20);
-        const yCenter = padT + plotH / 2;
-        const xScale = plotW / span;
-        const yHalf = plotH / (2 * scale);
-        const step = graphGridStep(span, scale);
-        const children = [];
-
-        children.push(new fabric.Rect({
-          left: 0,
-          top: 0,
-          width: cardW,
-          height: cardH,
-          rx: 18,
-          ry: 18,
-          fill: '#ffffff',
-          stroke: 'rgba(5,0,56,.09)',
-          strokeWidth: 1,
-          selectable: false,
-          evented: false
-        }));
-
-        const gridLine = (x1, y1, x2, y2, stroke, width) => new fabric.Line([x1, y1, x2, y2], {
-          stroke,
-          strokeWidth: width,
-          strokeUniform: true,
-          selectable: false,
-          evented: false
-        });
-
-        const tickLabel = (value, left, top) => new fabric.Text(formatGraphNumber(value), {
-          left, top, fontSize: 9, fill: '#62667a', selectable: false, evented: false
-        });
-        const firstX = Math.ceil(xMin / step) * step;
-        for (let gx = firstX; gx <= xMax + step * 0.001; gx += step) {
-          const sx = padL + (gx - xMin) * xScale;
-          children.push(gridLine(sx, padT, sx, padT + plotH, '#eaecf4', 1));
-          if (sx < padL + plotW - 18) children.push(tickLabel(gx, sx + 2, yCenter + 2));
-        }
-        const firstY = Math.ceil(-yHalf / step) * step;
-        for (let gy = firstY; gy <= yHalf + step * 0.001; gy += step) {
-          const sy = yCenter - gy * scale;
-          children.push(gridLine(padL, sy, padL + plotW, sy, '#eaecf4', 1));
-          if (Math.abs(gy) > step * 0.01 && sy > padT + 18) children.push(tickLabel(gy, padL + clamp(-xMin * xScale, 0, plotW - 24) + 3, sy + 1));
-        }
-
-        if (0 >= xMin && 0 <= xMax) {
-          const sx = padL + (0 - xMin) * xScale;
-          children.push(gridLine(sx, padT, sx, padT + plotH, '#8b8e9f', 1.4));
-          children.push(new fabric.Text(settings.yLabel, {
-            left: sx + 5,
-            top: padT + 2,
-            fontFamily: 'Inter, system-ui, sans-serif',
-            fontSize: 10,
-            fontWeight: 700,
-            fill: '#7b7f93',
-            selectable: false,
-            evented: false
-          }));
-        }
-        if (0 >= -yHalf && 0 <= yHalf) {
-          children.push(gridLine(padL, yCenter, padL + plotW, yCenter, '#8b8e9f', 1.4));
-          children.push(new fabric.Text(settings.xLabel, {
-            left: padL + plotW - 10,
-            top: yCenter - 17,
-            fontFamily: 'Inter, system-ui, sans-serif',
-            fontSize: 10,
-            fontWeight: 700,
-            fill: '#7b7f93',
-            selectable: false,
-            evented: false
-          }));
-        }
-
-        const segments = compiled.flatMap(curve => graphPointSegments(
-          curve.fn,
-          xMin,
-          xMax,
-          (x, y) => {
-            const sy = yCenter - y * scale;
-            if (sy < padT - 2 || sy > padT + plotH + 2) return null;
-            return [padL + (x - xMin) * xScale, sy];
-          },
-          (plotH / scale) * 0.65
-        ));
-        let pathData = '';
-        segments.forEach((segment) => {
-          if (segment.length < 2) return;
-          segment.forEach((point, index) => {
-            pathData += (index === 0 ? 'M ' : 'L ') + point[0].toFixed(2) + ' ' + point[1].toFixed(2) + ' ';
-          });
-        });
-        if (compiled.length && !pathData) throw new Error('На выбранном диапазоне нет видимых точек графика');
-
-        if (pathData) children.push(new fabric.Path(pathData.trim(), {
-          fill: 'transparent',
-          stroke: color,
-          strokeWidth: 3,
-          strokeUniform: true,
-          strokeLineCap: 'round',
-          strokeLineJoin: 'round',
-          selectable: false,
-          evented: false
-        }));
-
-        return new fabric.Group(children, {
-          customType: 'graph-axes',
-          graphConfig: { ...settings, formula: compiled.map(curve => curve.source).join('; ') },
-          left: getViewportCenter().x,
-          top: getViewportCenter().y,
-          originX: 'center',
-          originY: 'center',
-          perPixelTargetFind: false
-        });
+      function originOf(obj) {
+        const cfg=obj.graphConfig;
+        return fabric.util.transformPoint(new fabric.Point(cfg.originX || 0,cfg.originY || 0),obj.calcTransformMatrix());
       }
 
-      function insertGraphOnBoard() {
-        if (boardAccess !== 'ready' || !state.currentBoardId) {
-          showToast('Сначала выберите рабочую доску', 'error');
-          return;
-        }
-        let compiled;
-        let settings;
-        let group;
-        try {
-          compiled = readFunctions();
-          settings = readGraphSettings();
-          group = buildGraphCard(compiled, settings);
-        } catch (err) {
-          graphStatus.textContent = err.message || 'Не удалось построить график';
-          graphStatus.style.color = '#d9483b';
-          graphInsertBtn.disabled = true;
-          showToast(err.message || 'Ошибка в формуле', 'error');
-          return;
-        }
+      function placeAxes(obj,origin) {
+        const current=originOf(obj);
+        obj.set({left:obj.left+origin.x-current.x,top:obj.top+origin.y-current.y});
+        obj.setCoords();
+      }
 
-        if (editingGraphId) {
-          const old = findObjectById(editingGraphId);
-          if (!old || old.customType !== 'graph-axes') {
-            closeCheatsheetDrawer();
-            showToast('Эти оси удалены', 'error');
-            return;
+      function replaceAxes(old,options,commit=true,before=captureBeforeState(old)) {
+        const group=makeAxes(options);
+        const origin=originOf(old);
+        changeSelectedObject(old,()=>{
+          group.miroId=old.miroId;
+          if(old.graphConfig.axisVersion) {
+            for(const key of ['scaleX','scaleY','angle','flipX','flipY','skewX','skewY']) group.set(key,old[key]);
           }
-          const before = captureBeforeState(old);
-          changeSelectedObject(old, () => {
-            for (const key of ['left', 'top', 'scaleX', 'scaleY', 'angle', 'flipX', 'flipY', 'skewX', 'skewY', 'miroId']) group.set(key, old[key]);
-            const index = canvas.getObjects().indexOf(old);
-            canvas.remove(old);
-            canvas.insertAt(group, index);
-            return group;
-          });
-          syncObjectToFirebase(group);
-          recordModification(group, before);
-        } else {
-          canvas.add(group);
-          ensureObjectId(group);
-          syncObjectToFirebase(group);
-          recordCreation(group);
-        }
-        selectTool('cursor');
-        canvas.setActiveObject(group);
-        closeCheatsheetDrawer();
+          placeAxes(group,origin);
+          const index=canvas.getObjects().indexOf(old);
+          canvas.remove(old); canvas.insertAt(group,index);
+          applyToolToObject(group);
+          return group;
+        });
+        if(commit) { syncObjectToFirebase(group); recordModification(group,before); }
         canvas.requestRenderAll();
+        return group;
       }
+
+      function attachGraphInk(path) {
+        const start=path.path[0];
+        if(!start || start[0]!=='M') return false;
+        const world=fabric.util.transformPoint(new fabric.Point(start[1]-path.pathOffset.x,start[2]-path.pathOffset.y),path.calcTransformMatrix());
+        for(const obj of canvas.getObjects().slice().reverse()) {
+          const cfg=obj.graphConfig;
+          if(!cfg?.axisVersion) continue;
+          const inverse=fabric.util.invertTransform(obj.calcTransformMatrix());
+          const p=fabric.util.transformPoint(world,inverse);
+          const x=(p.x-cfg.originX)/cfg.scale,y=(cfg.originY-p.y)/cfg.scale;
+          if(x<cfg.xMin||x>cfg.xMax||y<cfg.yMin||y>cfg.yMax) continue;
+          const matrix=fabric.util.multiplyTransformMatrices(inverse,path.calcTransformMatrix());
+          matrix[4]-=cfg.originX;matrix[5]-=cfg.originY;
+          fabric.util.applyTransformToObject(path,matrix);
+          const ink=path.toObject();
+          canvas.remove(path);
+          replaceAxes(obj,{...cfg,ink:[...(cfg.ink||[]),ink]});
+          return true;
+        }
+        return false;
+      }
+
+      function finishGraphEditor() {
+        editingGraphId=null;
+        $('#axisEditor').hidden=true;
+        graphInsertBtn.querySelector('span').textContent='Добавить оси';
+      }
+
+      function editGraph(obj) {
+        const cfg=graphOptions(obj);
+        editingGraphId=obj.miroId;
+        $('#axisRows').replaceChildren();
+        for(const formula of cfg.formulas.length?cfg.formulas:['']) addFormulaRow(formula);
+        graphXMin.value=cfg.xMin; graphXMax.value=cfg.xMax;graphScale.value=cfg.scale;graphColor.value=cfg.color;
+        $('#graphTick').value=cfg.tick;
+        $('#graphXLabel').value=cfg.xLabel;$('#graphYLabel').value=cfg.yLabel;
+        $('#axisError').textContent='';
+        $('#axisEditor').hidden=false;
+        graphInsertBtn.querySelector('span').textContent='Готово';
+        positionGraphUI();
+        $('#axisRows input').focus();
+      }
+
+      function addFormulaRow(value) {
+        const label=document.createElement('label');
+        label.style.display='block';label.textContent='y = ';
+        const input=document.createElement('input');
+        input.value=value;input.placeholder='x^2, sin(x)…';input.spellcheck=false;
+        label.appendChild(input);$('#axisRows').appendChild(label);
+        return input;
+      }
+
+      function updateGraphForm() {
+        const old=findObjectById(editingGraphId);
+        if(!old) return;
+        const cfg=graphOptions(old);
+        const formulas=Array.from($('#axisRows').querySelectorAll('input'),el=>el.value.trim());
+        try {
+          const xMin=graphXMin.valueAsNumber,xMax=graphXMax.valueAsNumber,scale=graphScale.valueAsNumber,tick=$('#graphTick').valueAsNumber;
+          if(!(xMin<0 && xMax>0 && xMax-xMin<=200 && scale>=8 && scale<=80 && tick>=.1 && tick<=100)) throw Error('Проверьте диапазон, масштаб и шаг делений');
+          replaceAxes(old,{...cfg,formulas,xMin,xMax,scale,tick,color:graphColor.value,xLabel:$('#graphXLabel').value,yLabel:$('#graphYLabel').value});
+          $('#axisError').textContent='';
+        } catch(err) { $('#axisError').textContent=err.message; }
+      }
+
+      const ends=['xMin','xMax','yMin','yMax'];
+      const handles=ends.map(end=>{
+        const btn=document.createElement('button');
+        btn.hidden=true;btn.setAttribute('aria-label','Продлить '+end);
+        btn.style.cursor=end[0]==='x'?'ew-resize':'ns-resize';
+        $('#axisHandles').appendChild(btn);
+        btn.addEventListener('pointerdown',event=>{
+          const old=canvas.getActiveObject();if(!old?.graphConfig?.axisVersion)return;
+          event.preventDefault();btn.setPointerCapture(event.pointerId);
+          const id=old.miroId, before=captureBeforeState(old),session=boardDataSession;
+          let current=old;
+          const move=e=>{
+            if(session!==boardDataSession||findObjectById(id)!==current)return;
+            const cfg=current.graphConfig;
+            const point=fabric.util.transformPoint(canvas.getPointer(e),fabric.util.invertTransform(current.calcTransformMatrix()));
+            const raw=end[0]==='x'?(point.x-cfg.originX)/cfg.scale:(cfg.originY-point.y)/cfg.scale;
+            const value=clamp(Math.round(raw/cfg.tick)*cfg.tick,end.endsWith('Min')?-100:cfg.tick,end.endsWith('Min')?-cfg.tick:100);
+            if(value===cfg[end])return;
+            current=replaceAxes(current,{...cfg,[end]:value},false,before);
+            if(editingGraphId===id){graphXMin.value=current.graphConfig.xMin;graphXMax.value=current.graphConfig.xMax;}
+          };
+          const finish=()=>{
+            btn.removeEventListener('pointermove',move);
+            if(current!==old && session===boardDataSession && findObjectById(id)===current){syncObjectToFirebase(current);recordModification(current,before);}
+          };
+          btn.addEventListener('pointermove',move);
+          btn.addEventListener('lostpointercapture',finish,{once:true});
+        });
+        return btn;
+      });
+
+      function positionGraphUI() {
+        const active=canvas.getActiveObject(), cfg=active?.graphConfig;
+        const visible=cfg?.axisVersion && state.tool==='cursor' && !spaceDown;
+        handles.forEach((btn,i)=>{
+          btn.hidden=!visible;
+          if(!visible)return;
+          const end=ends[i],x=end[0]==='x'?cfg[end]*cfg.scale:0,y=end[0]==='y'?-cfg[end]*cfg.scale:0;
+          const matrix=fabric.util.multiplyTransformMatrices(canvas.viewportTransform,active.calcTransformMatrix());
+          const p=fabric.util.transformPoint(new fabric.Point(cfg.originX+x,cfg.originY+y),matrix);
+          btn.style.left=p.x+'px';btn.style.top=p.y+'px';
+        });
+        if(!editingGraphId)return;
+        const obj=findObjectById(editingGraphId);
+        if(!obj || state.tool!=='cursor' || active!==obj){finishGraphEditor();return;}
+        const origin=fabric.util.transformPoint(originOf(obj),canvas.viewportTransform);
+        const editor=$('#axisEditor');
+        editor.style.left=clamp(origin.x+24,4,window.innerWidth-editor.offsetWidth-4)+'px';
+        editor.style.top=clamp(origin.y+24,4,window.innerHeight-editor.offsetHeight-4)+'px';
+      }
+      canvas.on('after:render',positionGraphUI);
 
       /* ---------- Simulator widgets on the board ---------- */
 
@@ -8181,21 +8018,15 @@
         else if (button.dataset.noteAction === 'insert') insertNoteOnBoard(noteId);
       });
 
-      graphFormula.addEventListener('input', requestGraphPreview);
-      [graphXMin, graphXMax, graphScale, graphColor].forEach((input) => {
-        input.addEventListener('input', requestGraphPreview);
-        input.addEventListener('change', requestGraphPreview);
-      });
-      $('#graphTemplates').addEventListener('click', (event) => {
-        const button = event.target.closest('[data-graph-template]');
-        if (!button) return;
-        graphFormula.value = button.dataset.graphTemplate;
-        requestGraphPreview();
-      });
-      graphInsertBtn.addEventListener('click', insertGraphOnBoard);
-      window.addEventListener('resize', () => {
-        if (cheatsheetDrawer.classList.contains('is-open') && activeDrawerTab === 'graph') requestGraphPreview();
-      });
+      $('#axisAdd').onclick=()=>addFormulaRow('').focus();
+      $('#axisRows').addEventListener('input',updateGraphForm);
+      $('#axisDone').onclick=finishGraphEditor;
+      $('#axisSettings').onclick=()=>{openCheatsheetDrawer();setDrawerTab('graph');};
+      for(const field of [graphXMin,graphXMax,graphScale,graphColor,$('#graphTick'),$('#graphXLabel'),$('#graphYLabel')]) field.addEventListener('input',updateGraphForm);
+      graphInsertBtn.onclick=()=>{
+        if(editingGraphId){closeCheatsheetDrawer();return;}
+        addCoordinateAxes();const obj=canvas.getActiveObject();if(obj?.graphConfig)editGraph(obj);
+      };
 
       simulatorList.addEventListener('click', (event) => {
         const button = event.target.closest('[data-sim-index]');
