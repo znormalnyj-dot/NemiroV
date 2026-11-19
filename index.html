@@ -1348,7 +1348,7 @@
       <div class="drawer-pane hidden px-4 pb-5" data-drawer-pane="graph">
         <div class="mt-1">
           <h3 class="text-[12px] font-semibold">Построение графика</h3>
-          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Введите функцию от x — превью обновится сразу.</p>
+          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Введите функции через точку с запятой. Оставьте поле пустым для рисования от руки.</p>
         </div>
 
         <label for="graphFormula" class="mt-3 block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">y = f(x)</label>
@@ -1378,6 +1378,10 @@
           </label>
         </div>
 
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <label>Подпись X<input id="graphXLabel" value="x" maxlength="18" class="block w-full rounded-lg border p-2" /></label>
+          <label>Подпись Y<input id="graphYLabel" value="y" maxlength="18" class="block w-full rounded-lg border p-2" /></label>
+        </div>
         <canvas id="graphPreviewCanvas" class="mt-3 block w-full rounded-xl border border-black/[0.07] bg-[#fbfbfd]" style="height:220px" aria-label="Превью графика"></canvas>
         <p id="graphStatus" class="mt-1.5 min-h-[15px] text-[9.5px] leading-relaxed text-[#8b8b9e]">Введите функцию.</p>
 
@@ -1399,7 +1403,7 @@
             <input id="simulatorUrlInput" type="text" placeholder="sims/my-sim.html" spellcheck="false" autocomplete="off" class="h-9 min-w-0 flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] text-ink outline-none focus:border-accent" />
             <button id="simulatorOpenBtn" type="button" class="h-9 shrink-0 rounded-lg bg-accent px-3 text-[10.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">На доску</button>
           </div>
-          <p class="mt-2 text-[9.5px] leading-relaxed text-[#9a9aae]">Пути задаются в массиве <code class="rounded bg-[#f2f2f6] px-1 py-0.5 text-[9px]">SIMULATORS_LIST</code> в коде страницы.</p>
+
         </div>
       </div>
     </aside>
@@ -1635,6 +1639,7 @@
         'miroBack',
         'miroSticker',
         'customType',
+        'graphConfig',
         'simTitle',
         'simUrl',
         'collapsed',
@@ -1667,15 +1672,10 @@
       const LINK_CARD_COVER_H = 135;
       const LINK_CARD_RADIUS = 14;
       const HOTKEY_STORAGE_KEY = 'miro-custom-hotkeys-v1';
-      const AXES_SIZE = 360;
-      const AXES_HALF = AXES_SIZE / 2;
       const AXES_TICK_STEP = 24;
-      const AXES_STROKE_WIDTH = 2;
       const NOTES_STORAGE_KEY = 'miro-board-notes-v1';
       const SIMULATORS_LIST = [
-        { title: 'Маятник', url: 'sims/pendulum.html', description: 'Колебания и период' },
-        { title: 'Бросок под углом', url: 'sims/projectile.html', description: 'Траектория и скорость' },
-        { title: 'Электрическая цепь', url: 'sims/circuit.html', description: 'Ток, напряжение, сопротивление' }
+        { title: 'SimPhy', url: 'sims/simphy.html', description: 'Физическая песочница' }
       ];
       const NOTE_SNIPPETS = {
         trig: { label: 'Тригонометрия', text: 'sin²α + cos²α = 1\nsin 2α = 2 sin α cos α\ncos 2α = cos²α − sin²α' },
@@ -2149,6 +2149,7 @@
       let currentNotesBoardId = '';
       let notesLoadToken = 0;
       let activeDrawerTab = 'notes';
+      let editingGraphId = null;
       let graphPreviewFrame = 0;
       let graphCompiled = null;
       let graphCompiledKey = '';
@@ -3993,6 +3994,7 @@
 
       const CUSTOM_OBJECT_DATA_PROPS = [
         'customType',
+        'graphConfig',
         'simTitle',
         'simUrl',
         'collapsed',
@@ -4171,6 +4173,7 @@
       }
 
       function detachCloudBoardData() {
+        finishGraphEditor();
         boardDataSession += 1;
         loadToken += 1;
         objectOrder.clear();
@@ -4858,101 +4861,17 @@
         }
 
         const center = getAxesInsertionCenter();
-        const stroke = state.penColor;
-        const strokeWidth = AXES_STROKE_WIDTH;
-        const common = {
-          stroke,
-          strokeWidth,
-          fill: 'transparent',
-          strokeUniform: true,
-          perPixelTargetFind: true,
-          targetFindTolerance: 8,
-          strokeLineCap: 'round',
-          strokeLineJoin: 'round',
-          selectable: false,
-          evented: false
-        };
-        const children = [];
-
-        // Оси X и Y. Координаты ±179 оставляют толщину штриха внутри 360×360.
-        children.push(new fabric.Line([-179, 0, 179, 0], common));
-        children.push(new fabric.Line([0, 179, 0, -179], common));
-
-        // Наконечники осей.
-        children.push(new fabric.Path('M 179 0 L 167 -6 L 167 6 Z', common));
-        children.push(new fabric.Path('M 0 -178 L -6 -166 L 6 -166 Z', common));
-
-        // Деления через одну клетку сетки (24 px).
-        for (let step = -7; step <= 7; step += 1) {
-          if (step === 0) continue;
-          const pos = step * AXES_TICK_STEP;
-          children.push(new fabric.Line([pos, -4, pos, 4], common));
-          children.push(new fabric.Line([-4, pos, 4, pos], common));
-        }
-
-        // Подписи осей и начала координат.
-        children.push(new fabric.Text('x', {
-          left: 168,
-          top: -9,
-          originX: 'center',
-          originY: 'bottom',
-          fill: stroke,
-          fontSize: 15,
-          fontFamily: 'Inter, system-ui, sans-serif',
-          fontStyle: 'italic',
-          fontWeight: 600,
-          selectable: false,
-          evented: false
-        }));
-        children.push(new fabric.Text('y', {
-          left: 10,
-          top: -168,
-          originX: 'left',
-          originY: 'center',
-          fill: stroke,
-          fontSize: 15,
-          fontFamily: 'Inter, system-ui, sans-serif',
-          fontStyle: 'italic',
-          fontWeight: 600,
-          selectable: false,
-          evented: false
-        }));
-        children.push(new fabric.Text('0', {
-          left: -7,
-          top: 5,
-          originX: 'right',
-          originY: 'top',
-          fill: stroke,
-          fontSize: 11,
-          fontFamily: 'Inter, system-ui, sans-serif',
-          selectable: false,
-          evented: false
-        }));
-
-        const axes = new fabric.Group(children, {
-          left: center.x,
-          top: center.y,
-          originX: 'center',
-          originY: 'center',
-          fill: 'transparent',
-          stroke,
-          strokeWidth,
-          strokeUniform: true,
-          perPixelTargetFind: true,
-          targetFindTolerance: 8,
-          subTargetCheck: false
-        });
-
+        const settings = { xMin: -7.5, xMax: 7.5, span: 15, scale: 24, color: state.penColor, xLabel: 'x', yLabel: 'y' };
+        const axes = buildGraphCard([], settings);
+        axes.set({ left: center.x, top: center.y });
+        selectTool('cursor');
         canvas.add(axes);
         ensureObjectId(axes);
         syncObjectToFirebase(axes);
         recordCreation(axes);
-
-        if (state.tool === 'cursor') {
-          canvas.setActiveObject(axes);
-        }
+        canvas.setActiveObject(axes);
         canvas.requestRenderAll();
-        showToast('Оси координат добавлены');
+        showToast('Двойной щелчок по осям — формулы и подписи');
       }
 
       // Запоминаем, где находится курсор над холстом — оси создаются в этой точке.
@@ -5703,6 +5622,10 @@
         if (state.tool !== 'cursor') return;
         const target = opt.target;
         if (!target || objectTypeOf(target) !== 'group') return;
+        if (target.customType === 'graph-axes') {
+          editGraph(target);
+          return;
+        }
         if (beginStickerEditing(target)) {
           opt.e.preventDefault();
           canvas.requestRenderAll();
@@ -6737,6 +6660,7 @@
       }
 
       function closeCheatsheetDrawer() {
+        finishGraphEditor();
         if (cheatsheetDrawer.contains(document.activeElement)) {
           cheatsheetTab.focus({ preventScroll: true });
         }
@@ -6834,6 +6758,31 @@
         return graphCompiled;
       }
 
+      function readFunctions() {
+        return graphFormula.value.split(';').map(part => part.trim()).filter(Boolean).map(compileGraphExpression);
+      }
+
+      function finishGraphEditor() {
+        editingGraphId = null;
+        graphInsertBtn.querySelector('span').textContent = 'Вставить график на доску';
+      }
+
+      function editGraph(obj) {
+        const cfg = obj.graphConfig;
+        editingGraphId = obj.miroId;
+        graphFormula.value = cfg.formula;
+        graphXMin.value = cfg.xMin;
+        graphXMax.value = cfg.xMax;
+        graphScale.value = cfg.scale;
+        graphColor.value = cfg.color;
+        $('#graphXLabel').value = cfg.xLabel;
+        $('#graphYLabel').value = cfg.yLabel;
+        graphInsertBtn.querySelector('span').textContent = 'Применить к этим осям';
+        openCheatsheetDrawer();
+        setDrawerTab('graph');
+        graphFormula.focus();
+      }
+
       function readGraphSettings() {
         let xMin = Number(graphXMin.value);
         let xMax = Number(graphXMax.value);
@@ -6846,7 +6795,7 @@
         const scale = clamp(Number(graphScale.value) || 24, 8, 80);
         const colorValue = String(graphColor.value || '').trim();
         const color = /^#[0-9a-f]{6}$/i.test(colorValue) ? colorValue : '#4262ff';
-        return { xMin, xMax, span, scale, color };
+        return { xMin, xMax, span, scale, color, xLabel: $('#graphXLabel').value.trim(), yLabel: $('#graphYLabel').value.trim() };
       }
 
       function graphGridStep(span, scale) {
@@ -6912,7 +6861,7 @@
         let compiled;
         let settings;
         try {
-          compiled = compileGraphExpression(graphFormula.value);
+          compiled = readFunctions();
           settings = readGraphSettings();
         } catch (err) {
           graphStatus.textContent = err.message;
@@ -6970,8 +6919,8 @@
           ctx.stroke();
         }
 
-        const segments = graphPointSegments(
-          compiled.fn,
+        const segments = compiled.flatMap(curve => graphPointSegments(
+          curve.fn,
           xMin,
           xMax,
           (x, y) => {
@@ -6980,7 +6929,7 @@
             return [plotL + (x - xMin) * xScale, sy];
           },
           (plotH / xScale) * 0.65
-        );
+        ));
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.lineJoin = 'round';
@@ -6995,12 +6944,12 @@
         ctx.restore();
 
         const totalPoints = segments.reduce((sum, segment) => sum + segment.length, 0);
-        if (!totalPoints) {
+        if (compiled.length && !totalPoints) {
           graphStatus.textContent = 'На этом диапазоне нет видимых точек';
           graphStatus.style.color = '#d9483b';
           graphInsertBtn.disabled = true;
         } else {
-          graphStatus.textContent = 'y = ' + compiled.source + ' · X: ' + formatGraphNumber(xMin) + '…' + formatGraphNumber(xMax);
+          graphStatus.textContent = 'X: ' + formatGraphNumber(xMin) + '…' + formatGraphNumber(xMax);
           graphStatus.style.color = '#8b8b9e';
           graphInsertBtn.disabled = false;
         }
@@ -7019,7 +6968,7 @@
         const plotW = clamp(span * scale, 260, 1000);
         const plotH = Math.round(plotW * 0.7);
         const padL = 16;
-        const padT = 56;
+        const padT = 16;
         const cardW = Math.round(plotW + padL * 2);
         const cardH = Math.round(plotH + padT + 20);
         const yCenter = padT + plotH / 2;
@@ -7042,27 +6991,6 @@
           evented: false
         }));
 
-        children.push(new fabric.Text('y = ' + compiled.source.slice(0, 58), {
-          left: padL,
-          top: 16,
-          fontFamily: 'Inter, system-ui, sans-serif',
-          fontSize: 14,
-          fontWeight: 700,
-          fill: '#292940',
-          selectable: false,
-          evented: false
-        }));
-        children.push(new fabric.Text('X: ' + formatGraphNumber(xMin) + ' … ' + formatGraphNumber(xMax), {
-          left: padL,
-          top: 36,
-          fontFamily: 'Inter, system-ui, sans-serif',
-          fontSize: 9,
-          fontWeight: 500,
-          fill: '#8b8b9e',
-          selectable: false,
-          evented: false
-        }));
-
         const gridLine = (x1, y1, x2, y2, stroke, width) => new fabric.Line([x1, y1, x2, y2], {
           stroke,
           strokeWidth: width,
@@ -7071,21 +6999,26 @@
           evented: false
         });
 
+        const tickLabel = (value, left, top) => new fabric.Text(formatGraphNumber(value), {
+          left, top, fontSize: 9, fill: '#62667a', selectable: false, evented: false
+        });
         const firstX = Math.ceil(xMin / step) * step;
         for (let gx = firstX; gx <= xMax + step * 0.001; gx += step) {
           const sx = padL + (gx - xMin) * xScale;
           children.push(gridLine(sx, padT, sx, padT + plotH, '#eaecf4', 1));
+          if (sx < padL + plotW - 18) children.push(tickLabel(gx, sx + 2, yCenter + 2));
         }
         const firstY = Math.ceil(-yHalf / step) * step;
         for (let gy = firstY; gy <= yHalf + step * 0.001; gy += step) {
           const sy = yCenter - gy * scale;
           children.push(gridLine(padL, sy, padL + plotW, sy, '#eaecf4', 1));
+          if (Math.abs(gy) > step * 0.01 && sy > padT + 18) children.push(tickLabel(gy, padL + clamp(-xMin * xScale, 0, plotW - 24) + 3, sy + 1));
         }
 
         if (0 >= xMin && 0 <= xMax) {
           const sx = padL + (0 - xMin) * xScale;
           children.push(gridLine(sx, padT, sx, padT + plotH, '#8b8e9f', 1.4));
-          children.push(new fabric.Text('y', {
+          children.push(new fabric.Text(settings.yLabel, {
             left: sx + 5,
             top: padT + 2,
             fontFamily: 'Inter, system-ui, sans-serif',
@@ -7098,7 +7031,7 @@
         }
         if (0 >= -yHalf && 0 <= yHalf) {
           children.push(gridLine(padL, yCenter, padL + plotW, yCenter, '#8b8e9f', 1.4));
-          children.push(new fabric.Text('x', {
+          children.push(new fabric.Text(settings.xLabel, {
             left: padL + plotW - 10,
             top: yCenter - 17,
             fontFamily: 'Inter, system-ui, sans-serif',
@@ -7110,8 +7043,8 @@
           }));
         }
 
-        const segments = graphPointSegments(
-          compiled.fn,
+        const segments = compiled.flatMap(curve => graphPointSegments(
+          curve.fn,
           xMin,
           xMax,
           (x, y) => {
@@ -7120,7 +7053,7 @@
             return [padL + (x - xMin) * xScale, sy];
           },
           (plotH / scale) * 0.65
-        );
+        ));
         let pathData = '';
         segments.forEach((segment) => {
           if (segment.length < 2) return;
@@ -7128,9 +7061,9 @@
             pathData += (index === 0 ? 'M ' : 'L ') + point[0].toFixed(2) + ' ' + point[1].toFixed(2) + ' ';
           });
         });
-        if (!pathData) throw new Error('На выбранном диапазоне нет видимых точек графика');
+        if (compiled.length && !pathData) throw new Error('На выбранном диапазоне нет видимых точек графика');
 
-        children.push(new fabric.Path(pathData.trim(), {
+        if (pathData) children.push(new fabric.Path(pathData.trim(), {
           fill: 'transparent',
           stroke: color,
           strokeWidth: 3,
@@ -7142,6 +7075,8 @@
         }));
 
         return new fabric.Group(children, {
+          customType: 'graph-axes',
+          graphConfig: { ...settings, formula: compiled.map(curve => curve.source).join('; ') },
           left: getViewportCenter().x,
           top: getViewportCenter().y,
           originX: 'center',
@@ -7159,7 +7094,7 @@
         let settings;
         let group;
         try {
-          compiled = compileGraphExpression(graphFormula.value);
+          compiled = readFunctions();
           settings = readGraphSettings();
           group = buildGraphCard(compiled, settings);
         } catch (err) {
@@ -7170,15 +7105,33 @@
           return;
         }
 
-        canvas.add(group);
-        ensureObjectId(group);
-        syncObjectToFirebase(group);
-        recordCreation(group);
+        if (editingGraphId) {
+          const old = findObjectById(editingGraphId);
+          if (!old || old.customType !== 'graph-axes') {
+            closeCheatsheetDrawer();
+            showToast('Эти оси удалены', 'error');
+            return;
+          }
+          const before = captureBeforeState(old);
+          changeSelectedObject(old, () => {
+            for (const key of ['left', 'top', 'scaleX', 'scaleY', 'angle', 'flipX', 'flipY', 'skewX', 'skewY', 'miroId']) group.set(key, old[key]);
+            const index = canvas.getObjects().indexOf(old);
+            canvas.remove(old);
+            canvas.insertAt(group, index);
+            return group;
+          });
+          syncObjectToFirebase(group);
+          recordModification(group, before);
+        } else {
+          canvas.add(group);
+          ensureObjectId(group);
+          syncObjectToFirebase(group);
+          recordCreation(group);
+        }
         selectTool('cursor');
         canvas.setActiveObject(group);
+        closeCheatsheetDrawer();
         canvas.requestRenderAll();
-        showToast('График добавлен на доску');
-        if (window.innerWidth < 640) closeCheatsheetDrawer();
       }
 
       /* ---------- Simulator widgets on the board ---------- */
@@ -7205,8 +7158,8 @@
         }
 
         const center = getViewportCenter();
-        const width = SIM_EMBED_DEFAULT_W;
-        const height = SIM_EMBED_DEFAULT_H;
+        const width = clamp(canvas.getWidth() * 0.82 / canvas.getZoom(), SIM_EMBED_MIN_W, 1080);
+        const height = clamp(canvas.getHeight() * 0.72 / canvas.getZoom(), SIM_EMBED_MIN_H, 680);
         const anchor = new fabric.Rect({
           left: center.x - width / 2,
           top: center.y - height / 2,
@@ -8009,6 +7962,11 @@
         }
         if (!['http:', 'https:', 'file:'].includes(resolved.protocol)) {
           throw new Error('Поддерживаются только http(s) и локальные файлы');
+        }
+        for (const name of ['pendulum', 'projectile', 'circuit']) {
+          if (resolved.href === new URL('sims/' + name + '.html', location.href).href) {
+            return new URL('legacy-sims/' + name + '.html', location.href).href;
+          }
         }
         return resolved.href;
       }
