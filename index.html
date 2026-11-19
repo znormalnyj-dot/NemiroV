@@ -2016,6 +2016,7 @@
       let textEditingBeforeState = null;
       let stickerColorIndex = 0;
       let arrowDraft = null;
+      let arrowKeyDown = false;
       let arrowTouchActive = false;
       let pointerOverCanvas = false;
       let lastCanvasScenePoint = null;
@@ -5059,11 +5060,12 @@
 
       function isArrowPenModifier(event) {
         return state.tool === 'pen' && event.button === 0 &&
-          (event.altKey || (event.ctrlKey && event.shiftKey));
+          (arrowKeyDown || event.altKey || (event.ctrlKey && event.shiftKey));
       }
 
       function handleArrowDownCapture(event) {
         if (activeModal || boardAccess !== 'ready') return;
+        if (spaceDown || isMiddlePanning || isRightPanning) return;
         if (event.button !== 0) return;
         const penMode = isArrowPenModifier(event);
         const toolMode = state.tool === 'arrow';
@@ -5769,17 +5771,18 @@
       function handleCanvasTouchStart(event) {
         if (activeModal) return;
         const touches = event.touches;
+        const arrowMode = state.tool === 'arrow' || (state.tool === 'pen' && arrowKeyDown);
 
         if (arrowDraft && touches.length >= 2) {
           cancelArrowGesture();
         }
 
-        if (arrowDraft || arrowTouchActive || (state.tool === 'arrow' && touches.length === 1)) {
+        if (arrowDraft || arrowTouchActive || (arrowMode && touches.length === 1)) {
           event.preventDefault();
           event.stopPropagation();
-          if (!arrowDraft && state.tool === 'arrow' && touches.length === 1) {
+          if (!arrowDraft && arrowMode && touches.length === 1) {
             const point = arrowPointerScene(touches[0]);
-            if (point) beginArrowGesture(point, 'tool', null);
+            if (point) beginArrowGesture(point, state.tool, null);
           }
           if (arrowDraft) arrowTouchActive = true;
           return;
@@ -8142,6 +8145,21 @@
         }
 
         const hotkeyAction = findHotkeyAction(event.code);
+        if (hotkeyAction?.id === 'arrow' && state.tool === 'pen') {
+          event.preventDefault();
+          if (event.repeat || spaceDown || isMiddlePanning || isRightPanning || touchGestureActive) return;
+          arrowKeyDown = true;
+          if (canvas._isCurrentlyDrawing) {
+            const points = canvas.freeDrawingBrush._points;
+            const start = points[0];
+            const end = points[points.length - 1];
+            if (beginArrowGesture(start, 'pen', null)) {
+              resetActivePenStroke();
+              updateArrowGesture(end);
+            }
+          }
+          return;
+        }
         if (hotkeyAction && !event.repeat) {
           event.preventDefault();
           runHotkeyAction(hotkeyAction.id);
@@ -8167,6 +8185,7 @@
       });
 
       window.addEventListener('keyup', (event) => {
+        if (event.code === hotkeys.arrow) arrowKeyDown = false;
         if (event.code === 'Space' && spaceDown) {
           setSpaceDown(false);
           event.preventDefault();
@@ -8174,6 +8193,7 @@
       });
 
       window.addEventListener('blur', () => {
+        arrowKeyDown = false;
         if (spaceDown) setSpaceDown(false);
         endEraserGesture();
         hideEraserCursor();
