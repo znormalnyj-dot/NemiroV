@@ -109,7 +109,8 @@
     }
     .tool-btn:hover { background: #f4f4f7; }
     .tool-btn:active { transform: scale(.94); }
-    .tool-btn.is-active { background: #eef1ff; color: var(--accent); }
+    .tool-btn.is-active { background: #eaf0ff; color: #304dc9; box-shadow: inset 0 0 0 1px #d6e0ff; }
+    #toolRail .tool-divider { height: 1px; width: 22px; margin: 4px 0; background: rgba(5, 0, 56, .045); }
     .history-btn {
       display: grid;
       place-items: center;
@@ -603,6 +604,17 @@
       will-change: transform;
     }
     #cheatsheetDrawer.is-open { transform: translateX(0); }
+    #cheatsheetDrawer .drawer-title { font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
+    #cheatsheetDrawer .drawer-heading { font-size: 14px; font-weight: 650; line-height: 1.4; }
+    #cheatsheetDrawer .drawer-hint { margin-top: 4px; color: #626277; font-size: 12px; line-height: 1.5; }
+    #cheatsheetDrawer .field-label { display: block; min-width: 0; font-size: 12px; font-weight: 550; color: #515165; }
+    #cheatsheetDrawer .graph-field {
+      display: block; width: 100%; min-width: 0; height: 36px; margin-top: 5px;
+      padding: 0 9px; border: 1px solid #d9d9e2; border-radius: 8px; background: #fff;
+      color: var(--ink); font: 500 13px/1.3 Inter, system-ui, sans-serif;
+    }
+    #cheatsheetDrawer .graph-field[type="color"] { padding: 5px; cursor: pointer; }
+    #cheatsheetDrawer .graph-field:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
     .drawer-tab {
       display: flex;
       min-width: 0;
@@ -612,8 +624,8 @@
       gap: 5px;
       padding: 9px 4px;
       border-radius: 9px;
-      color: #77778b;
-      font-size: 10.5px;
+      color: #5e5e72;
+      font-size: 12px;
       font-weight: 700;
       line-height: 1.15;
       text-align: center;
@@ -658,12 +670,12 @@
     }
     .cheat-send:hover { background: var(--accent); color: #fff; }
     .cheat-body { border-top: 1px solid rgba(5, 0, 56, .06); padding: 10px 11px 12px; }
-    .cheat-table { width: 100%; border-collapse: collapse; font-size: 9.5px; line-height: 1.35; }
+    .cheat-table { width: 100%; border-collapse: collapse; font-size: 11px; line-height: 1.35; }
     .cheat-table th, .cheat-table td { border-bottom: 1px solid rgba(5, 0, 56, .06); padding: 3px 2px; text-align: center; vertical-align: middle; }
-    .cheat-table th { color: #707086; font-size: 9px; font-weight: 800; }
+    .cheat-table th { color: #59596c; font-size: 11px; font-weight: 800; }
     .cheat-table td:first-child, .cheat-table th:first-child { text-align: left; font-weight: 700; color: #3e3e52; }
     .cheat-table tr:last-child td { border-bottom: 0; }
-    .cheat-table small { color: #9a9aae; font-size: 8px; }
+    .cheat-table small { color: #616176; font-size: 10px; }
     .graph-template {
       border: 1px solid rgba(5, 0, 56, .08);
       border-radius: 8px;
@@ -940,9 +952,9 @@
     <div id="topLeftBar" class="pointer-events-none absolute left-0 top-0 z-50 p-3 sm:p-4">
       <div id="boardMenuRoot" class="pointer-events-auto relative">
         <div class="flex h-14 items-center gap-1.5 rounded-2xl border border-black/[0.06] bg-white p-1.5 pr-2.5 float-card">
-          <div class="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[13px] bg-gradient-to-br from-[#ffe25a] to-[#ffd02f] shadow-[inset_0_1px_0_rgba(255,255,255,.7),0_1px_2px_rgba(5,0,56,.12)]">
-            <svg width="21" height="21" viewBox="0 0 24 24" class="h-[21px] w-[21px]" fill="none" aria-hidden="true">
-              <path d="M4 18V6.2l4 7.9 4-7.9 4 7.9 4-7.9V18" stroke="#050038" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <div class="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[13px] bg-[#ffda43]">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3.5 18.5V5.5L12 17V5.5l8.5 13V5.5" stroke="#050038" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <button id="boardMenuBtn" type="button" aria-haspopup="menu" aria-expanded="false" class="group flex h-11 min-w-0 items-center rounded-xl px-2 text-left transition hover:bg-[#f5f5f7]">
@@ -1132,7 +1144,7 @@
             </div>
           </div>
 
-          <div class="my-1 h-px w-7 bg-black/[0.06]"></div>
+          <div class="tool-divider" aria-hidden="true"></div>
 
           <button type="button" class="tool-btn tip" data-tool="text" data-tip="Текст (T)" aria-label="Текст" aria-pressed="false">
             <i data-lucide="type" class="h-[19px] w-[19px]"></i>
@@ -1144,7 +1156,7 @@
             <i data-lucide="columns-3" class="h-[19px] w-[19px]"></i>
           </button>
 
-          <div class="my-1 h-px w-7 bg-black/[0.06]"></div>
+          <div class="tool-divider" aria-hidden="true"></div>
 
           <button id="uploadBtn" type="button" class="tool-btn tip" data-tip="Загрузить фото" aria-label="Загрузить фото">
             <i data-lucide="image-plus" class="h-[19px] w-[19px]"></i>
@@ -1254,8 +1266,7 @@
             <i data-lucide="book-open" class="h-5 w-5"></i>
           </span>
           <div class="min-w-0">
-            <h2 class="text-[14px] font-semibold tracking-[-0.01em]">Шпоры и инструменты</h2>
-            <p class="mt-0.5 text-[10.5px] leading-relaxed text-[#8b8b9e]">Формулы, заметки, графики и симуляторы</p>
+            <h2 class="drawer-title">Шпоры и инструменты</h2>
           </div>
         </div>
         <button id="cheatsheetCloseBtn" type="button" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#8b8b9e] transition hover:bg-[#f4f4f7] hover:text-ink" aria-label="Закрыть шпоры">
@@ -1284,8 +1295,8 @@
         <section>
           <div class="mb-2.5 flex items-end justify-between gap-2">
             <div>
-              <h3 class="text-[12px] font-semibold">Базовый справочник</h3>
-              <p class="mt-0.5 text-[10px] text-[#8b8b9e]">Разверните блок и вставьте его на доску</p>
+              <h3 class="drawer-heading">Базовый справочник</h3>
+              <p class="drawer-hint">Разверните блок и вставьте его на доску</p>
             </div>
           </div>
           <div id="cheatAccordion" class="space-y-2"></div>
@@ -1294,8 +1305,7 @@
         <section class="mt-5 border-t border-black/[0.06] pt-4">
           <div class="flex items-start justify-between gap-2">
             <div>
-              <h3 class="text-[12px] font-semibold">Заметки этой доски</h3>
-              <p class="mt-0.5 text-[10px] text-[#8b8b9e]">Синхронизируются с участниками доски</p>
+              <h3 class="drawer-heading">Заметки этой доски</h3>
             </div>
             <span id="notesSyncBadge" class="rounded-full bg-[#f2f2f6] px-2 py-1 text-[9px] font-semibold text-[#8b8b9e]">локально</span>
           </div>
@@ -1326,30 +1336,30 @@
 
       <div class="drawer-pane hidden px-4 pb-5" data-drawer-pane="graph">
         <div class="mt-1">
-          <h3 class="text-[12px] font-semibold">Построение графика</h3>
-          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Нажмите G, чтобы добавить оси. Щёлкните по ним дважды, чтобы ввести функции.</p>
+          <h3 class="drawer-heading">Построение графика</h3>
+          <p class="drawer-hint">G добавляет оси. Двойной щелчок по осям открывает редактор функций.</p>
         </div>
 
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <label class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">X от
-            <input id="graphXMin" type="number" value="-10" step="0.5" class="mt-1 h-9 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] font-medium text-ink outline-none focus:border-accent" />
+          <label class="field-label">X от
+            <input id="graphXMin" type="number" value="-10" step="0.5" class="graph-field" />
           </label>
-          <label class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">X до
-            <input id="graphXMax" type="number" value="10" step="0.5" class="mt-1 h-9 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] font-medium text-ink outline-none focus:border-accent" />
+          <label class="field-label">X до
+            <input id="graphXMax" type="number" value="10" step="0.5" class="graph-field" />
           </label>
-          <label class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Масштаб, px/ед.
-            <input id="graphScale" type="number" value="24" min="8" max="80" step="1" class="mt-1 h-9 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] font-medium text-ink outline-none focus:border-accent" />
+          <label class="field-label">Масштаб, px/ед.
+            <input id="graphScale" type="number" value="24" min="8" max="80" step="1" class="graph-field" />
           </label>
-          <label class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Цвет линии
-            <input id="graphColor" type="color" value="#4262ff" class="mt-1 h-9 w-full cursor-pointer rounded-lg border border-black/[0.1] bg-white p-1" />
+          <label class="field-label">Цвет линии
+            <input id="graphColor" type="color" value="#4262ff" class="graph-field" />
           </label>
         </div>
 
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <label>Подпись X<input id="graphXLabel" value="x" maxlength="18" class="block w-full rounded-lg border p-2" /></label>
-          <label>Подпись Y<input id="graphYLabel" value="y" maxlength="18" class="block w-full rounded-lg border p-2" /></label>
+          <label class="field-label">Подпись X<input id="graphXLabel" value="x" maxlength="18" class="graph-field" /></label>
+          <label class="field-label">Подпись Y<input id="graphYLabel" value="y" maxlength="18" class="graph-field" /></label>
         </div>
-        <label class="block mt-3">Шаг делений<input id="graphTick" type="number" value="1" min="0.1" max="100" step="any" class="block w-full rounded-lg border p-2" /></label>
+        <label class="field-label mt-3">Шаг делений<input id="graphTick" type="number" value="1" min="0.1" max="100" step="any" class="graph-field" /></label>
         <button id="graphInsertBtn" type="button" class="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[11.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0] disabled:cursor-not-allowed disabled:opacity-50">
           <i data-lucide="line-chart" class="h-4 w-4"></i>
           <span>Добавить оси</span>
@@ -1358,12 +1368,11 @@
 
       <div class="drawer-pane hidden px-4 pb-5" data-drawer-pane="sims">
         <div class="mt-1">
-          <h3 class="text-[12px] font-semibold">HTML-симуляторы</h3>
-          <p class="mt-0.5 text-[10px] leading-relaxed text-[#8b8b9e]">Добавляйте демонстрации прямо на холст — их увидят все участники доски.</p>
+          <h3 class="drawer-heading">HTML-симуляторы</h3>
         </div>
         <div id="simulatorList" class="mt-3 space-y-2"></div>
         <div class="mt-4 border-t border-black/[0.06] pt-3">
-          <label for="simulatorUrlInput" class="block text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#9a9aae]">Свой URL или путь</label>
+          <label for="simulatorUrlInput" class="field-label">Свой URL или путь</label>
           <div class="mt-1.5 flex gap-2">
             <input id="simulatorUrlInput" type="text" placeholder="sims/my-sim.html" spellcheck="false" autocomplete="off" class="h-9 min-w-0 flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 text-[11px] text-ink outline-none focus:border-accent" />
             <button id="simulatorOpenBtn" type="button" class="h-9 shrink-0 rounded-lg bg-accent px-3 text-[10.5px] font-semibold text-white shadow-[0_2px_8px_rgba(66,98,255,.28)] transition hover:bg-[#3451e0]">На доску</button>
@@ -2912,6 +2921,7 @@
           btn.classList.toggle('is-active', active);
           btn.setAttribute('aria-pressed', String(active));
         });
+        shapeBtn.classList.toggle('is-active', tool === 'arrow');
         if (tool !== 'pen') closePenMenu();
         if (tool !== 'eraser') closeEraserMenu();
       }
