@@ -1095,7 +1095,7 @@
               </button>
               <button type="button" role="menuitem" data-shape="arrow" class="menu-action">
                 <span class="menu-action-icon"><i data-lucide="arrow-up-right" class="h-4 w-4"></i></span>
-                <span class="flex-1" data-hotkey-label="arrow">Стрелка (A)</span>
+                <span class="flex-1" data-hotkey-label="arrow">Стрелка (удерживайте A)</span>
               </button>
               <button type="button" role="menuitem" data-shape="axes" class="menu-action">
                 <span class="menu-action-icon"><i data-lucide="axis-3d" class="h-4 w-4"></i></span>
@@ -4927,11 +4927,13 @@
         return point;
       }
 
+      function isArrowPointer(event) {
+        return arrowDraft && !arrowTouchActive && event.pointerType !== 'touch' &&
+          (arrowDraft.pointerId === null || arrowDraft.pointerId === event.pointerId);
+      }
+
       function handleArrowPointerMove(event) {
-        if (!arrowDraft) return;
-        if (arrowDraft.pointerId !== null &&
-            typeof event.pointerId === 'number' &&
-            event.pointerId !== arrowDraft.pointerId) return;
+        if (!isArrowPointer(event)) return;
         const point = arrowPointerScene(event);
         if (!point) return;
         event.preventDefault();
@@ -4939,18 +4941,15 @@
       }
 
       function handleArrowPointerUp(event) {
-        if (!arrowDraft) return;
-        if (arrowDraft.pointerId !== null &&
-            typeof event.pointerId === 'number' &&
-            event.pointerId !== arrowDraft.pointerId) return;
+        if (!isArrowPointer(event)) return;
         const point = arrowPointerScene(event);
         if (point) updateArrowGesture(point);
         event.preventDefault();
         finishArrowGesture(false);
       }
 
-      function handleArrowPointerCancel() {
-        finishArrowGesture(true);
+      function handleArrowPointerCancel(event) {
+        if (isArrowPointer(event)) cancelArrowGesture();
       }
 
       function cleanupArrowGesture() {
@@ -5006,13 +5005,12 @@
         updateArrowPreview();
       }
 
-      function beginArrowGesture(point, mode, pointerId) {
+      function beginArrowGesture(point, pointerId = null) {
         if (arrowDraft || !point || boardAccess !== 'ready') return false;
         arrowDraft = {
           start: { x: point.x, y: point.y },
           current: { x: point.x, y: point.y },
-          mode,
-          pointerId: typeof pointerId === 'number' ? pointerId : null,
+          pointerId,
           stroke: state.penColor,
           strokeWidth: Math.min(2, state.penWidth),
           preview: null
@@ -5044,6 +5042,7 @@
               stroke: draft.stroke,
               strokeWidth: draft.strokeWidth
             });
+            applyToolToObject(arrow);
             canvas.add(arrow);
             ensureObjectId(arrow);
             syncObjectToFirebase(arrow);
@@ -5058,18 +5057,14 @@
         finishArrowGesture(true);
       }
 
-      function isArrowPenModifier(event) {
-        return state.tool === 'pen' && event.button === 0 &&
-          (arrowKeyDown || event.altKey || (event.ctrlKey && event.shiftKey));
+      function isArrowMode() {
+        return state.tool === 'arrow' || arrowKeyDown;
       }
 
       function handleArrowDownCapture(event) {
         if (activeModal || boardAccess !== 'ready') return;
-        if (spaceDown || isMiddlePanning || isRightPanning) return;
-        if (event.button !== 0) return;
-        const penMode = isArrowPenModifier(event);
-        const toolMode = state.tool === 'arrow';
-        if (!penMode && !toolMode) return;
+        if (spaceDown || isPanning || isMiddlePanning || isRightPanning || touchGestureActive) return;
+        if (event.button !== 0 || event.pointerType === 'touch' || !isArrowMode()) return;
 
         // Не даём Fabric начать свободное рисование или выделение.
         event.preventDefault();
@@ -5077,12 +5072,11 @@
         if (arrowDraft) return;
 
         const point = arrowPointerScene(event);
-        if (point) beginArrowGesture(point, penMode ? 'pen' : 'tool', event.pointerId);
+        if (point) beginArrowGesture(point, event.pointerId);
       }
 
       if (canvas.upperCanvasEl) {
         canvas.upperCanvasEl.addEventListener('pointerdown', handleArrowDownCapture, true);
-        canvas.upperCanvasEl.addEventListener('mousedown', handleArrowDownCapture, true);
       }
 
       addColumnsBtn.addEventListener('click', () => {
@@ -5769,12 +5763,13 @@
       }
 
       function handleCanvasTouchStart(event) {
-        if (activeModal) return;
+        if (activeModal || boardAccess !== 'ready') return;
         const touches = event.touches;
-        const arrowMode = state.tool === 'arrow' || (state.tool === 'pen' && arrowKeyDown);
+        const arrowMode = isArrowMode() && !spaceDown && !touchGestureActive && !handTouchActive;
 
-        if (arrowDraft && touches.length >= 2) {
+        if ((arrowDraft || arrowTouchActive) && touches.length >= 2) {
           cancelArrowGesture();
+          arrowTouchActive = false;
         }
 
         if (arrowDraft || arrowTouchActive || (arrowMode && touches.length === 1)) {
@@ -5782,7 +5777,7 @@
           event.stopPropagation();
           if (!arrowDraft && arrowMode && touches.length === 1) {
             const point = arrowPointerScene(touches[0]);
-            if (point) beginArrowGesture(point, state.tool, null);
+            if (point) beginArrowGesture(point);
           }
           if (arrowDraft) arrowTouchActive = true;
           return;
@@ -5913,7 +5908,11 @@
           event.stopPropagation();
           if (event.touches.length === 0) {
             arrowTouchActive = false;
-            if (arrowDraft) finishArrowGesture(false);
+            if (arrowDraft) {
+              const point = arrowPointerScene(event.changedTouches[0]);
+              if (point) updateArrowGesture(point);
+              finishArrowGesture(false);
+            }
           }
           return;
         }
@@ -6317,7 +6316,8 @@
           const base = shapeLabels[el.dataset.hotkeyLabel];
           if (!base) return;
           const code = hotkeys[el.dataset.hotkeyLabel];
-          el.textContent = code ? base + ' (' + formatHotkeyKey(code) + ')' : base;
+          const hold = el.dataset.hotkeyLabel === 'arrow' ? 'удерживайте ' : '';
+          el.textContent = code ? `${base} (${hold}${formatHotkeyKey(code)})` : base;
         });
 
         $$('[data-hotkey-kbd]').forEach((el) => {
@@ -7927,11 +7927,6 @@
           toggleCheatsheetDrawer();
           return;
         }
-        if (actionId === 'arrow') {
-          selectTool('arrow');
-          showToast('Потяните по холсту, чтобы нарисовать стрелку');
-          return;
-        }
         selectTool(actionId);
         if (actionId === 'pen') openPenMenu();
         if (actionId === 'eraser') openEraserMenu();
@@ -8145,15 +8140,16 @@
         }
 
         const hotkeyAction = findHotkeyAction(event.code);
-        if (hotkeyAction?.id === 'arrow' && state.tool === 'pen') {
+        if (hotkeyAction?.id === 'arrow') {
           event.preventDefault();
-          if (event.repeat || spaceDown || isMiddlePanning || isRightPanning || touchGestureActive) return;
+          if (event.repeat) return;
           arrowKeyDown = true;
-          if (canvas._isCurrentlyDrawing) {
+          if (state.tool === 'pen' && canvas._isCurrentlyDrawing && !singleTouchFabricActive &&
+              !spaceDown && !isMiddlePanning && !isRightPanning) {
             const points = canvas.freeDrawingBrush._points;
             const start = points[0];
             const end = points[points.length - 1];
-            if (beginArrowGesture(start, 'pen', null)) {
+            if (beginArrowGesture(start)) {
               resetActivePenStroke();
               updateArrowGesture(end);
             }
