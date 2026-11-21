@@ -1095,7 +1095,7 @@
               </button>
               <button type="button" role="menuitem" data-shape="arrow" class="menu-action">
                 <span class="menu-action-icon"><i data-lucide="arrow-up-right" class="h-4 w-4"></i></span>
-                <span class="flex-1" data-hotkey-label="arrow">Стрелка (удерживайте A)</span>
+                <span class="flex-1" data-hotkey-label="arrow">Стрелка (A)</span>
               </button>
               <button type="button" role="menuitem" data-shape="axes" class="menu-action">
                 <span class="menu-action-icon"><i data-lucide="axis-3d" class="h-4 w-4"></i></span>
@@ -2017,6 +2017,7 @@
       let stickerColorIndex = 0;
       let arrowDraft = null;
       let arrowKeyDown = false;
+      let arrowKeyUsed = false;
       let arrowTouchActive = false;
       let pointerOverCanvas = false;
       let lastCanvasScenePoint = null;
@@ -5007,6 +5008,7 @@
 
       function beginArrowGesture(point, pointerId = null) {
         if (arrowDraft || !point || boardAccess !== 'ready') return false;
+        if (arrowKeyDown) arrowKeyUsed = true;
         arrowDraft = {
           start: { x: point.x, y: point.y },
           current: { x: point.x, y: point.y },
@@ -6316,8 +6318,7 @@
           const base = shapeLabels[el.dataset.hotkeyLabel];
           if (!base) return;
           const code = hotkeys[el.dataset.hotkeyLabel];
-          const hold = el.dataset.hotkeyLabel === 'arrow' ? 'удерживайте ' : '';
-          el.textContent = code ? `${base} (${hold}${formatHotkeyKey(code)})` : base;
+          el.textContent = code ? base + ' (' + formatHotkeyKey(code) + ')' : base;
         });
 
         $$('[data-hotkey-kbd]').forEach((el) => {
@@ -8051,6 +8052,7 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
+          arrowKeyDown = false;
           if (arrowDraft) {
             cancelArrowGesture();
             event.preventDefault();
@@ -8144,6 +8146,7 @@
           event.preventDefault();
           if (event.repeat) return;
           arrowKeyDown = true;
+          arrowKeyUsed = false;
           if (state.tool === 'pen' && canvas._isCurrentlyDrawing && !singleTouchFabricActive &&
               !spaceDown && !isMiddlePanning && !isRightPanning) {
             const points = canvas.freeDrawingBrush._points;
@@ -8181,7 +8184,14 @@
       });
 
       window.addEventListener('keyup', (event) => {
-        if (event.code === hotkeys.arrow) arrowKeyDown = false;
+        if (event.code === hotkeys.arrow && arrowKeyDown) {
+          arrowKeyDown = false;
+          if (!arrowKeyUsed && boardAccess === 'ready' && !activeModal &&
+              !isEditable(event.target) && !isEditingText()) {
+            selectTool('arrow');
+            showToast('Потяните по холсту, чтобы нарисовать стрелку');
+          }
+        }
         if (event.code === 'Space' && spaceDown) {
           setSpaceDown(false);
           event.preventDefault();
