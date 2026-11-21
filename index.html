@@ -2019,8 +2019,6 @@
       let arrowKeyDown = false;
       let arrowKeyUsed = false;
       let arrowTouchActive = false;
-      let pointerOverCanvas = false;
-      let lastCanvasScenePoint = null;
       let lastCanvasClientPoint = null;
       let hotkeyCapture = null;
       let hotkeyCaptureHandler = null;
@@ -2919,7 +2917,7 @@
 
       function selectTool(tool) {
         if (isErasing) endEraserGesture();
-        if (tool !== 'arrow' && arrowDraft) cancelArrowGesture();
+        if (tool !== state.tool && arrowDraft) cancelArrowGesture();
         closeShapeMenu();
         state.tool = tool;
         syncToolState();
@@ -4820,7 +4818,7 @@
       }
 
       function getAxesInsertionCenter() {
-        if (pointerOverCanvas && lastCanvasClientPoint) {
+        if (lastCanvasClientPoint) {
           const point = canvas.getPointer(lastCanvasClientPoint);
           if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) {
             return new fabric.Point(
@@ -4852,23 +4850,17 @@
         showToast('Двойной щелчок по осям — формулы и подписи');
       }
 
-      // Запоминаем, где находится курсор над холстом — оси создаются в этой точке.
-      canvas.on('mouse:move', (opt) => {
-        const point = canvas.getPointer(opt.e);
-        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
-        lastCanvasScenePoint = { x: point.x, y: point.y };
-        lastCanvasClientPoint = { clientX: opt.e.clientX, clientY: opt.e.clientY };
-        pointerOverCanvas = true;
-      });
-      if (canvas.upperCanvasEl) {
-        canvas.upperCanvasEl.addEventListener('pointerenter', (event) => {
-          pointerOverCanvas = true;
-          lastCanvasClientPoint = { clientX: event.clientX, clientY: event.clientY };
-        });
-        canvas.upperCanvasEl.addEventListener('pointerleave', () => {
-          pointerOverCanvas = false;
-        });
+      function rememberCanvasPointer(event) {
+        if (!event.isPrimary) return;
+        lastCanvasClientPoint = { clientX: event.clientX, clientY: event.clientY };
       }
+
+      canvas.upperCanvasEl.addEventListener('pointerenter', rememberCanvasPointer);
+      canvas.upperCanvasEl.addEventListener('pointerdown', rememberCanvasPointer, true);
+      canvas.upperCanvasEl.addEventListener('pointermove', rememberCanvasPointer);
+      canvas.upperCanvasEl.addEventListener('pointerleave', (event) => {
+        if (event.isPrimary) lastCanvasClientPoint = null;
+      });
 
       /* ---------- Стрелки и векторы ---------- */
 
@@ -4921,11 +4913,15 @@
         }, options || {}));
       }
 
-      function arrowPointerScene(event) {
-        if (!event) return null;
-        const point = canvas.getPointer(event);
-        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return null;
-        return point;
+      function arrowPointerScene(pointer) {
+        if (!pointer || !Number.isFinite(pointer.clientX) || !Number.isFinite(pointer.clientY)) return null;
+        const rect = canvas.upperCanvasEl.getBoundingClientRect();
+        if (!rect.width || !rect.height) return null;
+        // Fabric может хранить координаты предыдущего mousemove.
+        return canvas.restorePointerVpt(new fabric.Point(
+          (pointer.clientX - rect.left) * canvas.getWidth() / rect.width,
+          (pointer.clientY - rect.top) * canvas.getHeight() / rect.height
+        ));
       }
 
       function isArrowPointer(event) {
@@ -4935,16 +4931,14 @@
 
       function handleArrowPointerMove(event) {
         if (!isArrowPointer(event)) return;
-        const point = arrowPointerScene(event);
-        if (!point) return;
-        event.preventDefault();
-        updateArrowGesture(point);
+        if (!arrowDraft.start && event.target !== canvas.upperCanvasEl) return;
+        updateArrowGesture(event);
       }
 
       function handleArrowPointerUp(event) {
         if (!isArrowPointer(event)) return;
-        const point = arrowPointerScene(event);
-        if (point) updateArrowGesture(point);
+        if (arrowDraft.start) updateArrowGesture(event);
+        if (arrowDraft.keyCode) return;
         event.preventDefault();
         finishArrowGesture(false);
       }
@@ -4998,21 +4992,26 @@
         canvas.requestRenderAll();
       }
 
-      function updateArrowGesture(point) {
-        if (!arrowDraft || !point) return;
+      function updateArrowGesture(event) {
+        if (!arrowDraft) return;
+        const point = arrowPointerScene(event);
+        if (!point) return;
+        arrowDraft.start ??= { x: point.x, y: point.y };
         arrowDraft.current = { x: point.x, y: point.y };
-        lastCanvasScenePoint = { x: point.x, y: point.y };
-        pointerOverCanvas = true;
+        arrowDraft.lastPointer = { clientX: event.clientX, clientY: event.clientY };
         updateArrowPreview();
       }
 
-      function beginArrowGesture(point, pointerId = null) {
-        if (arrowDraft || !point || boardAccess !== 'ready') return false;
+      function beginArrowGesture(event, { pointerId = null, keyCode = null } = {}) {
+        const point = arrowPointerScene(event);
+        if (arrowDraft || (!point && !keyCode) || boardAccess !== 'ready') return;
         if (arrowKeyDown) arrowKeyUsed = true;
         arrowDraft = {
-          start: { x: point.x, y: point.y },
-          current: { x: point.x, y: point.y },
+          start: point,
+          current: point,
+          lastPointer: event,
           pointerId,
+          keyCode,
           stroke: state.penColor,
           strokeWidth: Math.min(2, state.penWidth),
           preview: null
@@ -5020,7 +5019,6 @@
         window.addEventListener('pointermove', handleArrowPointerMove, true);
         window.addEventListener('pointerup', handleArrowPointerUp, true);
         window.addEventListener('pointercancel', handleArrowPointerCancel, true);
-        return true;
       }
 
       function finishArrowGesture(cancelled) {
@@ -5032,7 +5030,7 @@
           canvas.remove(draft.preview);
         }
 
-        if (!cancelled) {
+        if (!cancelled && draft.start && boardAccess === 'ready') {
           const geometry = buildArrowGeometry(
             draft.start.x,
             draft.start.y,
@@ -5060,7 +5058,7 @@
       }
 
       function isArrowMode() {
-        return state.tool === 'arrow' || arrowKeyDown;
+        return state.tool === 'arrow' || arrowKeyDown || !!arrowDraft?.keyCode;
       }
 
       function handleArrowDownCapture(event) {
@@ -5071,10 +5069,8 @@
         // Не даём Fabric начать свободное рисование или выделение.
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (arrowDraft) return;
-
-        const point = arrowPointerScene(event);
-        if (point) beginArrowGesture(point, event.pointerId);
+        if (arrowDraft?.keyCode) updateArrowGesture(event);
+        else beginArrowGesture(event, { pointerId: event.pointerId });
       }
 
       if (canvas.upperCanvasEl) {
@@ -5777,10 +5773,8 @@
         if (arrowDraft || arrowTouchActive || (arrowMode && touches.length === 1)) {
           event.preventDefault();
           event.stopPropagation();
-          if (!arrowDraft && arrowMode && touches.length === 1) {
-            const point = arrowPointerScene(touches[0]);
-            if (point) beginArrowGesture(point);
-          }
+          if (arrowDraft?.keyCode) updateArrowGesture(touches[0]);
+          else if (!arrowDraft && arrowMode) beginArrowGesture(touches[0]);
           if (arrowDraft) arrowTouchActive = true;
           return;
         }
@@ -5835,10 +5829,7 @@
         if (arrowTouchActive || arrowDraft) {
           event.preventDefault();
           event.stopPropagation();
-          if (event.touches.length === 1) {
-            const point = arrowPointerScene(event.touches[0]);
-            if (point) updateArrowGesture(point);
-          }
+          if (event.touches.length === 1) updateArrowGesture(event.touches[0]);
           return;
         }
 
@@ -5905,14 +5896,16 @@
       }
 
       function handleCanvasTouchEnd(event) {
+        if (arrowDraft?.keyCode && event.touches.length === 0) {
+          updateArrowGesture(event.changedTouches[0]);
+        }
         if (arrowTouchActive) {
           event.preventDefault();
           event.stopPropagation();
           if (event.touches.length === 0) {
             arrowTouchActive = false;
-            if (arrowDraft) {
-              const point = arrowPointerScene(event.changedTouches[0]);
-              if (point) updateArrowGesture(point);
+            if (arrowDraft && !arrowDraft.keyCode) {
+              updateArrowGesture(event.changedTouches[0]);
               finishArrowGesture(false);
             }
           }
@@ -5956,11 +5949,11 @@
       }
 
       function handleCanvasTouchCancel(event) {
-        if (arrowTouchActive || arrowDraft) {
+        if (arrowDraft) cancelArrowGesture();
+        if (arrowTouchActive) {
           event.preventDefault();
           event.stopPropagation();
           arrowTouchActive = false;
-          cancelArrowGesture();
           return;
         }
 
@@ -8145,18 +8138,17 @@
         if (hotkeyAction?.id === 'arrow') {
           event.preventDefault();
           if (event.repeat) return;
+          if (state.tool === 'pen') {
+            if (spaceDown || isPanning || isMiddlePanning || isRightPanning || touchGestureActive) return;
+            if (canvas._isCurrentlyDrawing) {
+              canvas.freeDrawingBrush.onMouseUp({ e: event });
+              resetActivePenStroke();
+            }
+            beginArrowGesture(lastCanvasClientPoint, { keyCode: event.code });
+            return;
+          }
           arrowKeyDown = true;
           arrowKeyUsed = false;
-          if (state.tool === 'pen' && canvas._isCurrentlyDrawing && !singleTouchFabricActive &&
-              !spaceDown && !isMiddlePanning && !isRightPanning) {
-            const points = canvas.freeDrawingBrush._points;
-            const start = points[0];
-            const end = points[points.length - 1];
-            if (beginArrowGesture(start)) {
-              resetActivePenStroke();
-              updateArrowGesture(end);
-            }
-          }
           return;
         }
         if (hotkeyAction && !event.repeat) {
@@ -8184,6 +8176,11 @@
       });
 
       window.addEventListener('keyup', (event) => {
+        if (arrowDraft?.keyCode === event.code) {
+          updateArrowGesture(arrowDraft.lastPointer);
+          finishArrowGesture(!!activeModal);
+          event.preventDefault();
+        }
         if (event.code === hotkeys.arrow && arrowKeyDown) {
           arrowKeyDown = false;
           if (!arrowKeyUsed && boardAccess === 'ready' && !activeModal &&
@@ -8200,6 +8197,7 @@
 
       window.addEventListener('blur', () => {
         arrowKeyDown = false;
+        lastCanvasClientPoint = null;
         if (spaceDown) setSpaceDown(false);
         endEraserGesture();
         hideEraserCursor();
