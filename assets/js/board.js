@@ -2142,6 +2142,9 @@ function drawGridLayer() {
   const cellSize = 24 * zoom;
   const majorOnly = cellSize < 9;
   const step = majorOnly ? cellSize * 5 : cellSize;
+  const colors = getComputedStyle(canvasWrap);
+  const minorColor = colors.getPropertyValue('--board-grid').trim();
+  const majorColor = colors.getPropertyValue('--board-grid-major').trim();
   gridCtx.lineWidth = 1;
 
   const startX = Math.floor((0 - vpt[4]) / step);
@@ -2151,7 +2154,7 @@ function drawGridLayer() {
     const x = vpt[4] + i * step;
     if (x < -1 || x > w + 1) continue;
     const px = Math.round(x) + 0.5;
-    gridCtx.strokeStyle = major ? '#e3e3eb' : '#ededf2';
+    gridCtx.strokeStyle = major ? majorColor : minorColor;
     gridCtx.beginPath();
     gridCtx.moveTo(px, 0);
     gridCtx.lineTo(px, h);
@@ -2165,7 +2168,7 @@ function drawGridLayer() {
     const y = vpt[5] + i * step;
     if (y < -1 || y > h + 1) continue;
     const py = Math.round(y) + 0.5;
-    gridCtx.strokeStyle = major ? '#e3e3eb' : '#ededf2';
+    gridCtx.strokeStyle = major ? majorColor : minorColor;
     gridCtx.beginPath();
     gridCtx.moveTo(0, py);
     gridCtx.lineTo(w, py);
@@ -7597,7 +7600,7 @@ downloadPngBtn.addEventListener('click', () => {
     out.width = rendered.width;
     out.height = rendered.height;
     const ctx = out.getContext('2d');
-    ctx.fillStyle = '#f7f7f8';
+    ctx.fillStyle = getComputedStyle(canvasWrap).getPropertyValue('--board-background').trim();
     ctx.fillRect(0, 0, out.width, out.height);
     ctx.drawImage(rendered, 0, 0);
 

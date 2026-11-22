@@ -53,7 +53,7 @@
 #axisEditor button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .axis-editor-actions button { color: #334cc4; font-weight: 600; }
 #axisHandles button { position:absolute; z-index:6; width:14px; height:14px; border:2px solid #4262ff; border-radius:50%; background:white; transform:translate(-50%,-50%); touch-action:none; }
-#app { position: relative; height: 100vh; height: 100dvh; }
+#app { position: relative; height: 100vh; height: 100dvh; background: var(--board-background); }
 #boardGate { inset: 0; z-index: 65; }
 
 :root {
@@ -62,6 +62,9 @@
   --faint: #8b8b9e;
   --accent: #4262ff;
   --line: rgba(5, 0, 56, 0.07);
+  --board-background: #ffe2c4;
+  --board-grid: #f4d2b2;
+  --board-grid-major: #e8bf9b;
 }
 * { -webkit-tap-highlight-color: transparent; }
 html, body {
@@ -72,7 +75,7 @@ body {
   margin: 0;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #f7f7f8;
+  background: var(--board-background);
   color: var(--ink);
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -84,6 +87,16 @@ button { cursor: pointer; }
 
 .float-card {
   box-shadow: 0 1px 2px rgba(5, 0, 56, 0.05), 0 8px 24px rgba(5, 0, 56, 0.07);
+}
+.board-brand {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #bd4e21, #843311);
+  box-shadow: inset 0 1px #ffffff36, 0 2px 4px #78300f33;
 }
 #syncStatus {
   color: #92400e;
