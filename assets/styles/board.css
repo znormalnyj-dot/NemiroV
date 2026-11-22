@@ -768,6 +768,30 @@ body.cheatsheet-open #cheatsheetTab svg {
   border-radius: 0 0 2px 0;
 }
 /* Simulator widgets embedded into the board */
+#labDock { position: fixed; right: 16px; top: 82px; z-index: 80; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+#labDock .lesson-lab { position: fixed; inset: 0; width: 100%; height: 100dvh; border: 0; border-radius: 0; transform: none; pointer-events: auto; }
+#labDock .is-collapsed { position: relative; inset: auto; width: auto; height: auto; border-radius: 10px; }
+.lesson-lab .sim-embed-head { min-height: 46px; cursor: default; padding-inline: 14px; }
+.lesson-lab .sim-embed-title { font-size: 14px; }
+.lesson-lab .sim-embed-body { display: flex; }
+.lesson-lab .sim-embed-body iframe { flex: 1; min-width: 0; }
+.lesson-lab:not(.lab-ready) iframe[data-shared="1"] { visibility: hidden; }
+.lesson-lab.lab-local .lab-pen, .lesson-lab.lab-local .lab-paper { display: none; }
+.lesson-lab .sim-embed-resize, .lesson-lab [data-sim-action="expand"], .lesson-lab [data-sim-action="open"], .lesson-lab.is-collapsed .lab-pen { display: none; }
+.lesson-lab .lab-pen, .lesson-lab [data-sim-action="toggle"], .lab-form button { width: auto; padding: 4px 10px; font-size: 13px; border-radius: 6px; background: #eef1ff; color: #3544a6; }
+.lesson-lab .lab-pen[aria-pressed="true"] { color: white; background: #3544a6; }
+.lab-paper { display: flex; flex-direction: column; width: clamp(168px, 23vw, 340px); padding: 14px; gap: 12px; background: #fffdf6; }
+.lab-paper h2 { font-size: 15px; font-weight: 650; }
+.lab-notes { flex: 1; overflow: auto; background: repeating-linear-gradient(transparent 0 25px,#e5e1d3 25px 26px); line-height: 26px; }
+.lab-notes p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lab-form { display: grid; gap: 5px; }
+.lab-form textarea { resize: vertical; min-height: 48px; padding: 6px; border: 1px solid #d6d4c9; border-radius: 6px; }
+@media (max-width: 620px) {
+  .lesson-lab .sim-embed-body { flex-direction: column; }
+  .lab-paper { width: 100%; height: 24%; min-height: 100px; padding: 5px 10px; gap: 2px; }
+  .lab-form { display: flex; }
+  .lab-form textarea { flex: 1; min-width: 0; min-height: 32px; height: 32px; }
+}
 #simEmbedLayer {
   position: absolute;
   inset: 0;

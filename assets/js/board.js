@@ -5618,6 +5618,15 @@ function isBuiltInSim(url) {
   return target.protocol === local.protocol && target.host === local.host && target.pathname === local.pathname;
 }
 
+function isLabAnchor(anchor) {
+  return isBuiltInSim(safeSimulatorUrl(anchor.simUrl)) ||
+    (anchor.simTitle === 'SimPhy' && /\/sims\/simphy\.html(?:[?#].*)?$/i.test(anchor.simUrl));
+}
+
+const labDock = document.createElement('div');
+labDock.id = 'labDock';
+document.body.append(labDock);
+
 // Give only the bundled simulator a channel scoped to this board object.
 function connectSimFrame(element, frame) {
   element.disconnectSim?.();
@@ -5625,6 +5634,19 @@ function connectSimFrame(element, frame) {
   const session = boardDataSession;
   const ref = db.ref('boards_data/' + state.currentBoardId + '/simulations/' + element.dataset.simId);
   const { port1, port2 } = new MessageChannel();
+  const paper = db.ref('boards_data/' + state.currentBoardId + '/labPaper/' + element.dataset.simId);
+  const noteList = element.querySelector('.lab-notes');
+  const form = element.querySelector('.lab-form');
+  const onPaper = snap => {
+    if (!available()) return;
+    const entries = Object.values(snap.val() || {});
+    noteList.replaceChildren(...entries.filter(e => typeof e.text === 'string').map(e => {
+      const p = document.createElement('p');
+      p.textContent = e.text;
+      return p;
+    }));
+    port1.postMessage({ type: 'ink', strokes: entries.filter(e => Array.isArray(e.points)) });
+  };
   let active = true;
   const status = element.querySelector('.sim-embed-status');
   const available = () => active && session === boardDataSession && simAnchorFromElement(element);
@@ -5637,10 +5659,34 @@ function connectSimFrame(element, frame) {
   const listen = ref.on('value', snap => {
     if (available()) port1.postMessage({ type: 'state', record: snap.val() });
   }, fail);
+  paper.on('value', onPaper, fail);
+  form.onsubmit = async event => {
+    event.preventDefault();
+    const input = form.querySelector('textarea');
+    const value = input.value.trim();
+    if (!available() || !value) return;
+    try {
+      await paper.child(uuid()).set({ text: value });
+      if (input.value.trim() === value) input.value = '';
+    } catch (err) { fail(err); }
+  };
+  const pen = element.querySelector('.lab-pen');
+  pen.onclick = () => {
+    const enabled = pen.getAttribute('aria-pressed') !== 'true';
+    pen.setAttribute('aria-pressed', String(enabled));
+    port1.postMessage({ type: 'pen', enabled });
+    frame.focus();
+  };
   port1.onmessage = async ({ data }) => {
     if (!available()) return;
     if (data.type === 'ready') {
       status.textContent = 'Общий опыт';
+      element.classList.add('lab-ready');
+      if (!element.classList.contains('is-collapsed')) frame.focus();
+      return;
+    }
+    if (data.type === 'stroke' && /^[a-z0-9-]{3,40}$/.test(data.id) && Array.isArray(data.points) && data.points.length) {
+      paper.child(data.id).set({ points: data.points }).catch(fail);
       return;
     }
     if (data.type !== 'commit' || !Number.isSafeInteger(data.base) || typeof data.scene !== 'string') return;
@@ -5657,6 +5703,8 @@ function connectSimFrame(element, frame) {
     active = false;
     port1.close();
     ref.off('value', listen);
+    paper.off('value', onPaper);
+    form.onsubmit = pen.onclick = null;
     element.disconnectSim = null;
   };
   const origin = new URL(frame.src).origin;
@@ -5729,7 +5777,17 @@ function createSimEmbedElement(anchor) {
       '<iframe title="Симулятор" allow="fullscreen; clipboard-read; clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>' +
     '</div>' +
     '<div class="sim-embed-resize" aria-hidden="true"></div>';
-  simEmbedLayer.appendChild(element);
+  if (isLabAnchor(anchor)) {
+    element.classList.add('lesson-lab');
+    element.querySelector('.sim-embed-body').insertAdjacentHTML('beforeend',
+      '<aside class="lab-paper"><h2>Записи к опыту</h2><div class="lab-notes" aria-live="polite"></div>' +
+      '<form class="lab-form"><textarea aria-label="Запись к опыту" maxlength="3000" placeholder="Формула или наблюдение"></textarea><button>Добавить запись</button></form></aside>');
+    element.querySelector('.sim-embed-actions').insertAdjacentHTML('afterbegin',
+      '<button type="button" class="lab-pen" aria-pressed="false">Перо</button>');
+    labDock.append(element);
+    element.addEventListener('click', onSimEmbedLayerClick);
+    element.addEventListener('keydown', event => event.stopPropagation());
+  } else simEmbedLayer.appendChild(element);
   const frame = element.querySelector('iframe');
   frame.addEventListener('load', () => connectSimFrame(element, frame));
   element.addEventListener('fullscreenchange', () => updateSimExpandButton(element));
@@ -5765,7 +5823,15 @@ function updateSimEmbedOverlay(anchor, element) {
     toggle.title = label;
     toggle.setAttribute('aria-label', label + ' симулятор');
   }
+  const wasCollapsed = element.classList.contains('is-collapsed');
   element.classList.toggle('is-collapsed', collapsed);
+  if (element.classList.contains('lesson-lab')) {
+    if (wasCollapsed && !collapsed) element.querySelector('iframe').focus();
+    const label = collapsed ? 'Открыть опыт' : 'К доске';
+    if (toggle.textContent !== label) toggle.textContent = label;
+    toggle.title = label + ' для всех';
+    toggle.setAttribute('aria-label', toggle.title);
+  }
 
   const frame = element.querySelector('iframe');
   // Older catalog cards stored the teacher's absolute URL, including file paths.
@@ -5782,6 +5848,7 @@ function updateSimEmbedOverlay(anchor, element) {
       target.hash = 'board-session';
     }
     frame.dataset.shared = shared ? '1' : '';
+    element.classList.toggle('lab-local', !shared);
     element.querySelector('[data-sim-action="open"]').hidden = shared;
     element.querySelector('.sim-embed-status').textContent = shared ? 'Подключение…' : 'Локальный опыт';
     frame.src = target.href;
@@ -5792,6 +5859,7 @@ function updateSimEmbedOverlay(anchor, element) {
 
 function positionSimEmbedOverlay(anchor, element) {
   if (!anchor || !element) return;
+  if (element.classList.contains('lesson-lab')) return;
   const zoom = canvas.getZoom() || 1;
   const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
   const scaleX = Number(anchor.scaleX) || 1;

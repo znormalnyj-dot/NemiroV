@@ -15,6 +15,58 @@ function createSharedSimulation() {
   let pending = [], activeForce = null, dirty = true;
   let lastScan = 0, lastTick = performance.now(), nextAttempt = 0;
   const takeoverDelay = 1100 + Math.random() * 400;
+  let strokes = [], pen = false, line = null;
+  let pointer = null, strokeId = '', lastStrokeSent = 0;
+  const point = event => {
+    const rect = canvas.getBoundingClientRect();
+    const p = sim.camera.screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
+    return [Number(p.x.toFixed(3)), Number(p.y.toFixed(3))];
+  };
+  canvas.addEventListener('pointerdown', event => {
+    if (!pen || !event.isPrimary || event.button !== 0) return;
+    event.stopImmediatePropagation();
+    pointer = event.pointerId;
+    strokeId = token();
+    lastStrokeSent = 0;
+    line = [point(event)];
+    canvas.setPointerCapture(pointer);
+  }, true);
+  for (const name of ['pointermove', 'pointerup', 'pointercancel']) {
+    canvas.addEventListener(name, event => {
+      if (!line || pointer !== event.pointerId) return;
+      event.stopImmediatePropagation();
+      if (name !== 'pointercancel') line.push(point(event));
+      if (name === 'pointermove' && performance.now() - lastStrokeSent >= 90) {
+        port.postMessage({ type: 'stroke', id: strokeId, points: line });
+        lastStrokeSent = performance.now();
+      }
+      if (name !== 'pointermove') {
+        if (name === 'pointerup') {
+          strokes.push({ points: line });
+          port.postMessage({ type: 'stroke', id: strokeId, points: line });
+        }
+        line = null;
+        pointer = null;
+      }
+    }, true);
+  }
+  function drawInk() {
+    if (!line && !strokes.length) return;
+    ctx.save();
+    ctx.strokeStyle = '#ffe36a';
+    ctx.lineWidth = 3;
+    ctx.lineCap = ctx.lineJoin = 'round';
+    for (const stroke of line ? [...strokes, { points: line }] : strokes) {
+      ctx.beginPath();
+      stroke.points.forEach(([x, y], i) => {
+        const p = sim.camera.worldToScreen(x, y);
+        if (!i) ctx.moveTo(p.x - 0.1, p.y);
+        ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   document.body.inert = true;
 
   function capture(world, meta) {
@@ -35,7 +87,7 @@ function createSharedSimulation() {
     }
     return copy({ epoch: meta.epoch, meta: { alpha: world.alpha, paused: world.paused,
       scenario: world.currentScenario, initialP: world.initial_p, initialEk: world.initial_Ek,
-      speed: meta.speed }, entities });
+      speed: meta.speed, zoom: meta.zoom ?? PPM }, entities });
   }
 
   function restore(world, scene) {
@@ -102,7 +154,7 @@ function createSharedSimulation() {
         world.step_frame = true;
         world.step(FIXED_DT * scene.meta.speed);
       }
-      return capture(world, { epoch: scene.epoch, speed: scene.meta.speed });
+      return capture(world, { epoch: scene.epoch, speed: scene.meta.speed, zoom: scene.meta.zoom });
     }
     Object.assign(scene.meta, op.meta);
     for (const [key, added] of Object.entries(op.add)) {
@@ -167,6 +219,7 @@ function createSharedSimulation() {
       document.getElementById('pillForce').classList.remove('force-active');
     }
     speedMultiplier = scene.meta.speed;
+    PPM = scene.meta.zoom ?? 45;
     const speed = document.getElementById('speedSelect');
     for (const option of speed.options) option.selected = Number(option.value) === speedMultiplier;
     const play = document.getElementById('btnPlay');
@@ -206,6 +259,12 @@ function createSharedSimulation() {
   }
 
   function receive({ data }) {
+    if (data.type === 'ink') { strokes = data.strokes; return; }
+    if (data.type === 'pen') {
+      pen = data.enabled;
+      canvas.style.cursor = pen ? 'crosshair' : '';
+      return;
+    }
     if (failed) return;
     collect();
     if (data.type === 'error') {
@@ -249,8 +308,8 @@ function createSharedSimulation() {
     // Browsers may suspend canvas animation when a board panel covers the iframe.
     window.setInterval(frame, 75);
   });
-  for (const event of ['click', 'input', 'change', 'pointerdown', 'pointerup', 'pointermove', 'keydown', 'keyup']) {
+  for (const event of ['click', 'input', 'change', 'wheel', 'pointerdown', 'pointerup', 'pointermove', 'keydown', 'keyup']) {
     window.addEventListener(event, () => { dirty = true; }, true);
   }
-  return { frame, newScene() { epoch = token(); dirty = true; } };
+  return { frame, drawInk, newScene() { epoch = token(); dirty = true; } };
 }
