@@ -27,10 +27,58 @@
   <style>
     :where(.hidden) { display: none; }
     .fixed { position: fixed; }
-    #axisEditor { position:absolute; z-index:54; background:white; padding:8px; border:1px solid #ddd; border-radius:9px; box-shadow:0 3px 12px #0002; font-size:12px; max-height:40vh; overflow:auto; }
-    #axisEditor input { width:170px; padding:4px; font-family:monospace; border-bottom:1px solid #ddd; }
-    #axisEditor button { padding:4px; }
-    #axisError { color:#b52525; }
+    #axisEditor {
+      position: absolute;
+      z-index: 54;
+      width: min(350px, calc(100vw - 8px));
+      max-height: min(430px, 55dvh);
+      padding: 10px;
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #dedee8;
+      border-radius: 14px;
+      box-shadow: 0 6px 24px #05003822;
+      font-size: 12px;
+    }
+    .axis-editor-header, .axis-editor-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .axis-editor-header h2 { margin: 0; font-size: 13px; font-weight: 650; }
+    #axisRows { display: grid; gap: 6px; margin: 8px 0; }
+    .axis-formula {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      gap: 3px 5px;
+      padding: 5px;
+      border: 1px solid #e3e3ed;
+      border-radius: 9px;
+    }
+    .axis-formula:focus-within { border-color: var(--accent); }
+    .axis-formula label { display: flex; align-items: center; gap: 6px; padding-left: 4px; }
+    .axis-formula input { width: 100%; min-width: 0; padding: 5px 2px; font: 13px/1.4 monospace; }
+    .axis-formula input:focus { outline: none; }
+    .axis-formula-result {
+      grid-column: 1 / -1;
+      min-height: 25px;
+      padding: 3px 6px;
+      overflow-x: auto;
+      color: #51516c;
+      background: #f4f5fd;
+      border-radius: 5px;
+    }
+    .axis-formula-result math { font-size: 18px; color: #27264b; }
+    .axis-formula-result[role="status"], #axisError { color: #a12636; }
+    #axisError:not(:empty) { margin-top: 6px; }
+    #axisSymbols { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+    #axisEditor button { min-width: 26px; min-height: 27px; padding: 2px 6px; border-radius: 6px; }
+    #axisSymbols button { flex: 1; background: #eef0fb; font-size: 14px; }
+    #axisEditor button:hover { background: #e3e8ff; }
+    #axisEditor button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .axis-editor-actions button { color: #334cc4; font-weight: 600; }
     #axisHandles button { position:absolute; z-index:6; width:14px; height:14px; border:2px solid #4262ff; border-radius:50%; background:white; transform:translate(-50%,-50%); touch-action:none; }
     #app { position: relative; height: 100vh; height: 100dvh; }
     #boardGate { inset: 0; z-index: 65; }
@@ -938,8 +986,25 @@
 
     <div id="axisHandles"></div>
     <section id="axisEditor" hidden aria-label="Функции графика">
+      <div class="axis-editor-header">
+        <h2>Функции графика</h2>
+        <button id="axisDone" type="button" aria-label="Закрыть редактор">✕</button>
+      </div>
       <div id="axisRows"></div>
-      <button id="axisAdd">+ Функция</button> <button id="axisSettings">Деления и подписи</button> <button id="axisDone" aria-label="Закрыть">✕</button>
+      <div id="axisSymbols" aria-label="Вставка математических символов" role="group">
+        <button type="button" data-formula-symbol="power" title="Степень" aria-label="Вставить степень">x²</button>
+        <button type="button" data-formula-symbol="multiply" title="Умножение" aria-label="Вставить умножение">×</button>
+        <button type="button" data-formula-symbol="divide" title="Деление" aria-label="Вставить деление">÷</button>
+        <button type="button" data-formula-symbol="group" title="Скобки" aria-label="Вставить скобки">( )</button>
+        <button type="button" data-formula-symbol="sin">sin</button>
+        <button type="button" data-formula-symbol="cos">cos</button>
+        <button type="button" data-formula-symbol="sqrt" title="Квадратный корень" aria-label="Вставить квадратный корень">√</button>
+        <button type="button" data-formula-symbol="pi" title="Число пи">π</button>
+      </div>
+      <div class="axis-editor-actions">
+        <button id="axisAdd" type="button">+ Функция</button>
+        <button id="axisSettings" type="button">Деления и подписи</button>
+      </div>
       <div id="axisError" role="status"></div>
     </section>
     <div id="dropOverlay" class="pointer-events-none fixed inset-0 z-[65] hidden items-center justify-center bg-[#4262ff]/10 p-6 backdrop-blur-[1px]">
@@ -6634,7 +6699,6 @@
       }
 
       function closeCheatsheetDrawer() {
-        finishGraphEditor();
         if (cheatsheetDrawer.contains(document.activeElement)) {
           cheatsheetTab.focus({ preventScroll: true });
         }
@@ -6664,101 +6728,201 @@
 
       }
 
-      const GRAPH_FUNCTION_NAMES = [
-        'sinh', 'cosh', 'tanh', 'asin', 'acos', 'atan', 'sqrt', 'cbrt',
-        'log10', 'log', 'ln', 'sin', 'cos', 'tan', 'cot', 'abs', 'exp',
-        'floor', 'ceil', 'round', 'sign', 'pow', 'min', 'max'
-      ];
+      const GRAPH_FUNCTIONS = new Map([
+        ...['sinh', 'cosh', 'tanh', 'asin', 'acos', 'atan', 'sqrt', 'cbrt',
+          'log10', 'log', 'sin', 'cos', 'tan', 'abs', 'exp', 'floor', 'ceil',
+          'round', 'sign', 'pow', 'min', 'max'].map(name => [name, Math[name]]),
+        ['ln', Math.log],
+        ['cot', value => 1 / Math.tan(value)],
+      ]);
+      const GRAPH_OPERATORS = {
+        '+': { priority: 1, apply: (a, b) => a + b },
+        '-': { priority: 1, apply: (a, b) => a - b },
+        '*': { priority: 2, apply: (a, b) => a * b },
+        '/': { priority: 2, apply: (a, b) => a / b },
+        '%': { priority: 2, apply: (a, b) => a % b },
+        '^': { priority: 3, apply: (a, b) => a ** b },
+      };
 
       function compileGraphExpression(raw) {
-        let source = String(raw || '').trim();
-        if (!source) throw new Error('Введите функцию y = f(x)');
-        source = source.replace(/^y\s*=/i, '').trim();
-        const cacheKey = source;
-        if (graphCompiledKey === cacheKey && graphCompiled) return graphCompiled;
+        const source = raw.trim().replace(/^y\s*=/i, '').trim();
+        if (graphCompiledKey === source && graphCompiled) return graphCompiled;
 
-        let expr = source
+        const superscripts = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+        const text = source.toLowerCase()
           .replace(/[−–—]/g, '-')
-          .replace(/[×·]/g, '*')
+          .replace(/[×·⋅]/g, '*')
           .replace(/÷/g, '/')
-          .replace(/π/g, 'pi')
-          .replace(/√\s*\(/g, 'sqrt(')
-          .replace(/\^/g, '**');
-
-        const placeholders = [];
-        GRAPH_FUNCTION_NAMES
-          .slice()
-          .sort((a, b) => b.length - a.length)
-          .forEach((name) => {
-            const pattern = new RegExp('(^|[^A-Za-z_])' + name + '\\s*\\(', 'g');
-            expr = expr.replace(pattern, (match, prefix) => {
-              const token = '__MIRO_FN_' + placeholders.length + '__';
-              const value = name === 'cot' ? '__miroCot' : (name === 'ln' ? 'Math.log' : 'Math.' + name);
-              placeholders.push({ token, value });
-              return prefix + token + '(';
-            });
-          });
-        expr = expr.replace(/\bpi\b/g, 'Math.PI');
-        expr = expr.replace(/(^|[^A-Za-z0-9_])e(?![A-Za-z0-9_])/g, '$1Math.E');
-        expr = expr.replace(/(^|[^A-Za-z_])x(?![A-Za-z0-9_])/g, '$1__MIRO_X__');
-        expr = expr.replace(/(\d|\)|__MIRO_X__)\s*(?=(__MIRO_X__|__MIRO_FN_\d+__|\(|Math\.[A-Za-z]))/g, '$1*');
-        expr = expr.replace(/__MIRO_X__/g, 'x');
-        placeholders.forEach((item) => {
-          expr = expr.split(item.token).join(item.value);
-        });
-
-        const stripped = expr
-          .replace(/Math\.(?:sinh|cosh|tanh|asin|acos|atan|sqrt|cbrt|log10|log|floor|ceil|round|sign|sin|cos|tan|abs|exp|pow|min|max|PI|E)/g, '')
-          .replace(/__miroCot/g, '');
-        if (/[^0-9x+\-*/%.,()\s]/.test(stripped)) {
-          throw new Error('В формуле есть недопустимые символы или функции');
+          .replace(/\*\*/g, '^')
+          .replace(/[⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, digits =>
+            '^(' + Array.from(digits, digit => digit === '⁻' ? '-' : superscripts.indexOf(digit)).join('') + ')');
+        const tokenPattern = /\s*(?:(\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?|[a-z][a-z0-9]*|[π√+\-*/%^(),])/y;
+        const tokens = [];
+        for (let offset = 0; offset < text.length;) {
+          tokenPattern.lastIndex = offset;
+          const match = tokenPattern.exec(text);
+          if (!match) throw new Error('Недопустимый символ «' + text[offset] + '»');
+          tokens.push({ text: match[0].trim(), number: Boolean(match[1]) });
+          offset = tokenPattern.lastIndex;
         }
-        if (!expr.trim()) throw new Error('Пустая формула');
 
-        let fn;
-        try {
-          fn = new Function('x', 'const __miroCot = (v) => 1 / Math.tan(v); return (' + expr + ');');
-        } catch (_) {
-          throw new Error('Не удалось разобрать формулу');
+        let index = 0;
+        const peek = () => tokens[index]?.text;
+        const closeGroup = () => {
+          if (peek() !== ')') throw new Error('Добавьте закрывающую скобку «)»');
+          index++;
+        };
+
+        function readTerm() {
+          const token = tokens[index++];
+          const name = token?.text;
+          if (!token || name === ')' || name === ',') throw new Error('Введите число, x или функцию');
+          if (token.number) return { type: 'number', text: name };
+          if (name === 'x' || name === 'e' || name === 'pi' || name === 'π') {
+            return { type: 'symbol', name: name === 'π' ? 'pi' : name };
+          }
+          if (name === '+' || name === '-') {
+            return { type: 'prefix', sign: name, value: readExpression(GRAPH_OPERATORS['^'].priority) };
+          }
+          if (name === '(') {
+            const value = readExpression();
+            closeGroup();
+            return { type: 'group', value };
+          }
+          const functionName = name === '√' ? 'sqrt' : name;
+          if (!GRAPH_FUNCTIONS.has(functionName)) throw new Error('Неизвестный символ или функция «' + name + '»');
+          if (peek() !== '(') throw new Error('Заключите аргумент в скобки, например ' + functionName + '(x)');
+          index++;
+          const args = [readExpression()];
+          while (peek() === ',') {
+            index++;
+            args.push(readExpression());
+          }
+          closeGroup();
+          const expected = functionName === 'pow' ? 2 : 1;
+          if (functionName !== 'min' && functionName !== 'max' && args.length !== expected) {
+            throw new Error(expected === 2 ? 'Введите два аргумента через запятую' : 'Введите один аргумент функции');
+          }
+          return { type: 'function', name: functionName, args };
         }
-        try {
-          const test = fn(0.37);
-          if (typeof test !== 'number') throw new Error('bad');
-        } catch (_) {
-          throw new Error('Формула не вычисляется');
+
+        function readExpression(priority = 1) {
+          let left = readTerm();
+          while (peek()) {
+            const next = peek();
+            const implicit = next === '(' || next === 'π' || next === '√' || /^[a-z]/.test(next)
+              || (tokens[index].number && left.type !== 'number');
+            const sign = implicit ? '*' : next;
+            const operator = GRAPH_OPERATORS[sign];
+            if (!operator || operator.priority < priority) break;
+            if (!implicit) index++;
+            const right = readExpression(operator.priority + (sign === '^' ? 0 : 1));
+            left = { type: 'binary', sign, left, right };
+          }
+          return left;
         }
-        graphCompiledKey = cacheKey;
-        graphCompiled = { fn, source, normalized: expr };
+
+        const tree = readExpression();
+        if (index !== tokens.length) throw new Error('Лишний символ «' + peek() + '»');
+        graphCompiledKey = source;
+        graphCompiled = { fn: x => evaluateGraphExpression(tree, x), tree };
         return graphCompiled;
       }
 
-      function graphPointSegments(fn, xMin, xMax, mapPoint, maxJump) {
+      function evaluateGraphExpression(node, x) {
+        switch (node.type) {
+          case 'number': return Number(node.text);
+          case 'symbol': return node.name === 'x' ? x : node.name === 'pi' ? Math.PI : Math.E;
+          case 'group': return evaluateGraphExpression(node.value, x);
+          case 'prefix': return (node.sign === '-' ? -1 : 1) * evaluateGraphExpression(node.value, x);
+          case 'function':
+            return GRAPH_FUNCTIONS.get(node.name)(...node.args.map(arg => evaluateGraphExpression(arg, x)));
+          case 'binary':
+            return GRAPH_OPERATORS[node.sign].apply(
+              evaluateGraphExpression(node.left, x), evaluateGraphExpression(node.right, x)
+            );
+        }
+      }
+
+      function graphMathElement(tag, ...children) {
+        const element = document.createElementNS('http://www.w3.org/1998/Math/MathML', tag);
+        element.append(...children);
+        return element;
+      }
+
+      function renderGraphExpression(node) {
+        const render = renderGraphExpression;
+        const element = graphMathElement;
+        const operator = sign => element('mo', ({ '-': '−', '*': '·' })[sign] || sign);
+        const group = children => element('mrow', operator('('), ...children, operator(')'));
+        const ungroup = value => render(value.type === 'group' ? value.value : value);
+
+        switch (node.type) {
+          case 'number': return element('mn', node.text);
+          case 'symbol': return element('mi', node.name === 'pi' ? 'π' : node.name);
+          case 'group': return group([render(node.value)]);
+          case 'prefix': return element('mrow', operator(node.sign), render(node.value));
+          case 'function': {
+            if (node.name === 'sqrt') return element('msqrt', render(node.args[0]));
+            const args = node.args.flatMap((arg, index) => index ? [operator(','), render(arg)] : [render(arg)]);
+            return element('mrow', element('mi', node.name), operator('⁡'), group(args));
+          }
+          case 'binary':
+            if (node.sign === '^') return element('msup', render(node.left), ungroup(node.right));
+            if (node.sign === '/') return element('mfrac', ungroup(node.left), ungroup(node.right));
+            return element('mrow', render(node.left), operator(node.sign), render(node.right));
+        }
+      }
+
+      function graphPointSegments(fn, { xMin, xMax, yMin, yMax, scale }) {
         const segments = [];
         let segment = [];
-        let lastY = null;
-        const count = 800;
+        const count = Math.max(800, Math.ceil((xMax - xMin) * 12));
         const step = (xMax - xMin) / count;
+        const maxJump = (yMax - yMin) * .65;
         const flush = () => {
-          if (segment.length) segments.push(segment);
+          if (segment.length > 1) segments.push(segment);
           segment = [];
-          lastY = null;
         };
-        for (let i = 0; i <= count; i += 1) {
+        const isOutside = y => y < yMin || y > yMax;
+        const project = (x, y) => [x * scale, -y * scale];
+
+        function appendPair(x0, y0, x1, y1, depth) {
+          if (!Number.isFinite(y0) || !Number.isFinite(y1)
+            || (y0 < yMin && y1 < yMin) || (y0 > yMax && y1 > yMax)) {
+            flush();
+            return;
+          }
+          if (Math.abs(y1 - y0) > maxJump) {
+            if (!depth) {
+              flush();
+              return;
+            }
+            // A steep continuous curve resolves into short steps, while a jump at a pole does not.
+            const middle = (x0 + x1) / 2;
+            const yMiddle = fn(middle);
+            appendPair(x0, y0, middle, yMiddle, depth - 1);
+            appendPair(middle, yMiddle, x1, y1, depth - 1);
+            return;
+          }
+          const clip = (x, y) => {
+            if (!isOutside(y)) return project(x, y);
+            const edge = y < yMin ? yMin : yMax;
+            return project(x0 + (x1 - x0) * (edge - y0) / (y1 - y0), edge);
+          };
+          if (!segment.length) segment.push(clip(x0, y0));
+          segment.push(clip(x1, y1));
+          if (isOutside(y1)) flush();
+        }
+
+        let previousX = xMin;
+        let previousY = fn(previousX);
+        for (let i = 1; i <= count; i++) {
           const x = xMin + step * i;
-          let y;
-          try { y = fn(x); } catch (_) { y = NaN; }
-          if (!Number.isFinite(y)) {
-            flush();
-            continue;
-          }
-          const point = mapPoint(x, y);
-          if (!point) {
-            flush();
-            continue;
-          }
-          if (lastY != null && maxJump && Math.abs(y - lastY) > maxJump) flush();
-          segment.push(point);
-          lastY = y;
+          const y = fn(x);
+          appendPair(previousX, previousY, x, y, 6);
+          previousX = x;
+          previousY = y;
         }
         flush();
         return segments;
@@ -6791,8 +6955,8 @@
         for(const formula of cfg.formulas) {
           if (!formula.trim()) continue;
           const {fn}=compileGraphExpression(formula);
-          const segments=graphPointSegments(fn,xMin,xMax,(x,y)=>y<yMin||y>yMax?null:[x*scale,-y*scale],(yMax-yMin)*.65);
-          const commands=segments.flatMap(segment=>segment.length<2?[]:segment.map(([x,y],i)=>[i?'L':'M',+x.toFixed(2),+y.toFixed(2)]));
+          const segments=graphPointSegments(fn,cfg);
+          const commands=segments.flatMap(segment=>segment.map(([x,y],i)=>[i?'L':'M',+x.toFixed(2),+y.toFixed(2)]));
           if(commands.length) objects.push(new fabric.Path(commands,{stroke:color,strokeWidth:2.5,fill:'transparent',strokeUniform:true}));
         }
         for(const ink of cfg.ink || []) objects.push(new fabric.Path(ink.path,ink));
@@ -6854,8 +7018,11 @@
         return false;
       }
 
+      let activeGraphFormula = null;
+
       function finishGraphEditor() {
         editingGraphId=null;
+        activeGraphFormula = null;
         $('#axisEditor').hidden=true;
         graphInsertBtn.querySelector('span').textContent='Добавить оси';
       }
@@ -6876,19 +7043,100 @@
       }
 
       function addFormulaRow(value) {
-        const label=document.createElement('label');
-        label.style.display='block';label.textContent='y = ';
-        const input=document.createElement('input');
-        input.value=value;input.placeholder='x^2, sin(x)…';input.spellcheck=false;
-        label.appendChild(input);$('#axisRows').appendChild(label);
+        const row = document.createElement('div');
+        row.className = 'axis-formula';
+        const label = document.createElement('label');
+        label.append('y =');
+        const input = document.createElement('input');
+        input.value = value;
+        input.placeholder = 'Введите формулу';
+        input.spellcheck = false;
+        input.autocomplete = 'off';
+        input.setAttribute('aria-label', 'Формула y = f(x)');
+        input.addEventListener('focus', () => { activeGraphFormula = input; });
+        label.append(input);
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = '✕';
+        remove.setAttribute('aria-label', 'Удалить функцию');
+        remove.addEventListener('click', () => {
+          const next = row.nextElementSibling || row.previousElementSibling;
+          row.remove();
+          (next?.querySelector('input') || addFormulaRow('')).focus();
+          updateGraphForm();
+        });
+
+        const result = document.createElement('div');
+        result.className = 'axis-formula-result';
+        row.append(label, remove, result);
+        $('#axisRows').append(row);
+        previewGraphFormula(input);
         return input;
+      }
+
+      function previewGraphFormula(input) {
+        const result = input.closest('.axis-formula').querySelector('.axis-formula-result');
+        const value = input.value.trim();
+        try {
+          if (value) {
+            const { tree } = compileGraphExpression(value);
+            result.replaceChildren(graphMathElement('math', graphMathElement('mrow',
+              graphMathElement('mi', 'y'), graphMathElement('mo', '='), renderGraphExpression(tree))));
+          } else {
+            result.textContent = 'Например, x^2 * sin(x)';
+          }
+          result.removeAttribute('role');
+          input.removeAttribute('aria-invalid');
+          return true;
+        } catch (error) {
+          result.setAttribute('role', 'status');
+          result.textContent = error.message;
+          input.setAttribute('aria-invalid', 'true');
+          return false;
+        }
+      }
+
+      function insertGraphSymbol(symbol) {
+        const input = activeGraphFormula || $('#axisRows input');
+        if (!input) return;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const selected = input.value.slice(start, end);
+        const selectionOrX = selected || 'x';
+        const hasBase = /[a-z0-9π)⁰¹²³⁴⁵⁶⁷⁸⁹]$/i.test(input.value.slice(0, start).trimEnd());
+        const templates = {
+          power: [selected ? '(' + selected + ')^' : hasBase ? '^' : 'x^', '2'],
+          multiply: [' · '],
+          divide: [' / '],
+          group: ['(', selectionOrX, ')'],
+          sin: ['sin(', selectionOrX, ')'],
+          cos: ['cos(', selectionOrX, ')'],
+          sqrt: ['√(', selectionOrX, ')'],
+          pi: ['π'],
+        };
+        const [prefix, body = '', suffix = ''] = templates[symbol];
+        const insertAt = symbol === 'multiply' || symbol === 'divide' ? end : start;
+        input.setRangeText(prefix + body + suffix, insertAt, end);
+        input.focus({ preventScroll: true });
+        const endOfBody = insertAt + prefix.length + body.length;
+        if (symbol === 'power' || (symbol === 'group' && !selected)) {
+          input.setSelectionRange(endOfBody - body.length, endOfBody);
+        } else {
+          input.setSelectionRange(endOfBody + suffix.length, endOfBody + suffix.length);
+        }
+        updateGraphForm();
       }
 
       function updateGraphForm() {
         const old=findObjectById(editingGraphId);
         if(!old) return;
         const cfg=graphOptions(old);
-        const formulas=Array.from($('#axisRows').querySelectorAll('input'),el=>el.value.trim());
+        const inputs = $$('#axisRows input');
+        const valid = inputs.map(previewGraphFormula).every(Boolean);
+        positionGraphUI();
+        if (!valid) return;
+        const formulas = Array.from(inputs, input => input.value.trim()).filter(Boolean);
         try {
           const xMin=graphXMin.valueAsNumber,xMax=graphXMax.valueAsNumber,scale=graphScale.valueAsNumber,tick=$('#graphTick').valueAsNumber;
           if(!(xMin<0 && xMax>0 && xMax-xMin<=200 && scale>=8 && scale<=80 && tick>=.1 && tick<=100)) throw Error('Проверьте диапазон, масштаб и шаг делений');
@@ -7993,12 +8241,22 @@
 
       $('#axisAdd').onclick=()=>addFormulaRow('').focus();
       $('#axisRows').addEventListener('input',updateGraphForm);
+      $('#axisSymbols').addEventListener('click', event => {
+        const button = event.target.closest('[data-formula-symbol]');
+        if (button) insertGraphSymbol(button.dataset.formulaSymbol);
+      });
       $('#axisDone').onclick=finishGraphEditor;
       $('#axisSettings').onclick=()=>{openCheatsheetDrawer();setDrawerTab('graph');};
       for(const field of [graphXMin,graphXMax,graphScale,graphColor,$('#graphTick'),$('#graphXLabel'),$('#graphYLabel')]) field.addEventListener('input',updateGraphForm);
-      graphInsertBtn.onclick=()=>{
-        if(editingGraphId){closeCheatsheetDrawer();return;}
-        addCoordinateAxes();const obj=canvas.getActiveObject();if(obj?.graphConfig)editGraph(obj);
+      graphInsertBtn.onclick = () => {
+        closeCheatsheetDrawer();
+        if (editingGraphId) {
+          activeGraphFormula?.focus();
+          return;
+        }
+        addCoordinateAxes();
+        const obj = canvas.getActiveObject();
+        if (obj?.graphConfig) editGraph(obj);
       };
 
       simulatorList.addEventListener('click', (event) => {
@@ -8064,6 +8322,7 @@
           if (fabricTextarea) return;
           if (activeModal) closeModal();
           else if (cheatsheetDrawer.classList.contains('is-open')) closeCheatsheetDrawer();
+          else if (editingGraphId) finishGraphEditor();
           else if (!simulatorWindow.classList.contains('hidden')) closeSimulator();
           else closeAllMenus();
           return;
@@ -8071,6 +8330,7 @@
         if (activeModal) return;
         if (boardAccess !== 'ready') return;
         if (isEditable(event.target) || isEditingText()) return;
+        if (event.target instanceof HTMLElement && event.target.closest('#axisEditor')) return;
         if (event.target instanceof HTMLElement && event.target.closest('#cheatsheetDrawer, #simulatorWindow')) {
           if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.repeat && event.code === hotkeys.cheatsheet) {
             event.preventDefault();
@@ -8170,7 +8430,7 @@
         if (event.code !== 'Space') return;
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         if (boardAccess !== 'ready' || activeModal || isEditable(event.target) || isEditingText()) return;
-        if (event.target instanceof HTMLElement && event.target.closest('#cheatsheetDrawer, #simulatorWindow')) return;
+        if (event.target instanceof HTMLElement && event.target.closest('#axisEditor, #cheatsheetDrawer, #simulatorWindow')) return;
         if (!spaceDown) setSpaceDown(true);
         event.preventDefault();
       });
