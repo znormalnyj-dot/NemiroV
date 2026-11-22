@@ -5636,6 +5636,9 @@ function connectSimFrame(element, frame) {
   if (!frame.dataset.shared || !currentObjectsRef || !element.isConnected) return;
   const session = boardDataSession;
   const ref = db.ref('boards_data/' + state.currentBoardId + '/simulations/' + element.dataset.simId);
+  const timeline = ref.child('timeline');
+  const checkpoints = ref.child('checkpoints');
+  const serverTime = db.ref('.info/serverTimeOffset');
   const { port1, port2 } = new MessageChannel();
   const paper = db.ref('boards_data/' + state.currentBoardId + '/labPaper/' + element.dataset.simId);
   const noteList = element.querySelector('.lab-notes');
@@ -5659,9 +5662,25 @@ function connectSimFrame(element, frame) {
     port1.postMessage({ type: 'error' });
     handleFirebaseError(err);
   }
-  const listen = ref.on('value', snap => {
-    if (available()) port1.postMessage({ type: 'state', record: snap.val() });
+  let checkpointId, checkpointRead;
+  function loadCheckpoint(record) {
+    const id = record?.checkpoint;
+    if (!checkpointRead || id !== checkpointId) {
+      checkpointId = id;
+      checkpointRead = (id ? checkpoints.child(id) : ref.child('scene')).once('value').then(snap => snap.val());
+    }
+    return checkpointRead;
+  }
+  const listen = timeline.on('value', async snap => {
+    const record = snap.val();
+    try {
+      const scene = await loadCheckpoint(record);
+      if (available() && (!record || scene)) port1.postMessage({ type: 'state', record, scene });
+    } catch (err) { fail(err); }
   }, fail);
+  const offsetListener = serverTime.on('value', snap => {
+    if (available()) port1.postMessage({ type: 'clock', offset: Number(snap.val()) || 0 });
+  });
   paper.on('value', onPaper, fail);
   form.onsubmit = async event => {
     event.preventDefault();
@@ -5692,20 +5711,35 @@ function connectSimFrame(element, frame) {
       paper.child(data.id).set({ points: data.points }).catch(fail);
       return;
     }
-    if (data.type !== 'commit' || !Number.isSafeInteger(data.base) || typeof data.scene !== 'string') return;
+    if (data.type !== 'commit' || !Number.isSafeInteger(data.base) || !Array.isArray(data.commands)) return;
     try {
-      const result = await ref.transaction(current => {
+      const id = typeof data.scene === 'string' ? uuid() : null;
+      if (id) await checkpoints.child(id).set(data.scene);
+      let retired;
+      const result = await timeline.transaction(current => {
         if (!available() || (current?.revision || 0) !== data.base) return;
-        return { revision: data.base + 1, scene: data.scene, driver: data.driver,
-          clock: data.tick ? data.base + 1 : (current?.clock || 0) };
+        retired = id && current?.previous;
+        return {
+          revision: data.base + 1,
+          checkpoint: id || current.checkpoint,
+          previous: id ? current?.checkpoint || '' : current.previous,
+          at: id ? data.at : current.at,
+          owner: id ? data.client : current.owner,
+          commands: id ? '[]' : JSON.stringify([...JSON.parse(current.commands), ...data.commands])
+        };
       }, undefined, false);
-      if (available()) port1.postMessage({ type: 'ack', ok: result.committed, record: result.snapshot.val() });
+      const obsolete = result.committed ? retired : id;
+      if (obsolete) checkpoints.child(obsolete).remove().catch(console.warn);
+      const record = result.snapshot.val();
+      const scene = await loadCheckpoint(record);
+      if (available()) port1.postMessage({ type: 'ack', ok: result.committed, record, scene });
     } catch (err) { fail(err); }
   };
   element.disconnectSim = () => {
     active = false;
     port1.close();
-    ref.off('value', listen);
+    timeline.off('value', listen);
+    serverTime.off('value', offsetListener);
     paper.off('value', onPaper);
     form.onsubmit = pen.onclick = null;
     element.disconnectSim = null;

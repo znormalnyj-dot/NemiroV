@@ -13,8 +13,12 @@ function createSharedSimulation() {
   const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   let epoch = token(), port, record, baseline, inFlight, failed = false;
   let pending = [], activeForce = null, dirty = true;
-  let lastScan = 0, lastTick = performance.now(), nextAttempt = 0;
-  const takeoverDelay = 1100 + Math.random() * 400;
+  let offset = 0, nextAttempt = 0, lastSend = 0;
+  let authoritative, displayedAt, history;
+  const physics = new PhysicsSimulation();
+  const nowStep = () => Math.floor((Date.now() + offset) / (FIXED_DT * 1000));
+  const checkpointInterval = 300;
+  const takeoverDelay = 30 + Math.floor(Math.random() * 30);
   let strokes = [], pen = false, line = null;
   let pointer = null, strokeId = '', lastStrokeSent = 0;
   const point = event => {
@@ -234,31 +238,64 @@ function createSharedSimulation() {
     baseline = scene;
   }
 
-  function send(scene, count, driver, tick = false) {
-    inFlight = { count, tick, started: performance.now() };
-    port.postMessage({ type: 'commit', base: record?.revision || 0, driver, tick, scene: JSON.stringify(scene) });
+  function advance(world, speed, steps) {
+    if (world.paused) return;
+    for (let i = 0; i < steps; i++) world.step(FIXED_DT * speed);
   }
+
+  function replay(start, entries) {
+    let { scene, at } = start;
+    scene = copy(scene);
+    for (const entry of entries) {
+      if (!scene.meta.paused && entry.at > at) {
+        restore(physics, scene);
+        // After a long period with nobody connected, resume from the saved
+        // experiment without trying to calculate hours of unattended motion.
+        advance(physics, scene.meta.speed, Math.min(entry.at - at, 420));
+        scene = capture(physics, { epoch: scene.epoch, speed: scene.meta.speed, zoom: scene.meta.zoom });
+      }
+      for (const op of entry.ops) scene = apply(scene, op);
+      at = entry.at;
+    }
+    return { scene, at };
+  }
+
+  function send(at, commands, scene) {
+    inFlight = { count: pending.length };
+    lastSend = performance.now();
+    port.postMessage({ type: 'commit', base: record?.revision || 0, at, client, commands,
+      scene: scene && JSON.stringify(scene) });
+  }
+
   function frame() {
     if (!record || failed) return;
     const now = performance.now();
     if (keysDown.KeyW || keysDown.KeyS) dirty = true;
-    if (now - lastScan >= 40) { collect(); lastScan = now; }
-    if (inFlight || now < nextAttempt) return;
-    const elapsed = now - lastTick;
-    const due = !sim.paused && elapsed >= (record.driver === client ? 90 : takeoverDelay);
-    if (!pending.length && !due) return;
-    const base = JSON.parse(record.scene);
-    const wasPaused = base.meta.paused;
-    let next = pending.reduce(apply, base);
-    const starting = !next.meta.paused && wasPaused;
-    if (due && !starting && !next.meta.paused) {
-      const steps = Math.min(15, Math.max(1, Math.round(elapsed / (1000 / 60))));
-      next = apply(next, { epoch: next.epoch, steps });
+    collect();
+    const target = Math.max(displayedAt, nowStep());
+    if (target > displayedAt) {
+      // Spread catch-up over multiple repaints after a background tab resumes.
+      const steps = sim.paused ? target - displayedAt : Math.min(target - displayedAt, 30);
+      advance(sim, speedMultiplier, steps);
+      displayedAt += steps;
+      if (!sim.paused) baseline = capture(sim, { epoch, speed: speedMultiplier });
     }
-    send(next, pending.length, starting || due ? client : record.driver, starting || due);
+    if (inFlight || now < nextAttempt || now - lastSend < 75) return;
+    const age = target - record.at;
+    const active = !authoritative.scene.meta.paused;
+    const due = active && age >= checkpointInterval + (record.owner === client ? 0 : takeoverDelay);
+    if (!pending.length && !due) return;
+    const at = Math.max(target, authoritative.at);
+    const ops = pending.slice();
+    const commands = [{ at, ops }];
+    const transition = ops.some(op => op.replace || Object.hasOwn(op.meta || {}, 'paused'));
+    const snapshot = due || transition || history.length >= 32
+      ? replay(authoritative, commands).scene : undefined;
+    send(at, commands, snapshot);
   }
 
   function receive({ data }) {
+    if (data.type === 'clock') { offset = data.offset; return; }
     if (data.type === 'ink') { strokes = data.strokes; return; }
     if (data.type === 'pen') {
       pen = data.enabled;
@@ -278,21 +315,30 @@ function createSharedSimulation() {
       else nextAttempt = performance.now() + 15 + Math.random() * 40;
       inFlight = null;
     }
-    if (data.record && (!record || data.record.revision > record.revision)) {
-      const previous = record;
+    if (data.record && data.scene && (!record || data.record.revision > record.revision)) {
+      const entries = JSON.parse(data.record.commands);
+      const sameCheckpoint = record?.checkpoint === data.record.checkpoint;
+      const start = sameCheckpoint ? authoritative : { scene: JSON.parse(data.scene), at: data.record.at };
+      authoritative = replay(start, sameCheckpoint ? entries.slice(history.length) : entries);
+      history = entries;
       record = data.record;
-      if (!previous || previous.clock !== record.clock) {
-        lastTick = record.driver === client && inFlight?.tick ? inFlight.started : performance.now();
-      }
     }
     if (!record) {
-      if (!inFlight) send(capture(sim, { epoch, speed: speedMultiplier }), 0, client);
+      if (!inFlight) {
+        const scene = data.scene ? JSON.parse(data.scene) : capture(sim, { epoch, speed: speedMultiplier });
+        scene.meta.zoom ??= 45;
+        send(nowStep(), [], scene);
+      }
       return;
     }
     // The value event for our transaction may precede its acknowledgement.
     // Apply the outstanding intent once, after the acknowledgement arrives.
     if (inFlight) return;
-    display(pending.reduce(apply, JSON.parse(record.scene)));
+    const at = Math.max(authoritative.at, nowStep());
+    let state = replay(authoritative, [{ at, ops: [] }]);
+    state = replay(state, [{ at, ops: pending }]);
+    display(state.scene);
+    displayedAt = state.at;
     if (document.body.inert) {
       document.body.inert = false;
       port.postMessage({ type: 'ready' });
