@@ -771,6 +771,7 @@ body.cheatsheet-open #cheatsheetTab svg {
 #labDock { position: fixed; right: 16px; top: 82px; z-index: 80; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 #labDock .lesson-lab { position: fixed; inset: 0; width: 100%; height: 100dvh; border: 0; border-radius: 0; transform: none; pointer-events: auto; }
 #labDock .is-collapsed { position: relative; inset: auto; width: auto; height: auto; border-radius: 10px; }
+#labDock:has(.lesson-lab:not(.is-collapsed)) .is-collapsed { display: none; }
 .lesson-lab .sim-embed-head { min-height: 46px; cursor: default; padding-inline: 14px; }
 .lesson-lab .sim-embed-title { font-size: 14px; }
 .lesson-lab .sim-embed-body { display: flex; }

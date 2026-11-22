@@ -70,6 +70,7 @@ const OBJECT_SERIALIZE_PROPS = [
   'customType',
   'graphConfig',
   'simTitle',
+  'labOpenedAt',
   'simUrl',
   'collapsed',
   'linkUrl',
@@ -2433,6 +2434,7 @@ const CUSTOM_OBJECT_DATA_PROPS = [
   'customType',
   'graphConfig',
   'simTitle',
+  'labOpenedAt',
   'simUrl',
   'collapsed',
   'linkUrl',
@@ -5624,6 +5626,7 @@ function isLabAnchor(anchor) {
 }
 
 const labDock = document.createElement('div');
+let currentLabId = '';
 labDock.id = 'labDock';
 document.body.append(labDock);
 
@@ -5741,6 +5744,7 @@ function insertSimulatorOnBoard(title, rawUrl) {
     selectable: false,
     evented: false,
     customType: 'sim-embed',
+    labOpenedAt: Date.now(),
     simTitle: title || 'Симулятор',
     simUrl: isBuiltInSim(url) ? 'sims/simphy.html' : url,
     collapsed: false
@@ -5810,7 +5814,8 @@ function updateSimEmbedOverlay(anchor, element) {
   const titleElement = element.querySelector('.sim-embed-title');
   if (titleElement && titleElement.textContent !== title) titleElement.textContent = title;
 
-  const collapsed = anchor.collapsed === true || anchor.collapsed === 'true';
+  const collapsed = anchor.collapsed === true || anchor.collapsed === 'true' ||
+    (element.classList.contains('lesson-lab') && currentLabId !== anchor.miroId);
   const toggle = element.querySelector('[data-sim-action="toggle"]');
   if (toggle) {
     const icon = collapsed ? 'chevron-down' : 'chevron-up';
@@ -5891,6 +5896,9 @@ function refreshSimEmbedOverlays() {
   simOverlayRefreshQueued = false;
   if (!simEmbedLayer) return;
   const alive = new Set();
+  const recentLab = canvas.getObjects().filter(obj => obj.customType === 'sim-embed' && isLabAnchor(obj))
+    .sort((a, b) => (b.labOpenedAt || 0) - (a.labOpenedAt || 0) || String(b.miroId).localeCompare(String(a.miroId)))[0];
+  currentLabId = recentLab?.miroId || '';
   canvas.getObjects().forEach((obj, index) => {
     if (!obj || obj.customType !== 'sim-embed' || !obj.miroId) return;
     alive.add(obj.miroId);
@@ -6043,7 +6051,9 @@ function onSimEmbedLayerClick(event) {
 
   if (action === 'toggle') {
     const beforeMap = captureBeforeState(anchor);
-    anchor.set('collapsed', !(anchor.collapsed === true || anchor.collapsed === 'true'));
+    const opening = element.classList.contains('is-collapsed');
+    anchor.set('collapsed', !opening);
+    if (opening && element.classList.contains('lesson-lab')) anchor.set('labOpenedAt', Date.now());
     anchor.setCoords();
     syncObjectToFirebase(anchor);
     recordModification(anchor, beforeMap);
