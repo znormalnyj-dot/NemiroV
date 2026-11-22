@@ -620,6 +620,19 @@
     color: #f0f0f0;
   }
   .hotkey-desc { color: #a0a0aa; }
+  #simCanvas { touch-action: none; }
+  #inspector, #leftHud { max-height: calc(100% - 120px); overflow-y: auto; }
+  @media (max-width: 940px) {
+    #headerBar .brand { display: none; }
+    #headerBar { overflow-x: auto; }
+    #leftHud { width: auto; max-width: min(320px, 90vw); }
+  }
+  @media (max-width: 680px) {
+    #headerBar { left: 4px; right: 4px; gap: 5px; padding-inline: 6px; }
+    #headerBar > div { flex-shrink: 0; }
+    #forceActionButtons { left: 4px; right: 4px; bottom: 5px; overflow-x: auto; }
+    .action-pill { flex-shrink: 0; padding-inline: 7px; }
+  }
 </style>
 </head>
 <body>
@@ -950,12 +963,12 @@ class Camera {
     this.cam_wx = 0.0;
     this.cam_wy = 1.5;
     this.anchor_x = window.innerWidth / 2 - 40;
-    this.anchor_y = window.innerHeight / 2 + 130;
+    this.anchor_y = window.innerHeight / 2 + Math.min(130, window.innerHeight * 0.22);
   }
 
   update(bodies) {
     this.anchor_x = window.innerWidth / 2 - 40;
-    this.anchor_y = window.innerHeight / 2 + 130;
+    this.anchor_y = window.innerHeight / 2 + Math.min(130, window.innerHeight * 0.22);
     if (!bodies || bodies.length === 0) return;
     let avg_x = 0, avg_y = 0;
     for (const b of bodies) {
@@ -1603,7 +1616,7 @@ class PhysicsSimulation {
         this.checkCollisions();
 
         for (const b of this.bodies) {
-          const f = (this.setting_force && b === this.selected_entity)
+          const f = (b.liveForce || (this.setting_force && b === this.selected_entity))
             ? b.preview_F_ext
             : b.locked_F_ext;
           b.update(subDt, this.alpha, f);
@@ -1966,10 +1979,13 @@ function render() {
   }
 
   // 7. Отрисовка тяги силы [F]
-  if (sim.setting_force && sim.selected_entity) {
-    const b = sim.selected_entity;
+  for (const b of sim.bodies) {
+    const localPreview = sim.setting_force && sim.selected_entity === b;
+    if (!localPreview && !b.liveForce) continue;
     const center_s = sim.camera.worldToScreen(b.x, b.y + b.size / 2);
-    const forceVec = sim.camera.screenToLocalForce(b, mouseX, mouseY);
+    const forceVec = localPreview ? sim.camera.screenToLocalForce(b, mouseX, mouseY) : b.preview_F_ext;
+    const delta = sim.camera.localToScreenVec(forceVec.x, forceVec.y);
+    const end = { x: center_s.x + delta.x, y: center_s.y - delta.y };
     const mag = Math.hypot(forceVec.x, forceVec.y);
 
     ctx.setLineDash([6, 6]);
@@ -1977,11 +1993,11 @@ function render() {
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(center_s.x, center_s.y);
-    ctx.lineTo(mouseX, mouseY);
+    ctx.lineTo(end.x, end.y);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    drawForceWithBadge(center_s, { x: mouseX, y: mouseY }, 'Fвнеш (тяга)', mag, COLORS.F_ext);
+    drawForceWithBadge(center_s, end, 'Fвнеш (тяга)', mag, COLORS.F_ext);
   }
 
   // 8. Отрисовка рамки множественного выделения (Marquee select)
@@ -2270,6 +2286,7 @@ function clearAllExternalForces() {
 
 // --- НАСТРОЙКА СЦЕНАРИЕВ ДЛЯ ЗАНЯТИЙ ---
 function setScenario(name) {
+  if (sharedSim) sharedSim.newScene();
   sim.currentScenario = name;
   sim.paused = true;
   document.getElementById('btnPlay').textContent = '▶ СТАРТ';
@@ -2844,6 +2861,7 @@ function loadSceneData(scene) {
     alert("Неверный формат данных сценария");
     return false;
   }
+  if (sharedSim) sharedSim.newScene();
   sim.paused = true;
   document.getElementById('btnPlay').textContent = '▶ СТАРТ';
   document.getElementById('btnPlay').className = 'control-btn btn-play paused';
@@ -3033,7 +3051,8 @@ function showToast(msg) {
 }
 
 // --- МЫШЬ И КЛАВИАТУРА ---
-window.addEventListener('mousemove', (e) => {
+window.addEventListener('pointermove', (e) => {
+  if (!e.isPrimary) return;
   mouseX = e.clientX;
   mouseY = e.clientY;
 
@@ -3065,8 +3084,11 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
-canvas.addEventListener('mousedown', (e) => {
-  if (e.button !== 0) return;
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || !e.isPrimary) return;
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
   isMouseDown = true;
   document.getElementById('addDropdown').classList.remove('visible');
   const scDrop = document.getElementById('scenarioDropdown');
@@ -3168,7 +3190,8 @@ canvas.addEventListener('mousedown', (e) => {
   }
 });
 
-window.addEventListener('mouseup', () => {
+window.addEventListener('pointerup', (e) => {
+  if (!e.isPrimary) return;
   if (isBoxSelecting) {
     const minX = Math.min(boxSelectStart.x, boxSelectCurrent.x);
     const maxX = Math.max(boxSelectStart.x, boxSelectCurrent.x);
@@ -3192,6 +3215,11 @@ window.addEventListener('mouseup', () => {
   }
 
   isMouseDown = false;
+  draggedBody = null;
+  dragBodyOffsets.clear();
+});
+window.addEventListener('pointercancel', () => {
+  isMouseDown = isBoxSelecting = false;
   draggedBody = null;
   dragBodyOffsets.clear();
 });
@@ -3315,13 +3343,21 @@ canvas.addEventListener('wheel', (e) => {
 
 function animate() {
   checkContinuousKeys();
-  const dt = FIXED_DT * speedMultiplier;
-  sim.step(dt);
+  if (sharedSim) sharedSim.frame();
+  else sim.step(FIXED_DT * speedMultiplier);
   render();
   requestAnimationFrame(animate);
 }
 
-// Запуск сценария песочницы
+</script>
+<script src="shared-scene.js?v=2df48005fc6f891d"></script>
+<script>
+const sharedSim = window.parent !== window && location.hash === '#board-session'
+  ? createSharedSimulation() : null;
+if (window.parent !== window && window.innerWidth < 940) {
+  toggleLeftHud();
+  document.getElementById('inspector').style.display = 'none';
+}
 setScenario('sandbox');
 requestAnimationFrame(animate);
 </script>
