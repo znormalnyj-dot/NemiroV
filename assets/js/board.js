@@ -5641,16 +5641,9 @@ function connectSimFrame(element, frame) {
   const serverTime = db.ref('.info/serverTimeOffset');
   const { port1, port2 } = new MessageChannel();
   const paper = db.ref('boards_data/' + state.currentBoardId + '/labPaper/' + element.dataset.simId);
-  const noteList = element.querySelector('.lab-notes');
-  const form = element.querySelector('.lab-form');
   const onPaper = snap => {
     if (!available()) return;
     const entries = Object.values(snap.val() || {});
-    noteList.replaceChildren(...entries.filter(e => typeof e.text === 'string').map(e => {
-      const p = document.createElement('p');
-      p.textContent = e.text;
-      return p;
-    }));
     port1.postMessage({ type: 'ink', strokes: entries.filter(e => Array.isArray(e.points)) });
   };
   let active = true;
@@ -5682,16 +5675,6 @@ function connectSimFrame(element, frame) {
     if (available()) port1.postMessage({ type: 'clock', offset: Number(snap.val()) || 0 });
   });
   paper.on('value', onPaper, fail);
-  form.onsubmit = async event => {
-    event.preventDefault();
-    const input = form.querySelector('textarea');
-    const value = input.value.trim();
-    if (!available() || !value) return;
-    try {
-      await paper.child(uuid()).set({ text: value });
-      if (input.value.trim() === value) input.value = '';
-    } catch (err) { fail(err); }
-  };
   const pen = element.querySelector('.lab-pen');
   pen.onclick = () => {
     const enabled = pen.getAttribute('aria-pressed') !== 'true';
@@ -5741,7 +5724,7 @@ function connectSimFrame(element, frame) {
     timeline.off('value', listen);
     serverTime.off('value', offsetListener);
     paper.off('value', onPaper);
-    form.onsubmit = pen.onclick = null;
+    pen.onclick = null;
     element.disconnectSim = null;
   };
   const origin = new URL(frame.src).origin;
@@ -5817,9 +5800,6 @@ function createSimEmbedElement(anchor) {
     '<div class="sim-embed-resize" aria-hidden="true"></div>';
   if (isLabAnchor(anchor)) {
     element.classList.add('lesson-lab');
-    element.querySelector('.sim-embed-body').insertAdjacentHTML('beforeend',
-      '<aside class="lab-paper"><h2>Записи к опыту</h2><div class="lab-notes" aria-live="polite"></div>' +
-      '<form class="lab-form"><textarea aria-label="Запись к опыту" maxlength="3000" placeholder="Формула или наблюдение"></textarea><button>Добавить запись</button></form></aside>');
     element.querySelector('.sim-embed-actions').insertAdjacentHTML('afterbegin',
       '<button type="button" class="lab-pen" aria-pressed="false">Перо</button>');
     labDock.append(element);
