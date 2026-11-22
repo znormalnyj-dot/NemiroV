@@ -98,6 +98,12 @@ button { cursor: pointer; }
   background: linear-gradient(145deg, #bd4e21, #843311);
   box-shadow: inset 0 1px #ffffff36, 0 2px 4px #78300f33;
 }
+.board-color-row { display: flex; align-items: center; padding-right: 6px; gap: 6px; }
+.board-color-row label { flex: 1; cursor: pointer; }
+.board-color-row input { width: 36px; height: 32px; padding: 2px; border: 0; background: transparent; cursor: pointer; }
+.board-color-row button { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--muted); }
+.board-color-row button:hover:not(:disabled) { background: #f4f4f8; }
+.board-color-row :disabled { opacity: .4; cursor: default; }
 #syncStatus {
   color: #92400e;
   background: #fffbeb;

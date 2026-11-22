@@ -296,6 +296,10 @@ function safeCursorColor(value, fallback) {
   return CURSOR_COLORS.includes(value) ? value : fallback;
 }
 
+function normalizeBoardColor(color) {
+  return typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : '';
+}
+
 function loadData() {
   let data = null;
   try { data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (_) {}
@@ -306,6 +310,7 @@ function loadData() {
         .map((b, i) => ({
           id: sanitizeBoardId(b.id),
           name: b.name.slice(0, 48) || 'Без названия',
+          backgroundColor: normalizeBoardColor(b.backgroundColor),
           theme: Number.isInteger(b.theme) ? Math.abs(b.theme) % THEMES.length : i % THEMES.length,
           createdAt: typeof b.createdAt === 'number' ? b.createdAt : (typeof b.updatedAt === 'number' ? b.updatedAt : Date.now()),
           updatedAt: typeof b.updatedAt === 'number' ? b.updatedAt : Date.now()
@@ -751,6 +756,8 @@ async function verifyBoardExists(id) {
 
 function syncBoardAccessUI() {
   const blocked = boardAccess !== 'ready';
+  boardColorInput.disabled = blocked;
+  resetBoardColorBtn.disabled = blocked || !currentBoard().backgroundColor;
   canvas.selection = !blocked;
   renameBoardBtn.disabled = blocked;
   renameBoardBtn.setAttribute('aria-disabled', String(blocked));
@@ -1065,6 +1072,67 @@ document.addEventListener('pointerdown', (event) => {
 // src/board/boards/navigation.js
 /* ---------- Board list ---------- */
 
+const boardColorInput = $('#boardColor');
+const resetBoardColorBtn = $('#resetBoardColor');
+const defaultBoardColor = boardColorInput.value;
+let boardColorRef = null;
+
+function applyBoardColor() {
+  const color = normalizeBoardColor(currentBoard().backgroundColor);
+  boardColorInput.value = color || defaultBoardColor;
+  resetBoardColorBtn.disabled = boardAccess !== 'ready' || !color;
+  const style = document.documentElement.style;
+  if (!color) {
+    for (const property of ['--board-background', '--board-grid', '--board-grid-major']) style.removeProperty(property);
+  } else {
+    const rgb = color.slice(1).match(/../g).map(channel => parseInt(channel, 16));
+    const dark = rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722 < 145;
+    const ink = dark ? '255,255,255' : '0,0,0';
+    style.setProperty('--board-background', color);
+    style.setProperty('--board-grid', 'rgba(' + ink + ',.07)');
+    style.setProperty('--board-grid-major', 'rgba(' + ink + ',.15)');
+  }
+  drawGridLayer();
+}
+
+function setBoardColor(color) {
+  const board = currentBoard();
+  if (board.backgroundColor === color) return;
+  board.backgroundColor = color;
+  persist();
+  applyBoardColor();
+}
+
+function subscribeBoardColor(id) {
+  if (!cloudEnabled) return;
+  const ref = db.ref('boards_data/' + id + '/backgroundColor');
+  boardColorRef = ref;
+  ref.on('value', snapshot => {
+    if (boardColorRef === ref && state.currentBoardId === id) setBoardColor(normalizeBoardColor(snapshot.val()));
+  }, handleFirebaseError);
+}
+
+async function saveBoardColor(value) {
+  if (boardAccess !== 'ready') return;
+  const color = value === defaultBoardColor ? '' : normalizeBoardColor(value);
+  if (!cloudEnabled) {
+    setBoardColor(color);
+    return;
+  }
+  const ref = boardColorRef;
+  if (!ref) return;
+  try {
+    await ref.set(color || null);
+  } catch (err) {
+    if (boardColorRef !== ref) return;
+    applyBoardColor();
+    showToast('Не удалось сохранить цвет фона', 'error');
+  }
+}
+
+boardColorInput.addEventListener('change', () => saveBoardColor(boardColorInput.value));
+resetBoardColorBtn.addEventListener('click', () => saveBoardColor(''));
+
 function visibleBoards() {
   const visited = new Set(state.visitedBoardIds || []);
   return state.boards.filter(board => board.id === state.currentBoardId || visited.has(board.id));
@@ -1159,6 +1227,7 @@ function applyBoardToUI() {
   currentBoardName.textContent = board.name;
   currentBoardName.title = board.name;
   document.title = board.name + ' · NemiroV';
+  applyBoardColor();
 }
 
 function clearCanvasForBlockedBoard() {
@@ -1232,6 +1301,7 @@ function activateBoard(id) {
   if (cloudEnabled) loadCloudBoardContent(id);
   else loadLocalBoardContent(id);
   loadBoardNotes(id);
+  subscribeBoardColor(id);
   attachCursors(id);
   updateOnlineCount();
 }
@@ -2615,6 +2685,8 @@ function clearCloudObjects() {
 }
 
 function detachCloudBoardData() {
+  boardColorRef?.off();
+  boardColorRef = null;
   finishGraphEditor();
   boardDataSession += 1;
   loadToken += 1;
