@@ -62,9 +62,9 @@
   --faint: #8b8b9e;
   --accent: #4262ff;
   --line: rgba(5, 0, 56, 0.07);
-  --board-background: #ffe2c4;
-  --board-grid: #f4d2b2;
-  --board-grid-major: #e8bf9b;
+  --board-background: #f7f7f8;
+  --board-grid: #ededf2;
+  --board-grid-major: #e3e3eb;
 }
 * { -webkit-tap-highlight-color: transparent; }
 html, body {
